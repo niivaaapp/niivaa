@@ -3,13 +3,30 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
-import { Search, BookOpen, PlusCircle } from 'lucide-react';
+import { Search } from 'lucide-react';
+
+// 1. กำหนด Interface ให้สอดคล้องกับโครงสร้างข้อมูลที่ดึงมาจาก Supabase
+interface Course {
+    id: string;
+    edu_curriculum_master: {
+        subject_code: string;
+        subject_name: string;
+        credit: number;
+        hours_per_week: number;
+        subject_type: string;
+    };
+    edu_profiles?: {
+        name: string;
+    };
+}
 
 export default function CourseManagement() {
     const router = useRouter();
     const [term, setTerm] = useState('1/2569');
     const [grade, setGrade] = useState('ม.4');
-    const [courses, setCourses] = useState([]);
+    
+    // 2. ระบุ Type ให้กับ useState ตรงนี้เลยครับ
+    const [courses, setCourses] = useState<Course[]>([]);
     const [loading, setLoading] = useState(false);
 
     const fetchCourses = async () => {
@@ -24,7 +41,12 @@ export default function CourseManagement() {
             .eq('term', term)
             .eq('grade_level', grade);
 
-        if (data) setCourses(data);
+        if (error) {
+            console.error("Error fetching courses:", error);
+        } else if (data) {
+            // ตอนนี้ data จะเป็น Array ของ Course ตามที่เราประกาศไว้
+            setCourses(data as unknown as Course[]);
+        }
         setLoading(false);
     };
 
@@ -53,7 +75,8 @@ export default function CourseManagement() {
                         </tr>
                     </thead>
                     <tbody>
-                        {courses.map((c: any) => (
+                        {/* ไม่ต้องใช้ :any แล้ว เพราะ TypeScript รู้จักโครงสร้าง Course แล้ว */}
+                        {courses.map((c) => (
                             <tr 
                                 key={c.id} 
                                 className="border-b hover:bg-blue-50 cursor-pointer transition-colors"

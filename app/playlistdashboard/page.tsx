@@ -25,7 +25,7 @@ export default function WelcomePlaylistDashboard() {
     const router = useRouter();
     const [categories, setCategories] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    
+
     const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
     const [newTitle, setNewTitle] = useState('');
     const [newDesc, setNewDesc] = useState('');
@@ -109,7 +109,7 @@ export default function WelcomePlaylistDashboard() {
                     user_id: user.id,
                     is_global: false,
                     is_featured: false,
-                    category: selectedTemplate.category, 
+                    category: selectedTemplate.category,
                     type: selectedTemplate.type || 'music'
                 }]);
 
@@ -173,10 +173,10 @@ export default function WelcomePlaylistDashboard() {
                                     <IconComponent size={16} className="text-cyan-400" />
                                     <h2>{cat.title}</h2>
                                 </div>
-                                
+
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {cat.items.map((item) => (
-                                        <div 
+                                    {cat.items.map((item: any) => (
+                                        <div
                                             key={item.id}
                                             onClick={() => handleViewPlaylist(item.id)} // 🟢 ส่ง id ไปหน้าเล่นคิวเพลงจริง
                                             className={`p-5 rounded-2xl border bg-gradient-to-br ${cat.color} flex flex-col justify-between gap-4 group hover:scale-[1.02] cursor-pointer transition-all duration-300 hover:border-cyan-400/60 shadow-lg hover:shadow-[0_0_20px_rgba(6,182,212,0.15)]`}
@@ -198,12 +198,12 @@ export default function WelcomePlaylistDashboard() {
                                             <div className="flex items-center justify-between gap-2 pt-2 border-t border-white/5 text-[10px] text-gray-500">
                                                 <span>ถูกนำไปใช้: <b className="text-cyan-400 font-mono">{item.clone_count}</b> ครั้ง</span>
                                                 <span className="text-cyan-400/60 group-hover:text-cyan-400 font-bold flex items-center gap-0.5 transition-colors">
-                                                    เข้าชมสื่อ <Eye size={10}/>
+                                                    เข้าชมสื่อ <Eye size={10} />
                                                 </span>
                                             </div>
-                                            
-                                            <button 
-                                                onClick={(e) => handleSelectTemplate(e, item)} 
+
+                                            <button
+                                                onClick={(e) => handleSelectTemplate(e, item)}
                                                 className="w-full py-2 bg-white/5 hover:bg-cyan-500 hover:text-black border border-white/10 hover:border-cyan-400 rounded-xl text-xs font-black tracking-wide flex items-center justify-center gap-2 transition-all"
                                             >
                                                 <Copy size={12} /> หยิบเทมเพลตนี้ไปปรับใช้

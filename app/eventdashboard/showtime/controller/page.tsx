@@ -26,7 +26,7 @@ export default function DirectorController() {
   const [tickerColor, setTickerColor] = useState('#FFFFFF');
   const [availableMedia, setAvailableMedia] = useState<MediaFile[]>([]);
   const [selectedPlaylist, setSelectedPlaylist] = useState<string[]>([]);
-  
+
   // 💡 States ใหม่สำหรับระบการรันคิว (Timeline)
   const [agendaItems, setAgendaItems] = useState<AgendaItem[]>([]);
   const [startTime, setStartTime] = useState('');
@@ -48,7 +48,12 @@ export default function DirectorController() {
       if (data) {
         setAvailableMedia(data.map(f => {
           const { data: urlData } = supabase.storage.from('event-media').getPublicUrl(f.name);
-          return { name: f.name, url: urlData.publicUrl, type: f.name.match(/\.(mp4|webm|ogg)$/i) ? 'video' : 'image' };
+          return {
+            name: f.name,
+            url: urlData.publicUrl,
+            // 🎯 เติม as 'video' | 'image' เข้าไปตรงนี้ครับ
+            type: (f.name.match(/\.(mp4|webm|ogg)$/i) ? 'video' : 'image') as 'video' | 'image'
+          };
         }).filter(f => f.name.match(/\.(jpeg|jpg|gif|png|mp4|webm|ogg)$/i)));
       }
     };
@@ -67,12 +72,12 @@ export default function DirectorController() {
   // ==========================================
   // 3. CORE FUNCTIONS (บันทึกข้อมูลและรันสัญญาณ)
   // ==========================================
-  
+
   // ตั้งเวลาเริ่มกิจกรรมหลัก
   const handleSaveStartTime = async () => {
-    if(!startTime) return alert('กรุณาเลือกเวลาก่อนครับ');
+    if (!startTime) return alert('กรุณาเลือกเวลาก่อนครับ');
     const { error } = await supabase.from('screen_state').update({ ticker_text: `⏱️ เวลาเริ่มกิจกรรมอย่างเป็นทางการ: ${startTime}` }).eq('id', 'current');
-    if(!error) alert('บันทึกเวลาเปิดพิกัดงานเรียบร้อย!');
+    if (!error) alert('บันทึกเวลาเปิดพิกัดงานเรียบร้อย!');
   };
 
   // สลับสถานะคิวสด (Live Cue) สั่งอัปเดตแบบจุดเดียวเสร็จสิ้น
@@ -81,12 +86,12 @@ export default function DirectorController() {
       // 1. ดับคิวอื่นทั้งหมด และเปิดคิวนี้ให้เป็น Live Now = true
       await supabase.from('event_agenda_items').update({ is_live_now: false }).neq('id', id);
       await supabase.from('event_agenda_items').update({ is_live_now: true }).eq('id', id);
-      
+
       // 2. ส่งคำสั่งมีเดียทริกเกอร์อัตโนมัติพุ่งตรงไปที่หน้าจอ Display (ถ้าคิวนั้นผูกกับมีเดียไว้)
       if (forceMedia && forceMedia !== 'idle') {
         await supabase.from('screen_state').update({ mode: 'video', single_video_url: forceMedia }).eq('id', 'current');
       }
-      
+
       fetchAgendaData(); // รีเฟรชสถานะในตาราง
     } catch (err) { console.error(err); }
   };
@@ -111,11 +116,11 @@ export default function DirectorController() {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white p-4 font-sans flex flex-col gap-4">
-      
+
       {/* HEADER TOP-BAR */}
       <div className="flex justify-between items-center bg-zinc-900 p-4 rounded-2xl border border-zinc-800 shadow-md">
         <div><h1 className="text-2xl font-black text-cyan-400 tracking-wider">NiiVaa MASTER CONTROL ROOM</h1><p className="text-xs text-zinc-500">ระบบสลับคิวงาน กราฟิก และ Game Collection ไร้สาย</p></div>
-        
+
         {/* โซนตั้งเวลาเริ่มกิจกรรม */}
         <div className="flex items-center gap-2 bg-black/40 p-2 rounded-xl border border-zinc-800">
           <span className="text-xs font-bold text-zinc-400">⏱️ ตั้งเวลาเริ่มงาน:</span>
@@ -126,7 +131,7 @@ export default function DirectorController() {
 
       {/* 🌟 MAIN LAYOUT 3 COLUMNS */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 flex-1">
-        
+
         {/* คอลัมน์ซ้าย (3/12): คลังสื่อและข้อความวิ่ง */}
         <div className="xl:col-span-3 space-y-4">
           <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-2xl shadow-md">
@@ -144,7 +149,7 @@ export default function DirectorController() {
             </div>
             <div className="space-y-1.5">
               <button onClick={() => updateScreen({ mode: 'standby', single_video_url: '' })} className="w-full bg-red-900/40 hover:bg-red-800 text-red-300 border border-red-900/50 py-2 rounded-xl text-xs font-bold">🛑 ปิดสื่อ/โลโก้สแตนด์บาย</button>
-              <button onClick={() => { if(selectedPlaylist.length===0) return alert('เลือกรูปก่อนครับ'); updateScreen({ mode: 'slideshow', playlist: selectedPlaylist }); }} className="w-full bg-emerald-900/40 hover:bg-emerald-800 text-emerald-300 border border-emerald-900/50 py-2 rounded-xl text-xs font-bold">🖼️ ฉายสไลด์โชว์ที่เลือก</button>
+              <button onClick={() => { if (selectedPlaylist.length === 0) return alert('เลือกรูปก่อนครับ'); updateScreen({ mode: 'slideshow', playlist: selectedPlaylist }); }} className="w-full bg-emerald-900/40 hover:bg-emerald-800 text-emerald-300 border border-emerald-900/50 py-2 rounded-xl text-xs font-bold">🖼️ ฉายสไลด์โชว์ที่เลือก</button>
             </div>
           </div>
 
@@ -169,8 +174,8 @@ export default function DirectorController() {
             ) : (
               agendaItems.map((item, idx) => (
                 <div key={item.id} className={`p-3.5 rounded-xl border transition-all duration-300 relative overflow-hidden flex flex-col gap-2.5
-                  ${item.is_live_now 
-                    ? 'bg-gradient-to-r from-cyan-950/60 to-zinc-950 border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.15)]' 
+                  ${item.is_live_now
+                    ? 'bg-gradient-to-r from-cyan-950/60 to-zinc-950 border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.15)]'
                     : 'bg-black/40 border-zinc-800/80 hover:border-zinc-700'
                   }
                 `}>
@@ -182,7 +187,7 @@ export default function DirectorController() {
                       `}>{idx + 1}</div>
                       <div>
                         <h3 className="font-black text-sm text-white flex items-center gap-2">
-                          {item.title} 
+                          {item.title}
                           <span className="text-[11px] font-normal text-zinc-500 bg-zinc-900 px-2 py-0.5 rounded-full">⏱️ {item.duration_minutes} นาที</span>
                         </h3>
                         <p className="text-xs text-zinc-500 mt-0.5">ผู้รับผิดชอบ: <b className="text-zinc-400">{item.responsible_person || 'ไม่ระบุ'}</b> | คิวภาพเสียง: <b className="text-amber-500/80">{item.visual_audio_cue || 'ไม่มี'}</b></p>
@@ -190,11 +195,11 @@ export default function DirectorController() {
                     </div>
 
                     {/* ปุ่มสั่งยิงสถานะ LIVE (เปิดสวิตช์ขึ้นโปรเจกต์เตอร์) */}
-                    <button 
+                    <button
                       onClick={() => handleSetLiveCue(item.id, item.force_media_trigger)}
                       className={`px-4 py-1.5 rounded-xl font-black text-xs transition-all transform active:scale-95 flex items-center gap-1 border
-                        ${item.is_live_now 
-                          ? 'bg-red-600 border-red-400 text-white animate-pulse shadow-[0_0_10px_rgba(220,38,38,0.4)]' 
+                        ${item.is_live_now
+                          ? 'bg-red-600 border-red-400 text-white animate-pulse shadow-[0_0_10px_rgba(220,38,38,0.4)]'
                           : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:text-white hover:bg-zinc-800'
                         }
                       `}
@@ -233,9 +238,9 @@ export default function DirectorController() {
         <div className="xl:col-span-3 bg-zinc-900 border border-zinc-800 p-4 rounded-2xl shadow-md space-y-4">
           <div className="flex justify-between items-center border-b border-zinc-800 pb-1.5">
             <h2 className="text-sm font-black text-indigo-400 uppercase tracking-wider">🎮 Game Collection</h2>
-            <button onClick={async () => { if(confirm('ล้างคิว?')) await supabase.from('live_messages').delete().neq('id','0'); }} className="bg-red-950 border border-red-900 text-red-400 text-[10px] px-2 py-0.5 rounded">ล้างคิว</button>
+            <button onClick={async () => { if (confirm('ล้างคิว?')) await supabase.from('live_messages').delete().neq('id', '0'); }} className="bg-red-950 border border-red-900 text-red-400 text-[10px] px-2 py-0.5 rounded">ล้างคิว</button>
           </div>
-          
+
           <div className="bg-black/40 p-2.5 rounded-xl border border-zinc-800 space-y-1.5">
             <button onClick={handleRandomQuestion} className="w-full bg-indigo-900/40 text-indigo-300 text-[10px] font-bold py-1 rounded">🎲 สุ่มชุดคำถามคลังสำรอง</button>
             <p className="text-[10px] text-zinc-400 truncate"><b>Q:</b> {localQuestion}</p>

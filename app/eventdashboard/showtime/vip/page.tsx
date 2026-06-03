@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { UserCheck, ArrowLeft, ArrowUp, ArrowDown, CheckCircle2, HelpCircle, Send, AlertTriangle, MessageSquare, Camera, Loader2, X, Image as ImageIcon, RefreshCw, UserPlus, Upload } from 'lucide-react';
@@ -20,7 +20,8 @@ interface VipGuest {
   priority_level: number;
 }
 
-export default function VipShowtimePrompter() {
+// แยก Component หลักออกมาเพื่อรองรับการดึง Search Params
+function VipShowtimeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const eventId = searchParams.get('event_id') || 'current';
@@ -97,14 +98,12 @@ export default function VipShowtimePrompter() {
     };
   }, [eventId]);
 
-  // แพทช์อัปเดตสถานะการอ่าน
   const handleToggleReadStatus = async (vip: VipGuest) => {
     const newStatus = !vip.is_read;
     setVipList(prev => prev.map(v => v.id === vip.id ? { ...v, is_read: newStatus } : v));
     await supabase.from('event_vips').update({ is_read: newStatus }).eq('id', vip.id);
   };
 
-  // ปุ่มซิงค์ข้อมูล
   const handleSyncVipFromAttendees = async () => {
     setIsSyncing(true);
     try {
@@ -166,7 +165,6 @@ export default function VipShowtimePrompter() {
     setIsSyncing(false);
   };
 
-  // ปุ่มเพิ่มด่วน
   const handleSaveQuickVip = async () => {
     if (!quickName.trim()) { alert('กรุณากรอกชื่อ-นามสกุล VIP'); return; }
     setIsSavingQuickVip(true);
@@ -204,7 +202,6 @@ export default function VipShowtimePrompter() {
     setIsSavingQuickVip(false);
   };
 
-  // สลับตำแหน่งคิว
   const handleMoveVip = async (index: number, direction: 'up' | 'down') => {
     if (direction === 'up' && index === 0) return;
     if (direction === 'down' && index === vipList.length - 1) return;
@@ -228,7 +225,6 @@ export default function VipShowtimePrompter() {
     await supabase.from('event_vips').update({ sort_order: newSwapOrder }).eq('id', swapVip.id);
   };
 
-  // 📸 🚀 ลอจิกส่งคำขอด่วนแนบภาพ + ข้อความคำอธิบายใต้ภาพ ยิงไปหาหน้าจอหลัก SM
   const handleSendHelpRequest = async () => {
     if (!assistantInputText.trim() && !mcUploadFile) return;
     setIsMcUploading(true);
@@ -237,14 +233,12 @@ export default function VipShowtimePrompter() {
       if (mcUploadFile) {
         const ext = mcUploadFile.name.split('.').pop();
         const fileName = `mc_req_${Date.now()}.${ext}`;
-        // อัปโหลดเข้าถังเก็บสื่ออินเตอร์คอมกลาง
         const { error: upErr } = await supabase.storage.from('intercom-media').upload(`mc_requests/${fileName}`, mcUploadFile);
         if (!upErr) {
           imageUrl = supabase.storage.from('intercom-media').getPublicUrl(`mc_requests/${fileName}`).data.publicUrl;
         }
       }
 
-      // ยิงข้อมูลอัปเดตลงตารางสถานะจอเพื่อเปิดสัญญาณกะพริบที่จอ SM
       await supabase.from('screen_state').update({ 
         mc_help_request: assistantInputText.trim(), 
         mc_help_image: imageUrl, 
@@ -318,12 +312,10 @@ export default function VipShowtimePrompter() {
         </div>
       </div>
 
-      {/* ========================================================
-          📺 DISPLAY WORKSPACE (ปรับสัดส่วนตารางและเพิ่ม Scrollbar ฝั่งขวา)
-          ======================================================== */}
+      {/* DISPLAY WORKSPACE */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 p-6 overflow-hidden">
         
-        {/* 📖 ซ้าย: โพยการ์ดใหญ่คู่ (หดสัดส่วนลงเหลือ 7 คอลัมน์เพื่อให้กระชับ สมส่วนสายตามากขึ้น) */}
+        {/* ซ้าย: โพยการ์ดใหญ่คู่ */}
         <div className="lg:col-span-7 flex flex-col gap-4 overflow-y-auto pb-6 pr-1 custom-scrollbar">
           
           {currentReadingVip ? (
@@ -380,10 +372,10 @@ export default function VipShowtimePrompter() {
           )}
         </div>
 
-        {/* 📋 ฝั่งขวา: บอร์ดรายชื่อรวมขยายกว้างขึ้น (5 คอลัมน์) พร้อมเปิดแถบสไลด์ตรวจเช็คล่วงหน้า (Scrollbar Active) */}
+        {/* ขวา: บอร์ดรายชื่อรวม */}
         <div className="lg:col-span-5 bg-black/30 border border-white/10 rounded-3xl flex flex-col overflow-hidden shadow-2xl backdrop-blur-md h-[calc(100vh-170px)]">
           <div className="p-3.5 border-b border-white/10 flex justify-between items-center bg-black/20 shrink-0">
-            <span className="font-black text-xs text-zinc-400 uppercase tracking-widest">บอร์ดรายชื่อรวมหลังบ้าน (เลื่อน Scroll ตรวจได้)</span>
+            <span className="font-black text-xs text-zinc-400 uppercase tracking-widest">บอร์ดรายชื่อรวมหลังบ้าน</span>
             <span className="text-[10px] font-mono bg-zinc-800 px-2 py-0.5 rounded text-zinc-400 font-bold">รวม {vipList.length} รายชื่อ</span>
           </div>
 
@@ -394,7 +386,6 @@ export default function VipShowtimePrompter() {
             <span className="text-center">สลับ</span>
           </div>
 
-          {/* 📜 Scrollbar ทำงานที่นี่เพื่อตรวจรายชื่อล่วงหน้าได้คล่องตัว */}
           <div className="overflow-y-auto flex-1 p-2 space-y-1 overflow-x-hidden custom-scrollbar">
             {vipList.map((vip, idx) => {
               const isReadingNow = currentReadingVip?.id === vip.id;
@@ -429,9 +420,7 @@ export default function VipShowtimePrompter() {
         </div>
       </div>
 
-      {/* ========================================================
-          📦 POPUP INTERCOM: ห้องส่งภาพฉุกเฉิน และข้อความบรรยายใต้ภาพ
-          ======================================================== */}
+      {/* POPUP INTERCOM */}
       {isHelpPanelOpen && (
         <div className="fixed top-24 right-6 z-[9999] w-[340px] bg-[#0c1633]/95 border-2 border-cyan-500/50 rounded-3xl p-5 shadow-[0_25px_60px_rgba(0,0,0,0.8)] animate-in slide-in-from-top-4 flex flex-col gap-4">
           <div className="flex items-center justify-between border-b border-white/10 pb-2">
@@ -439,7 +428,6 @@ export default function VipShowtimePrompter() {
             <button onClick={() => setIsHelpPanelOpen(false)} className="text-zinc-500 hover:text-white"><X size={16}/></button>
           </div>
 
-          {/* 🖼️ ปุ่มยิงภาพถ่าย: จัดระเบียบให้อยู่ส่วนบนเป็นสัดส่วนชัดเจน */}
           <div className="flex flex-col gap-2">
             <span className="text-[10px] text-cyan-400 font-black uppercase text-left block">1. เลือกหรือถ่ายภาพกระดาษโน้ตด่วน:</span>
             
@@ -457,7 +445,6 @@ export default function VipShowtimePrompter() {
             )}
           </div>
 
-          {/* 💬 กล่องพิมพ์คำบรรยายใต้ภาพตามโจทย์เป๊ะๆ */}
           <div className="flex flex-col gap-1.5 pt-2 border-t border-white/5">
             <span className="text-[10px] text-cyan-400 font-black uppercase text-left block">2. พิมพ์ข้อความคำอธิบายใต้ภาพ:</span>
             <textarea 
@@ -469,7 +456,6 @@ export default function VipShowtimePrompter() {
             />
           </div>
 
-          {/* ปุ่มกดยิงส่งข้อมูลรวมศูนย์ */}
           <button 
             onClick={handleSendHelpRequest} 
             disabled={isMcUploading || (!assistantInputText.trim() && !mcUploadFile)} 
@@ -480,7 +466,7 @@ export default function VipShowtimePrompter() {
         </div>
       )}
 
-      {/* POPUP MODAL: เพิ่มรายชื่อด่วนหน้างาน */}
+      {/* POPUP MODAL: เพิ่มรายชื่อด่วน */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-[10000] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-[#111827] border border-white/10 rounded-3xl p-6 w-full max-w-md shadow-2xl space-y-4">
@@ -527,5 +513,14 @@ export default function VipShowtimePrompter() {
       </div>
       
     </div>
+  );
+}
+
+// ห่อหุ้ม Component หลักด้วย Suspense เสมอตามข้อกำหนด Next.js (ป้องกัน Error ตอน Build)
+export default function VipShowtimePrompter() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#0c1633] flex items-center justify-center text-white font-mono animate-pulse">Loading VIP Prompter...</div>}>
+      <VipShowtimeContent />
+    </Suspense>
   );
 }

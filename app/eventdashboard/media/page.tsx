@@ -16,27 +16,27 @@ export default function MediaAssetHub() {
     try {
       // ดึงรายชื่อไฟล์จากบักเก็ต event-media
       const { data, error } = await supabase.storage.from('event-media').list();
-      
+
       if (error) throw error;
       if (data) {
         // กรองเอาเฉพาะไฟล์ที่มีอยู่จริง (ตัด folder เปล่าทิ้ง)
         const files = data.filter(file => file.name !== '.emptyFolderPlaceholder');
-        
+
         // สร้างข้อมูล Asset พร้อมดึงลิงก์ Public URL
         const assets = files.map(file => {
           const { data: urlData } = supabase.storage.from('event-media').getPublicUrl(file.name);
-          
+
           return {
             id: file.id,
             name: file.name,
             // คาดเดาประเภทไฟล์จากนามสกุล
             type: file.name.match(/\.(mp4|mov|webm)$/i) ? 'video' : file.name.match(/\.(mp3|wav)$/i) ? 'audio' : 'image',
-            size: (file.metadata?.size / (1024 * 1024)).toFixed(2) + ' MB',
+            size: ((file.metadata?.size || 0) / (1024 * 1024)).toFixed(2) + ' MB',
             url: urlData.publicUrl,
-            date: new Date(file.created_at).toISOString().split('T')[0]
+            date: new Date(file.created_at || Date.now()).toISOString().split('T')[0]
           };
         });
-        
+
         // เรียงไฟล์ล่าสุดขึ้นก่อน
         setMediaAssets(assets.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
       }
@@ -69,7 +69,7 @@ export default function MediaAssetHub() {
 
       alert(`✅ อัปโหลดไฟล์ ${file.name} เข้าสู่คลังส่วนกลางสำเร็จ!`);
       fetchMediaFiles(); // โหลดรายการไฟล์ใหม่มาแสดง
-      
+
     } catch (err: any) {
       alert(`❌ อัปโหลดล้มเหลว: ${err.message}`);
     } finally {
@@ -80,12 +80,12 @@ export default function MediaAssetHub() {
 
   // 3. 🗑️ ฟังก์ชันลบไฟล์ของจริงออกจาก Supabase
   const handleDeleteMedia = async (fileName: string) => {
-    if(!confirm(`ต้องการลบไฟล์ ${fileName} ออกจากระบบอย่างถาวรหรือไม่? (หากมีสคริปต์ไหนใช้อยู่ ภาพจะหายไปทันที)`)) return;
+    if (!confirm(`ต้องการลบไฟล์ ${fileName} ออกจากระบบอย่างถาวรหรือไม่? (หากมีสคริปต์ไหนใช้อยู่ ภาพจะหายไปทันที)`)) return;
 
     try {
       const { error } = await supabase.storage.from('event-media').remove([fileName]);
       if (error) throw error;
-      
+
       alert('🗑️ ลบไฟล์สำเร็จแล้ว');
       fetchMediaFiles(); // โหลดรายการใหม่
     } catch (err: any) {
@@ -100,7 +100,7 @@ export default function MediaAssetHub() {
 
   return (
     <div className="min-h-screen bg-[#020617] text-white font-sans p-6">
-      
+
       {/* 🌟 HEADER */}
       <div className="max-w-7xl mx-auto bg-zinc-950 border border-white/10 rounded-3xl p-6 shadow-2xl mb-8 flex flex-col md:flex-row justify-between items-center gap-4">
         <div>
@@ -113,14 +113,14 @@ export default function MediaAssetHub() {
         </div>
 
         <div className="flex items-center gap-3">
-          <input 
-            type="file" 
-            ref={fileInputRef} 
-            onChange={handleFileUpload} 
-            className="hidden" 
-            accept="image/*,video/*,audio/*" 
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileUpload}
+            className="hidden"
+            accept="image/*,video/*,audio/*"
           />
-          <button 
+          <button
             onClick={() => fileInputRef.current?.click()}
             disabled={isUploading}
             className={`px-6 py-3 rounded-xl font-black text-sm flex items-center gap-2 transition-all shadow-lg ${isUploading ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed' : 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 hover:scale-105 text-white'}`}
@@ -134,7 +134,7 @@ export default function MediaAssetHub() {
       <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-20">
         {mediaAssets.map((asset) => (
           <div key={asset.id || asset.name} className="bg-zinc-900 border border-white/5 rounded-2xl overflow-hidden shadow-xl hover:border-cyan-500/50 transition-colors group flex flex-col">
-            
+
             {/* โซน Preview สื่อ */}
             <div className="aspect-video bg-black relative flex items-center justify-center border-b border-white/5 overflow-hidden">
               {asset.type === 'video' && (
@@ -146,7 +146,7 @@ export default function MediaAssetHub() {
               {asset.type === 'audio' && (
                 <div className="text-6xl animate-pulse">🎵</div>
               )}
-              
+
               <span className="absolute top-2 left-2 bg-black/80 backdrop-blur-md px-2 py-1 rounded text-[10px] font-black uppercase text-zinc-300 border border-white/10">
                 {asset.type}
               </span>
@@ -163,20 +163,20 @@ export default function MediaAssetHub() {
               </div>
 
               <div className="flex gap-2 mt-auto">
-                <button 
+                <button
                   onClick={() => copyToClipboard(asset.url)}
                   className="flex-1 bg-zinc-800 hover:bg-cyan-900 hover:text-cyan-400 text-zinc-300 py-2 rounded-lg text-xs font-bold transition-colors border border-white/5 flex justify-center items-center gap-1.5"
                 >
                   📋 คัดลอกลิงก์
                 </button>
-                <button 
+                <button
                   onClick={() => window.open(asset.url, '_blank')}
                   className="w-10 bg-zinc-800 hover:bg-zinc-700 flex justify-center items-center rounded-lg border border-white/5 transition-colors"
                   title="เปิดดูไฟล์เต็ม"
                 >
                   👁️
                 </button>
-                <button 
+                <button
                   onClick={() => handleDeleteMedia(asset.name)}
                   className="w-10 bg-zinc-800 hover:bg-red-900/80 hover:text-red-400 text-zinc-500 flex justify-center items-center rounded-lg border border-white/5 transition-colors"
                   title="ลบสื่อทิ้ง"

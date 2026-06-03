@@ -2,35 +2,57 @@
 import { useEffect, useState, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import { Pencil, Trash2, Library, Plus, ArrowRight, Music, Mic2, Search } from 'lucide-react'
+import { Pencil, Trash2, Library } from 'lucide-react'
 
-// ลิสต์รวมประเภทและหมวดหมู่ตามพี่สั่งครับ
+// กำหนด Interface เพื่อป้องกัน Error: Unexpected any
+interface Playlist {
+  id: string;
+  name: string;
+  description?: string;
+  category: string;
+  type: string;
+  song_count: number;
+}
+
 const SELECTION_LIST = [
-    "ฟังเพลง", "คาราโอเกะ", 
-    "ภาษาไทย", "ภาษาอังกฤษ", "ภาษาจีน", "ภาษาญี่ปุ่น", "ภาษาเกาหลี",
-    "คณิตศาสตร์", "วิทยาศาสตร์", "ฟิสิกส์", "เคมี", "ชีววิทยา", "วิทยาศาสตร์โลกและอวกาศ",
-    "สังคมศึกษา", "เทคโนโลยีคอมพิวเตอร์", "สุขภาพและการออกกำลังกาย",
-    "การเลี้ยงดูลูก", "การทำอาหาร", "การเกษตร", "งานช่าง", "สวดมนต์", "ตลก-ขำขัน", "ข่าวสาร",
-    "+ เพิ่มหมวดหมู่ใหม่"
+  "ฟังเพลง", "คาราโอเกะ", 
+  "ภาษาไทย", "ภาษาอังกฤษ", "ภาษาจีน", "ภาษาญี่ปุ่น", "ภาษาเกาหลี",
+  "คณิตศาสตร์", "วิทยาศาสตร์", "ฟิสิกส์", "เคมี", "ชีววิทยา", "วิทยาศาสตร์โลกและอวกาศ",
+  "สังคมศึกษา", "เทคโนโลยีคอมพิวเตอร์", "สุขภาพและการออกกำลังกาย",
+  "การเลี้ยงดูลูก", "การทำอาหาร", "การเกษตร", "งานช่าง", "สวดมนต์", "ตลก-ขำขัน", "ข่าวสาร",
+  "+ เพิ่มหมวดหมู่ใหม่"
 ];
 
 export default function AdminTemplateManager() {
   const router = useRouter()
-  const [templates, setTemplates] = useState<any[]>([])
+  const [templates, setTemplates] = useState<Playlist[]>([])
   const [filter, setFilter] = useState('ทั้งหมด')
-  const [name, setName] = useState(''); const [description, setDescription] = useState('');
-  const [selection, setSelection] = useState('ฟังเพลง'); const [isAddingNew, setIsAddingNew] = useState(false);
+  const [name, setName] = useState(''); 
+  const [description, setDescription] = useState('');
+  const [selection, setSelection] = useState('ฟังเพลง'); 
+  const [isAddingNew, setIsAddingNew] = useState(false);
   const [newCat, setNewCat] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const fetchTemplates = async () => {
-    const { data } = await supabase.from('playlists').select('*, tracks(count)').eq('is_global', true).order('created_at', { ascending: false })
-    setTemplates((data || []).map(p => ({ ...p, song_count: p.tracks?.[0]?.count || 0 })))
+    const { data } = await supabase
+      .from('playlists')
+      .select('*, tracks(count)')
+      .eq('is_global', true)
+      .order('created_at', { ascending: false });
+
+    // แก้ไขการ map ข้อมูลให้ตรงกับ Interface
+    setTemplates((data || []).map((p: any) => ({ 
+      ...p, 
+      song_count: p.tracks?.[0]?.count || 0 
+    })));
   }
 
   useEffect(() => { fetchTemplates() }, [])
 
-  const filtered = useMemo(() => filter === 'ทั้งหมด' ? templates : templates.filter(t => t.category === filter), [templates, filter]);
+  const filtered = useMemo(() => 
+    filter === 'ทั้งหมด' ? templates : templates.filter(t => t.category === filter), 
+  [templates, filter]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -38,14 +60,26 @@ export default function AdminTemplateManager() {
     const type = selection === 'คาราโอเกะ' ? 'karaoke' : 'music';
     
     const payload = { name, description, type, category: cat, is_global: true };
-    if (editingId) await supabase.from('playlists').update(payload).eq('id', editingId)
-    else await supabase.from('playlists').insert([payload])
     
-    setName(''); setDescription(''); setEditingId(null); fetchTemplates();
+    if (editingId) {
+      await supabase.from('playlists').update(payload).eq('id', editingId);
+    } else {
+      await supabase.from('playlists').insert([payload]);
+    }
+    
+    // รีเซ็ตค่าให้ครบถ้วนหลังบันทึก
+    setName(''); 
+    setDescription(''); 
+    setSelection('ฟังเพลง');
+    setNewCat('');
+    setIsAddingNew(false);
+    setEditingId(null);
+    fetchTemplates();
   }
 
   return (
     <div className="min-h-screen bg-[#001122] text-white p-8">
+      {/* ส่วนหัวและ Filter คงเดิม */}
       <header className="mb-8 flex justify-between items-center">
         <div>
             <h1 className="text-2xl font-black text-cyan-400">Admin: Media Template Center</h1>
@@ -84,7 +118,15 @@ export default function AdminTemplateManager() {
                  </div>
               </div>
               <div className="flex items-center gap-1">
-                <button onClick={() => { setEditingId(t.id); setName(t.name); setCategory(t.category); }} className="p-2 text-yellow-400 hover:bg-yellow-500/20 rounded-xl"><Pencil size={16}/></button>
+                {/* แก้ไขปุ่ม Edit ให้โหลดครบทุกค่า */}
+                <button onClick={() => { 
+                    setEditingId(t.id); 
+                    setName(t.name); 
+                    setDescription(t.description || ''); 
+                    setSelection(t.category); 
+                    setIsAddingNew(false);
+                }} className="p-2 text-yellow-400 hover:bg-yellow-500/20 rounded-xl"><Pencil size={16}/></button>
+                
                 <button onClick={() => { if(confirm('ลบ?')) supabase.from('playlists').delete().eq('id', t.id).then(fetchTemplates); }} className="p-2 text-red-400 hover:bg-red-500/20 rounded-xl"><Trash2 size={16}/></button>
                 <button onClick={() => router.push(`/playlist/${t.id}`)} className="px-3 py-2 bg-[#006666] rounded-xl text-xs font-bold flex items-center gap-1"><Library size={14}/> จัดการคิว</button>
               </div>

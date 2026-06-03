@@ -14,7 +14,7 @@ function BroadcastScreenContent() {
   const searchParams = useSearchParams();
   const screenId = searchParams?.get?.('screen_id') || 'screen_1';
   const urlEventId = searchParams?.get?.('event_id') || '';
-  
+
   // 🎯 ดักจับว่าเป็นจอพรีวิวในห้องคอนโทรลหรือไม่?
   const isPreviewMode = searchParams?.get?.('preview') === 'true';
 
@@ -75,11 +75,11 @@ function BroadcastScreenContent() {
     if (isPreviewMode) return; // จอพรีวิวไม่ต้องส่งคำสั่งข้ามคิว ปล่อยให้จอใหญ่เป็นคนจัดการ
     try {
       const { data } = await supabase.from('event_screens_control').select('media_queue').eq('screen_id', screenId).eq('event_id', activeEventId).single();
-      
+
       if (data && data.media_queue && data.media_queue.length > 0) {
         const nextMediaUrl = data.media_queue[0];
         const newQueue = data.media_queue.slice(1);
-        
+
         let nextType = 'iframe';
         if (nextMediaUrl.match(/\.(jpeg|jpg|gif|png)$/i)) nextType = 'image';
         else if (nextMediaUrl.match(/\.(mp4|webm)$/i)) nextType = 'video';
@@ -91,7 +91,7 @@ function BroadcastScreenContent() {
       } else {
         await supabase.from('event_screens_control').update({ is_media_playing: false, media_url: '' }).eq('screen_id', screenId).eq('event_id', activeEventId);
       }
-    } catch (e) {}
+    } catch (e) { }
   };
 
   useEffect(() => {
@@ -120,14 +120,27 @@ function BroadcastScreenContent() {
     if (!config?.media_url) return '';
     let base = config.media_url;
     let videoId = '';
-    if (base.includes('youtube.com/embed/')) videoId = base.split('embed/')[1].split('?')[0];
-    else if (base.includes('youtu.be/')) videoId = base.split('youtu.be/')[1].split('?')[0];
-    else if (base.includes('youtube.com/watch?v=')) videoId = new URL(base).searchParams.get('v');
-    
+
+    try {
+      if (base.includes('youtube.com/embed/')) {
+        videoId = base.split('embed/')[1].split('?')[0];
+      } else if (base.includes('youtu.be/')) {
+        videoId = base.split('youtu.be/')[1].split('?')[0];
+      } else if (base.includes('youtube.com/watch?v=')) {
+        // แก้ไขจุด Error ตรงนี้: ใช้ || '' เพื่อการันตีว่าจะเป็น string แน่นอน
+        videoId = new URL(base).searchParams.get('v') || '';
+      }
+    } catch (e) {
+      console.error("Invalid YouTube URL:", base);
+    }
+
     if (videoId) {
       // 🎯 ถ้าเป็นโหมดพรีวิว ให้บังคับปิดเสียง (mute=1) อัตโนมัติ เพื่อให้เล่นวิดีโอได้โดยไม่ต้องคลิกป้าย
       const forceMute = isPreviewMode ? '1' : (config.audio_output === 'muted' ? '1' : '0');
-      return `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=${forceMute}&enablejsapi=1&origin=${typeof window !== 'undefined' ? window.location.origin : ''}`;
+
+      // ใช้ Template literal ที่ถูกต้อง
+      return `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=${forceMute}&enablejsapi=1&origin=${typeof window !== 'undefined' ? window.location.origin : ''
+        }`;
     }
     return base;
   };
@@ -142,7 +155,7 @@ function BroadcastScreenContent() {
           try {
             if (ytPlayerRef.current && typeof ytPlayerRef.current.destroy === 'function') ytPlayerRef.current.destroy();
             ytPlayerRef.current = new window.YT.Player('yt-player', { events: { 'onStateChange': checkYouTubeState } });
-          } catch (err) {}
+          } catch (err) { }
         } else timeoutId = setTimeout(tryInitPlayer, 500);
       } else timeoutId = setTimeout(tryInitPlayer, 500);
     };
@@ -163,13 +176,13 @@ function BroadcastScreenContent() {
     return 'bg-gradient-to-b from-[#020208] via-[#050515] to-[#020208]';
   };
 
-  const combinedMarqueeString = liveMessages.length > 0 
+  const combinedMarqueeString = liveMessages.length > 0
     ? liveMessages.filter(m => config.filter_roles?.includes(m.sender_role)).map(m => `🌟 [${m.sender_role}] ${m.message_text}`).join('  |  ')
     : config.marquee_text;
 
   return (
     <div className={`min-h-screen relative overflow-hidden text-white font-sans flex flex-col justify-between p-6 select-none ${getThemeBackground()}`} style={config.bg_theme === 'custom-img' ? { backgroundImage: `url(${config.bg_img_url})` } : {}}>
-      
+
       {/* 🎯 ซ่อนป้ายสีม่วงทันที ถ้าเป็นจอพรีวิว (isPreviewMode) */}
       {!interacted && !isPreviewMode && (
         <div onClick={() => setInteracted(true)} className="absolute inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md cursor-pointer">
@@ -194,7 +207,7 @@ function BroadcastScreenContent() {
       </div>
 
       <div className="absolute inset-0 m-auto w-[88%] h-[68%] z-10 bg-black/40 border border-white/5 rounded-[35px] shadow-2xl flex items-center justify-center overflow-hidden">
-        
+
         {config.is_media_playing === false ? (
           <div className="text-center space-y-4 animate-pulse">
             <h2 className="text-4xl font-black bg-gradient-to-r from-[#4f46e5] to-[#10b981] bg-clip-text text-transparent italic tracking-wider">NIIVAA SMART MEDIA STAGE</h2>
@@ -203,16 +216,16 @@ function BroadcastScreenContent() {
         ) : config.media_type === 'ppt' ? (
           <div className="text-center space-y-4">
             <h2 className="text-3xl font-black text-amber-400">📊 PRESENTATION STANDBY</h2>
-            <p className="text-xs text-zinc-400">ระบบสั่งดาวน์โหลดไฟล์ Presentation อัตโนมัติแล้ว<br/>กำลังข้ามไปมารอฉายคิวต่อไป...</p>
+            <p className="text-xs text-zinc-400">ระบบสั่งดาวน์โหลดไฟล์ Presentation อัตโนมัติแล้ว<br />กำลังข้ามไปมารอฉายคิวต่อไป...</p>
           </div>
         ) : config.media_type === 'image' ? (
           <img src={config.media_url} className="w-full h-full object-contain" alt="media_image" />
         ) : config.media_type === 'video' ? (
           <video src={config.media_url} autoPlay muted={isPreviewMode ? true : config.audio_output === 'muted'} className="w-full h-full object-contain" onEnded={advanceToNextQueue} />
         ) : config.media_url ? (
-          <iframe 
-            id="yt-player" key={getMediaIframeUrl()} src={getMediaIframeUrl()} 
-            className="w-full h-full border-none rounded-[35px]" allow="autoplay; fullscreen; encrypted-media" 
+          <iframe
+            id="yt-player" key={getMediaIframeUrl()} src={getMediaIframeUrl()}
+            className="w-full h-full border-none rounded-[35px]" allow="autoplay; fullscreen; encrypted-media"
           />
         ) : (
           <div className="text-center space-y-4 animate-pulse">

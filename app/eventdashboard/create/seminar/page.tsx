@@ -492,10 +492,9 @@ export default function SeminarUltimateAdvancePreparationPage() {
                       </div>
 
                       {(() => {
-                        const safeEvent = typeof projectInfo !== 'undefined' && projectInfo ? projectInfo : {};
-                        const safeDetails = typeof eventDetails !== 'undefined' && eventDetails ? eventDetails : {};
-                        const isBasicInfoComplete = safeEvent?.title && safeDetails?.project_name;
-
+                        const safeEvent = typeof projectInfo !== 'undefined' && projectInfo ? projectInfo : ({} as any);
+                        const safeDetails = typeof eventDetails !== 'undefined' && eventDetails ? eventDetails : ({} as any);
+                        const isBasicInfoComplete = (safeEvent as any)?.title && (safeDetails as any)?.project_name;
                         return isBasicInfoComplete ? (
                           <div className="w-fit px-3 py-1 bg-emerald-950/80 border border-emerald-500 rounded-lg flex items-center gap-1.5 shadow-[0_0_10px_rgba(16,185,129,0.2)]">
                             <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_8px_#34d399]"></span>
@@ -567,8 +566,8 @@ export default function SeminarUltimateAdvancePreparationPage() {
                               if (dtlInsError) throw new Error("สร้างข้อมูล event_details ล้มเหลว: " + dtlInsError.message);
                             }
 
-                            const safeEvent = typeof projectInfo !== 'undefined' ? projectInfo : {};
-                            const currentStatus = safeEvent?.departments_status || {};
+                            const safeEvent = typeof projectInfo !== 'undefined' && projectInfo ? projectInfo : ({} as any);
+                            const currentStatus = (safeEvent as any)?.departments_status || {};
                             await supabase.from('events').update({ departments_status: { ...currentStatus, dept_1: 'ready' } }).eq('id', eventId);
 
                             alert('🎉 บันทึกข้อมูลโครงการสำเร็จครบถ้วนแล้วครับ!');
@@ -589,7 +588,7 @@ export default function SeminarUltimateAdvancePreparationPage() {
                   const safeEvent = typeof projectInfo !== 'undefined' && projectInfo ? projectInfo : {};
                   const safeDetails = typeof eventDetails !== 'undefined' && eventDetails ? eventDetails : {};
 
-                  const formKey = `f1-matrix-${safeEvent?.id || 'load'}-${safeEvent?.event_date || 'd1'}-${safeEvent?.end_date || 'd2'}`;
+                  const formKey = `f1-matrix-${(safeEvent as any)?.id || 'load'}-${(safeEvent as any)?.event_date || 'd1'}-${(safeEvent as any)?.end_date || 'd2'}`;
 
                   const formatDateForInput = (dateString: any) => {
                     if (!dateString) return '';
@@ -600,8 +599,8 @@ export default function SeminarUltimateAdvancePreparationPage() {
                   };
 
                   const calcDaysOnLoad = () => {
-                    const sDate = safeEvent?.event_date;
-                    const eDate = safeEvent?.end_date;
+                    const sDate = (safeEvent as any)?.event_date;
+                    const eDate = (safeEvent as any)?.end_date;
                     if (sDate && eDate) {
                       const d1 = new Date(sDate);
                       const d2 = new Date(eDate);
@@ -610,7 +609,7 @@ export default function SeminarUltimateAdvancePreparationPage() {
                         return diffDays > 0 ? diffDays : 1;
                       }
                     }
-                    return safeDetails?.total_days || 1;
+                    return (safeDetails as any)?.total_days || 1;
                   };
 
                   const calculateDaysOnChange = () => {
@@ -633,19 +632,19 @@ export default function SeminarUltimateAdvancePreparationPage() {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="space-y-1 sm:col-span-2">
                             <label className="text-zinc-400 font-bold text-[10px]">ชื่องานที่ใช้แสดงผล</label>
-                            <input type="text" id="v1_title" defaultValue={safeEvent?.title || ''} className="w-full bg-zinc-900 border border-white/10 rounded-xl p-2.5 outline-none font-bold text-white focus:border-blue-500" />
+                            <input type="text" id="v1_title" defaultValue={(safeEvent as any)?.title || ''} className="w-full bg-zinc-900 border border-white/10 rounded-xl p-2.5 outline-none font-bold text-white focus:border-blue-500" />
                           </div>
                           <div className="space-y-1 sm:col-span-2">
                             <label className="text-zinc-400 font-bold text-[10px]">ชื่อโครงการตามเอกสาร</label>
-                            <input type="text" id="v1_project_name" defaultValue={safeDetails?.project_name || ''} className="w-full bg-zinc-900 border border-white/10 rounded-xl p-2.5 outline-none text-zinc-200 focus:border-blue-500" />
+                            <input type="text" id="v1_project_name" defaultValue={(safeDetails as any)?.project_name || ''} className="w-full bg-zinc-900 border border-white/10 rounded-xl p-2.5 outline-none text-zinc-200 focus:border-blue-500" />
                           </div>
                           <div className="space-y-1">
                             <label className="text-zinc-400 font-bold text-[10px]">ชื่อหน่วยงานผู้จัด</label>
-                            <input type="text" id="v1_organizer" defaultValue={safeDetails?.organizer_name || safeEvent?.brand_name || ''} className="w-full bg-zinc-900 border border-white/10 rounded-xl p-2.5 outline-none text-zinc-300 focus:border-blue-500" />
+                            <input type="text" id="v1_organizer" defaultValue={(safeDetails as any)?.organizer_name || (safeEvent as any)?.brand_name || ''} className="w-full bg-zinc-900 border border-white/10 rounded-xl p-2.5 outline-none text-zinc-300 focus:border-blue-500" />
                           </div>
                           <div className="space-y-1">
                             <label className="text-zinc-400 font-bold text-[10px]">ตราโลโก้หน่วยงาน</label>
-                            <input type="text" id="v1_logo" defaultValue={safeEvent?.brand_logo_url || ''} className="w-full bg-zinc-900 border border-white/10 rounded-xl p-2.5 outline-none text-zinc-400 font-mono text-[10px] focus:border-blue-500" />
+                            <input type="text" id="v1_logo" defaultValue={(safeEvent as any)?.brand_logo_url || ''} className="w-full bg-zinc-900 border border-white/10 rounded-xl p-2.5 outline-none text-zinc-400 font-mono text-[10px] focus:border-blue-500" />
                           </div>
                         </div>
                       </div>
@@ -656,12 +655,12 @@ export default function SeminarUltimateAdvancePreparationPage() {
 
                           <div className="space-y-1">
                             <label className="text-zinc-400 font-bold text-[10px]">วันที่เริ่มจัดงาน</label>
-                            <input type="date" id="v1_start_date" defaultValue={formatDateForInput(safeEvent?.event_date)} onChange={calculateDaysOnChange} className="w-full bg-zinc-900 border border-white/10 rounded-xl p-2.5 outline-none text-white focus:border-amber-500 cursor-pointer" />
+                            <input type="date" id="v1_start_date" defaultValue={formatDateForInput((safeEvent as any)?.event_date)} onChange={calculateDaysOnChange} className="w-full bg-zinc-900 border border-white/10 rounded-xl p-2.5 outline-none text-white focus:border-amber-500 cursor-pointer" />
                           </div>
 
                           <div className="space-y-1">
                             <label className="text-zinc-400 font-bold text-[10px]">วันที่สิ้นสุดงาน</label>
-                            <input type="date" id="v1_end_date" defaultValue={formatDateForInput(safeEvent?.end_date)} onChange={calculateDaysOnChange} className="w-full bg-zinc-900 border border-white/10 rounded-xl p-2.5 outline-none text-white focus:border-amber-500 cursor-pointer" />
+                            <input type="date" id="v1_end_date" defaultValue={formatDateForInput((safeEvent as any)?.end_date)} onChange={calculateDaysOnChange} className="w-full bg-zinc-900 border border-white/10 rounded-xl p-2.5 outline-none text-white focus:border-amber-500 cursor-pointer" />
                           </div>
 
                           <div className="space-y-1">
@@ -674,20 +673,20 @@ export default function SeminarUltimateAdvancePreparationPage() {
 
                           <div className="space-y-1">
                             <label className="text-zinc-400 font-bold text-[10px]">สถานที่/ห้องจัด</label>
-                            <input type="text" id="v1_room" defaultValue={safeDetails?.venue_room || ''} className="w-full bg-zinc-900 border border-white/10 rounded-xl p-2.5 outline-none text-zinc-200 focus:border-amber-500" />
+                            <input type="text" id="v1_room" defaultValue={(safeDetails as any)?.venue_room || ''} className="w-full bg-zinc-900 border border-white/10 rounded-xl p-2.5 outline-none text-zinc-200 focus:border-amber-500" />
                           </div>
 
                           <div className="space-y-1 sm:col-span-2">
                             <label className="text-zinc-400 font-bold text-[10px]">ชื่อโรงแรม/อาคาร</label>
-                            <input type="text" id="v1_hotel" defaultValue={safeEvent?.location_hotel || ''} className="w-full bg-zinc-900 border border-white/10 rounded-xl p-2.5 outline-none text-zinc-200 focus:border-amber-500" />
+                            <input type="text" id="v1_hotel" defaultValue={(safeEvent as any)?.location_hotel || ''} className="w-full bg-zinc-900 border border-white/10 rounded-xl p-2.5 outline-none text-zinc-200 focus:border-amber-500" />
                           </div>
                           <div className="space-y-1">
                             <label className="text-zinc-400 font-bold text-[10px]">อำเภอ</label>
-                            <input type="text" id="v1_district" defaultValue={safeEvent?.location_district || ''} className="w-full bg-zinc-900 border border-white/10 rounded-xl p-2.5 outline-none text-zinc-300 focus:border-amber-500" />
+                            <input type="text" id="v1_district" defaultValue={(safeEvent as any)?.location_district || ''} className="w-full bg-zinc-900 border border-white/10 rounded-xl p-2.5 outline-none text-zinc-300 focus:border-amber-500" />
                           </div>
                           <div className="space-y-1">
                             <label className="text-zinc-400 font-bold text-[10px]">จังหวัด</label>
-                            <input type="text" id="v1_province" defaultValue={safeEvent?.location_province || ''} className="w-full bg-zinc-900 border border-white/10 rounded-xl p-2.5 outline-none text-white font-bold focus:border-amber-500" />
+                            <input type="text" id="v1_province" defaultValue={(safeEvent as any)?.location_province || ''} className="w-full bg-zinc-900 border border-white/10 rounded-xl p-2.5 outline-none text-white font-bold focus:border-amber-500" />
                           </div>
                         </div>
                       </div>
@@ -697,12 +696,12 @@ export default function SeminarUltimateAdvancePreparationPage() {
                         <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                           <div className="space-y-1 sm:col-span-3">
                             <label className="text-zinc-400 font-bold text-[10px]">กลุ่มเป้าหมายผู้เข้าประชุม</label>
-                            <input type="text" id="v1_target_name" defaultValue={safeDetails?.target_group_name || ''} className="w-full bg-zinc-900 border border-white/10 rounded-xl p-2.5 outline-none text-zinc-200 focus:border-emerald-500" />
+                            <input type="text" id="v1_target_name" defaultValue={(safeDetails as any)?.target_group_name || ''} className="w-full bg-zinc-900 border border-white/10 rounded-xl p-2.5 outline-none text-zinc-200 focus:border-emerald-500" />
                           </div>
                           <div className="space-y-1">
                             <label className="text-zinc-400 font-bold text-[10px]">จำนวนเป้าหมาย</label>
                             <div className="flex items-center gap-2">
-                              <input type="number" id="v1_target_size" defaultValue={safeDetails?.target_group_size || ''} className="w-full bg-zinc-900 border border-white/10 rounded-xl p-2.5 outline-none text-emerald-400 font-black text-center focus:border-emerald-500" />
+                              <input type="number" id="v1_target_size" defaultValue={(safeDetails as any)?.target_group_size || ''} className="w-full bg-zinc-900 border border-white/10 rounded-xl p-2.5 outline-none text-emerald-400 font-black text-center focus:border-emerald-500" />
                               <span className="text-zinc-500 font-bold">คน</span>
                             </div>
                           </div>
@@ -717,11 +716,11 @@ export default function SeminarUltimateAdvancePreparationPage() {
                             <h4 className="font-black text-purple-300 text-[10px] bg-purple-900/40 inline-block px-2 py-1 rounded">👤 ประธานกรรมการจัดงาน</h4>
                             <div className="space-y-1">
                               <label className="text-zinc-500 font-bold text-[9px]">ชื่อ-นามสกุล ประธานจัดงาน</label>
-                              <input type="text" id="v1_chair_name" defaultValue={safeDetails?.chair_name || ''} className="w-full bg-zinc-900 border border-white/10 rounded-lg p-2 outline-none text-white focus:border-purple-500" />
+                              <input type="text" id="v1_chair_name" defaultValue={(safeDetails as any)?.chair_name || ''} className="w-full bg-zinc-900 border border-white/10 rounded-lg p-2 outline-none text-white focus:border-purple-500" />
                             </div>
                             <div className="space-y-1">
                               <label className="text-zinc-500 font-bold text-[9px]">ตำแหน่งงานประจำ</label>
-                              <input type="text" id="v1_chair_pos" defaultValue={safeDetails?.chair_position || ''} className="w-full bg-zinc-900 border border-white/10 rounded-lg p-2 outline-none text-zinc-300 focus:border-purple-500" />
+                              <input type="text" id="v1_chair_pos" defaultValue={(safeDetails as any)?.chair_position || ''} className="w-full bg-zinc-900 border border-white/10 rounded-lg p-2 outline-none text-zinc-300 focus:border-purple-500" />
                             </div>
                           </div>
 
@@ -729,11 +728,11 @@ export default function SeminarUltimateAdvancePreparationPage() {
                             <h4 className="font-black text-indigo-300 text-[10px] bg-indigo-900/40 inline-block px-2 py-1 rounded">📋 กรรมการและเลขานุการโครงการ</h4>
                             <div className="space-y-1">
                               <label className="text-zinc-500 font-bold text-[9px]">ชื่อ-นามสกุล เลขาฯ</label>
-                              <input type="text" id="v1_sec_name" defaultValue={safeDetails?.secretary_name || ''} className="w-full bg-zinc-900 border border-white/10 rounded-lg p-2 outline-none text-white focus:border-indigo-500" />
+                              <input type="text" id="v1_sec_name" defaultValue={(safeDetails as any)?.secretary_name || ''} className="w-full bg-zinc-900 border border-white/10 rounded-lg p-2 outline-none text-white focus:border-indigo-500" />
                             </div>
                             <div className="space-y-1">
                               <label className="text-zinc-500 font-bold text-[9px]">เบอร์โทรศัพท์เลขาฯ</label>
-                              <input type="text" id="v1_sec_contact" defaultValue={safeDetails?.secretary_contact || ''} className="w-full bg-zinc-900 border border-white/10 rounded-lg p-2 outline-none text-indigo-400 font-mono font-bold focus:border-indigo-500" />
+                              <input type="text" id="v1_sec_contact" defaultValue={(safeDetails as any)?.secretary_contact || ''} className="w-full bg-zinc-900 border border-white/10 rounded-lg p-2 outline-none text-indigo-400 font-mono font-bold focus:border-indigo-500" />
                             </div>
                           </div>
                         </div>
@@ -883,7 +882,7 @@ export default function SeminarUltimateAdvancePreparationPage() {
 
                                   // 2. ยิงไฟสถานะให้ CEO Dashboard
                                   const safeEvent = typeof projectInfo !== 'undefined' ? projectInfo : {};
-                                  const currentStatus = safeEvent?.departments_status || {};
+                                  const currentStatus = (safeEvent as any)?.departments_status || {};
                                   await supabase.from('events').update({ departments_status: { ...currentStatus, dept_2: 'ready' } }).eq('id', eventId);
 
                                   if (typeof fetchEventAttendeesForSeating === 'function') fetchEventAttendeesForSeating();
@@ -1118,7 +1117,7 @@ export default function SeminarUltimateAdvancePreparationPage() {
 
                             // 3. อัปเดตสถานะความพร้อมให้ CEO Dashboard
                             const safeEvent = typeof projectInfo !== 'undefined' ? projectInfo : {};
-                            const currentStatus = safeEvent?.departments_status || {};
+                            const currentStatus = (safeEvent as any)?.departments_status || {};
                             await supabase.from('events').update({ departments_status: { ...currentStatus, dept_3: 'ready' } }).eq('id', eventId);
 
                             alert('🎉 บันทึกข้อมูลวิทยากรและสร้างลิงก์ Portal สำเร็จแล้วครับ!');
@@ -1367,7 +1366,7 @@ export default function SeminarUltimateAdvancePreparationPage() {
                             await supabase.from('event_details').update({ mc_script_data: agendaItems }).eq('event_id', eventId);
 
                             const safeEvent = typeof projectInfo !== 'undefined' ? projectInfo : {};
-                            const currentStatus = safeEvent?.departments_status || {};
+                            const currentStatus = (safeEvent as any)?.departments_status || {};
                             const { error: timeErr } = await supabase
                               .from('events')
                               .update({
@@ -1378,6 +1377,7 @@ export default function SeminarUltimateAdvancePreparationPage() {
                             if (timeErr) throw timeErr;
 
                             alert('🎉 บันทึกสคริปต์พิธีกร พร้อมจัดสรรเวลา start_time ของแต่ละคิวลงฐานข้อมูลสำเร็จครับ!');
+                            // @ts-ignore
                             if (typeof fetchEventAgendaData === 'function') fetchEventAgendaData();
                           } catch (err: any) { alert('❌ บันทึกโครงสร้างล้มเหลว: ' + err.message); }
                         }}
@@ -1418,8 +1418,8 @@ export default function SeminarUltimateAdvancePreparationPage() {
                             .map((item, idx) => {
                               const getCalendarDate = (dayNum: number) => {
                                 const safeProj = typeof projectInfo !== 'undefined' ? projectInfo : {};
-                                if (!safeProj?.startDate) return '';
-                                const d = new Date(safeProj.startDate);
+                                if (!(safeProj as any)?.startDate) return '';
+                                const d = new Date((safeProj as any).startDate);
                                 d.setDate(d.getDate() + (dayNum - 1));
                                 return d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
                               };
@@ -1475,7 +1475,16 @@ export default function SeminarUltimateAdvancePreparationPage() {
                                     <p className="font-black text-cyan-400 flex items-center gap-1">📁 คลังเก็บสื่อประจำคิว (Media URL)</p>
                                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                                       <div className="space-y-1">
-                                        <select value={item.media_type || 'none'} onChange={async (e) => { const val = e.target.value; await supabase.from('event_agenda_items').update({ media_type: val }).eq('id', item.id); if (typeof fetchEventAgendaData === 'function') fetchEventAgendaData(); }} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 text-white font-medium focus:border-cyan-500 outline-none cursor-pointer">
+                                        <select
+                                          value={item.media_type || 'none'}
+                                          onChange={async (e) => {
+                                            const val = e.target.value;
+                                            await supabase.from('event_agenda_items').update({ media_type: val }).eq('id', item.id);
+                                            // @ts-ignore
+                                            if (typeof fetchEventAgendaData === 'function') fetchEventAgendaData();
+                                          }}
+                                          className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 text-white font-medium focus:border-cyan-500 outline-none cursor-pointer"
+                                        >
                                           <option value="none">🛑 ไม่มีสื่อแนบ</option>
                                           <option value="image_vip">🖼️ ภาพนิ่ง/สไลด์</option>
                                           <option value="video">🎥 วิดีโอ VTR</option>
@@ -1483,7 +1492,19 @@ export default function SeminarUltimateAdvancePreparationPage() {
                                       </div>
                                       <div className="sm:col-span-2 space-y-1">
                                         <div className="flex gap-1.5">
-                                          <input type="text" placeholder="https://ลิงก์ไฟล์..." defaultValue={item.media_url || ''} onBlur={async (e) => { const inputUrl = e.target.value.trim(); if (inputUrl === item.media_url) return; await supabase.from('event_agenda_items').update({ media_url: inputUrl }).eq('id', item.id); if (typeof fetchEventAgendaData === 'function') fetchEventAgendaData(); }} className="flex-1 bg-zinc-900 border border-zinc-800 rounded-lg px-2 py-1.5 text-zinc-300 font-mono text-[10px] focus:border-cyan-500 outline-none" />
+                                          <input
+                                            type="text"
+                                            placeholder="https://ลิงก์ไฟล์..."
+                                            defaultValue={item.media_url || ''}
+                                            onBlur={async (e) => {
+                                              const inputUrl = e.target.value.trim();
+                                              if (inputUrl === item.media_url) return;
+                                              await supabase.from('event_agenda_items').update({ media_url: inputUrl }).eq('id', item.id);
+                                              // @ts-ignore
+                                              if (typeof fetchEventAgendaData === 'function') fetchEventAgendaData();
+                                            }}
+                                            className="flex-1 bg-zinc-900 border border-zinc-800 rounded-lg px-2 py-1.5 text-zinc-300 font-mono text-[10px] focus:border-cyan-500 outline-none"
+                                          />
                                           {item.media_url && (<a href={item.media_url} target="_blank" rel="noreferrer" className="px-2.5 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 rounded-lg flex items-center justify-center font-bold text-[10px] transition-all">🔗</a>)}
                                         </div>
                                       </div>
@@ -2305,7 +2326,7 @@ export default function SeminarUltimateAdvancePreparationPage() {
 
                             // 2. ยิงไฟสถานะให้ CEO Dashboard
                             const safeEvent = typeof projectInfo !== 'undefined' ? projectInfo : {};
-                            const currentStatus = safeEvent?.departments_status || {};
+                            const currentStatus = (safeEvent as any)?.departments_status || {};
                             await supabase.from('events').update({ departments_status: { ...currentStatus, dept_9: 'ready' } }).eq('id', eventId);
 
                             alert('🎉 บันทึกเซ็ตรางวัลเรียบร้อย และอัปเดตไฟสถานะ 🟢 ขึ้น SMARTEVENT Dashboard สำเร็จแล้วครับ!');
@@ -2665,7 +2686,7 @@ export default function SeminarUltimateAdvancePreparationPage() {
                             if (mealErr) throw mealErr;
 
                             const safeEvent = typeof projectInfo !== 'undefined' ? projectInfo : {};
-                            const currentStatus = safeEvent?.departments_status || {};
+                            const currentStatus = (safeEvent as any)?.departments_status || {};
                             await supabase.from('events').update({ departments_status: { ...currentStatus, dept_11: 'ready' } }).eq('id', eventId);
 
                             alert('🎉 บันทึกข้อมูลมื้อจัดเลี้ยงพิกัดแมทริกซ์เรียบร้อย และส่งไฟสถานะ 🟢 ขึ้น Dashboard สำเร็จแล้วครับ!');

@@ -32,35 +32,35 @@ interface IntermissionItem {
 }
 
 const TRANSITIONS = [
-    { initial: { opacity: 0, scale: 1.05 }, animate: { opacity: 1, scale: 1.0 }, exit: { opacity: 0 } }, 
-    { initial: { opacity: 0, scale: 0.98 }, animate: { opacity: 1, scale: 1.02 }, exit: { opacity: 0 } }, 
-    { initial: { opacity: 0, x: 20 }, animate: { opacity: 1, x: 0 }, exit: { opacity: 0, x: -20 } }, 
+    { initial: { opacity: 0, scale: 1.05 }, animate: { opacity: 1, scale: 1.0 }, exit: { opacity: 0 } },
+    { initial: { opacity: 0, scale: 0.98 }, animate: { opacity: 1, scale: 1.02 }, exit: { opacity: 0 } },
+    { initial: { opacity: 0, x: 20 }, animate: { opacity: 1, x: 0 }, exit: { opacity: 0, x: -20 } },
     { initial: { opacity: 0, y: 15 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -15 } }
 ];
 
 export default function LyricsPage() {
     const router = useRouter();
     const [song, setSong] = useState<any>(null);
-    const [lyricsLines, setLyricsLines] = useState<string[]>([]); 
+    const [lyricsLines, setLyricsLines] = useState<string[]>([]);
     const [duration, setDuration] = useState(240);
-    const [speedMultiplier, setSpeedMultiplier] = useState(1.0); 
+    const [speedMultiplier, setSpeedMultiplier] = useState(1.0);
     const [isPaused, setIsPaused] = useState(false);
-    
+
     const [mounted, setMounted] = useState(false);
     const [currentTime, setCurrentTime] = useState<Date | null>(null);
     const [fontSettings, setFontSettings] = useState({ textColor: '#00FFFF', glowRadius: 15 });
 
-    const [isScrolling, setIsScrolling] = useState(true); 
-    const [displaySongSeconds, setDisplaySongSeconds] = useState(0); 
-    const [bgMode, setBgMode] = useState<'theme' | 'image'>('theme'); 
+    const [isScrolling, setIsScrolling] = useState(true);
+    const [displaySongSeconds, setDisplaySongSeconds] = useState(0);
+    const [bgMode, setBgMode] = useState<'theme' | 'image'>('theme');
     const [customBgImage, setCustomBgImage] = useState<string | null>(null);
-    const [showConfigModal, setShowConfigModal] = useState(false); 
+    const [showConfigModal, setShowConfigModal] = useState(false);
 
     const [lyricTimings, setLyricTimings] = useState<{ line_index: number; lyric_text: string; target_second: number }[]>([]);
     const [currentLineIndex, setCurrentLineIndex] = useState(-1);
     const [startDelay, setStartDelay] = useState(15);
     const [currentTrackId, setCurrentTrackId] = useState<string>('');
-    const [isUsingTimeMapping, setIsUsingTimeMapping] = useState(false); 
+    const [isUsingTimeMapping, setIsUsingTimeMapping] = useState(false);
 
     const [floatingNotes, setFloatingNotes] = useState<FloatingNote[]>([]);
     const [lineEffects, setLineEffects] = useState<number[]>([]);
@@ -72,10 +72,10 @@ export default function LyricsPage() {
     const [uploadedQrUrl, setUploadedQrUrl] = useState('');
 
     // 🎞️ STATES ระบบสไลด์คั่นจังหวะเปลี่ยนเพลงชิ้นพรีเมียม
-    const [isIntermissionSwitchOn, setIsIntermissionSwitchOn] = useState(false); 
+    const [isIntermissionSwitchOn, setIsIntermissionSwitchOn] = useState(false);
     const [intermissionList, setIntermissionList] = useState<IntermissionItem[]>([]);
     const [currentIntermissionItem, setCurrentIntermissionItem] = useState<IntermissionItem | null>(null);
-    const [showIntermissionLayer, setShowIntermissionLayer] = useState(false); 
+    const [showIntermissionLayer, setShowIntermissionLayer] = useState(false);
     const [randomAnimStyle, setRandomAnimStyle] = useState(0);
 
     // 🌧️💨 STATES ระบบสุ่มสลับพ่นควันหรือม่านสายฝน แพ็กคู่ขอบจอ
@@ -84,13 +84,13 @@ export default function LyricsPage() {
     const scrollRef = useRef<HTMLDivElement>(null);
     const accumulatedTimeRef = useRef(0);
     const lastFrameTimeRef = useRef<number | null>(null);
-    const isLayerShowingRef = useRef(false); 
-    
-    const textScrollRequestRef = useRef<number | null>(null); 
+    const isLayerShowingRef = useRef(false);
+
+    const textScrollRequestRef = useRef<number | null>(null);
     const timerRef = useRef<NodeJS.Timeout | null>(null);
     const songClockRef = useRef<NodeJS.Timeout | null>(null);
     const imageLoopRef = useRef<NodeJS.Timeout | null>(null);
-    const effectDirectorRef = useRef<NodeJS.Timeout | null>(null); 
+    const effectDirectorRef = useRef<NodeJS.Timeout | null>(null);
     const currentLineIndexRef = useRef(-1);
 
     const formatSongTime = (secs: number) => {
@@ -114,7 +114,7 @@ export default function LyricsPage() {
                 const cur = accumulatedTimeRef.current;
                 const roundedSecs = Math.floor(cur);
                 const clampedSecs = roundedSecs >= duration ? duration : roundedSecs;
-                
+
                 setDisplaySongSeconds(clampedSecs);
 
                 // ตรวจรอยต่อเปลี่ยนเพลง 8 วินาทีจากท่อเวลากลาง เพื่อสลับสวิตช์อย่างปลอดภัย
@@ -136,7 +136,7 @@ export default function LyricsPage() {
     // ผู้กำกับควบคุมการสุ่มปล่อยม่านสายฝนและควันเวทีฟุ้งเป็นระยะ (สุ่มเงียบเชียบ สบายสายตา ไม่ถี่จนเกินไป)
     useEffect(() => {
         if (effectDirectorRef.current) clearInterval(effectDirectorRef.current);
-        
+
         if (!isPaused && !showIntermissionLayer) {
             const directShow = () => {
                 const dice = Math.random();
@@ -148,9 +148,9 @@ export default function LyricsPage() {
                     setActiveEffect('none');
                 }
             };
-            
-            directShow(); 
-            effectDirectorRef.current = setInterval(directShow, 25000); 
+
+            directShow();
+            effectDirectorRef.current = setInterval(directShow, 25000);
         } else {
             setActiveEffect('none');
         }
@@ -168,9 +168,9 @@ export default function LyricsPage() {
             const newNote: FloatingNote = {
                 id: Date.now() + Math.random(),
                 char: noteChars[Math.floor(Math.random() * noteChars.length)],
-                left: Math.floor(Math.random() * 90) + 5, 
-                size: Math.floor(Math.random() * 12) + 12, 
-                duration: Math.floor(Math.random() * 4) + 6, 
+                left: Math.floor(Math.random() * 90) + 5,
+                size: Math.floor(Math.random() * 12) + 12,
+                duration: Math.floor(Math.random() * 4) + 6,
                 color: colors[Math.floor(Math.random() * colors.length)]
             };
             setFloatingNotes(prev => [...prev.slice(-12), newNote]);
@@ -186,7 +186,7 @@ export default function LyricsPage() {
             if (data) {
                 setAnnounceActive(data.is_announcement_active);
                 setAnnounceMessage(data.announcement_text || '');
-                setShowLiveQrScreen(data.show_live_qr); 
+                setShowLiveQrScreen(data.show_live_qr);
                 setUploadedQrUrl(data.qr_code_url || '');
                 setIsIntermissionSwitchOn(!!data.is_intermission_active);
             }
@@ -199,7 +199,7 @@ export default function LyricsPage() {
                     if (payload.new) {
                         setAnnounceActive(payload.new.is_announcement_active);
                         setAnnounceMessage(payload.new.announcement_text || '');
-                        setShowLiveQrScreen(payload.new.show_live_qr); 
+                        setShowLiveQrScreen(payload.new.show_live_qr);
                         setUploadedQrUrl(payload.new.qr_code_url || '');
                         setIsIntermissionSwitchOn(!!payload.new.is_intermission_active);
                     }
@@ -215,7 +215,7 @@ export default function LyricsPage() {
             .from('intermission_media')
             .select('id, media_url, media_type')
             .eq('isselected_for_loop', true);
-        
+
         if (!error && data && data.length > 0) {
             setIntermissionList(data);
             setCurrentIntermissionItem(data[Math.floor(Math.random() * data.length)]);
@@ -243,12 +243,12 @@ export default function LyricsPage() {
     }, [isPaused, showConfigModal]);
 
     // สุ่มภาพพื้นหลังแบคกราวน์หลัก
-   // 🟢 [แก้ไขจุดโหลดภาพ]: เพิ่มการเช็กและบังคับโหลดใหม่ทันทีที่สลับโหมด
+    // 🟢 [แก้ไขจุดโหลดภาพ]: เพิ่มการเช็กและบังคับโหลดใหม่ทันทีที่สลับโหมด
     const loadBackgroundImageLoop = async () => {
         try {
             console.log("Loading background images...");
             let { data: images, error } = await supabase.from('screen_background_media').select('media_url').eq('isselected_for_loop', true);
-            
+
             if (error) throw error;
 
             if (images && images.length > 0) {
@@ -266,10 +266,10 @@ export default function LyricsPage() {
 
     useEffect(() => {
         if (imageLoopRef.current) clearInterval(imageLoopRef.current);
-        
+
         if (bgMode === 'image') {
             loadBackgroundImageLoop(); // โหลดครั้งแรกทันทีที่สลับโหมด
-            imageLoopRef.current = setInterval(() => { loadBackgroundImageLoop(); }, 60000); 
+            imageLoopRef.current = setInterval(() => { loadBackgroundImageLoop(); }, 60000);
         } else {
             setCustomBgImage(null);
         }
@@ -281,14 +281,14 @@ export default function LyricsPage() {
         try {
             if (timerRef.current) clearTimeout(timerRef.current);
             if (!v_id) return;
-            
+
             const { data: track } = await supabase.from('tracks').select('*').eq('video_id', v_id).maybeSingle();
             const { data: master } = await supabase.from('master_songs').select('*').eq('video_id', v_id).maybeSingle();
 
             if (master) {
                 setSong(master);
                 const linesArray = master.lyrics ? master.lyrics.split('\n').filter((l: string) => l.trim() !== '') : [];
-                setLyricsLines(linesArray); 
+                setLyricsLines(linesArray);
 
                 if (track) {
                     setCurrentTrackId(track.id);
@@ -306,7 +306,7 @@ export default function LyricsPage() {
                     const hasValidTimings = timings && timings.length > 0 && timings.some(t => parseFloat(String(t.target_second)) > 0);
 
                     if (hasValidTimings) {
-                        setIsUsingTimeMapping(true); 
+                        setIsUsingTimeMapping(true);
                         setLyricTimings(timings.map(t => ({
                             line_index: Number(t.line_index),
                             lyric_text: t.lyric_text,
@@ -314,13 +314,13 @@ export default function LyricsPage() {
                         })));
                         setLineEffects(timings.map(() => Math.floor(Math.random() * 3)));
                     } else {
-                        setIsUsingTimeMapping(false); 
-                        setLyricTimings(linesArray.map((line, index) => ({ line_index: index, lyric_text: line, target_second: 0 })));
+                        setIsUsingTimeMapping(false);
+                        setLyricTimings(linesArray.map((line: string, index: number) => ({ line_index: index, lyric_text: line, target_second: 0 })));
                         setLineEffects(linesArray.map(() => 0));
                     }
                 } else {
                     setIsUsingTimeMapping(false);
-                    setLyricTimings(linesArray.map((line, index) => ({ line_index: index, lyric_text: line, target_second: 0 })));
+                    setLyricTimings(linesArray.map((line: string, index: number) => ({ line_index: index, lyric_text: line, target_second: 0 })));
                     setLineEffects(linesArray.map(() => 0));
                 }
 
@@ -357,7 +357,7 @@ export default function LyricsPage() {
             .subscribe();
 
         return () => { supabase.removeChannel(channel); if (timerRef.current) clearTimeout(timerRef.current); };
-    }, [intermissionList]); 
+    }, [intermissionList]);
 
     // 🟢 [เอนจิ้นทองคำความเร็วสูงจากแผ่น v637R ดั้งเดิมตัวแท้]: ดันพิกเซลเลื่อนคำร้องอย่างเนียนตา ไหลสมูท 60 FPS ปราศจากการสะดุด
     useEffect(() => {
@@ -385,7 +385,7 @@ export default function LyricsPage() {
 
                     if (activeIndex !== currentLineIndexRef.current) {
                         currentLineIndexRef.current = activeIndex;
-                        setCurrentLineIndex(activeIndex); 
+                        setCurrentLineIndex(activeIndex);
                     }
 
                     const rowElements = container.children[0]?.children;
@@ -420,7 +420,7 @@ export default function LyricsPage() {
                     const progress = Math.min(Math.max((currentSec - startDelay) / (duration - startDelay), 0), 1);
                     container.scrollTop = progress * usableScrollHeight;
 
-                    const estimatedIndex = Math.floor(progress * lyricTimings.length); 
+                    const estimatedIndex = Math.floor(progress * lyricTimings.length);
                     if (estimatedIndex !== currentLineIndexRef.current) {
                         currentLineIndexRef.current = estimatedIndex;
                         setCurrentLineIndex(estimatedIndex);
@@ -444,9 +444,9 @@ export default function LyricsPage() {
 
     return (
         <div className="h-screen w-screen flex flex-col justify-between overflow-hidden relative select-none cursor-pointer bg-black">
-            
+
             {/* LAYER 0: ฉากพื้นหลังวอลเปเปอร์หลัก (เปิดช่องไฟสว่างไสว ทะลุมิติเห็นรูปในคลังโหมด IMAGE LOOP สมบูรณ์แบบแล้วครับ) */}
-            <div 
+            <div
                 style={bgMode === 'image' && customBgImage ? { backgroundImage: `url(${customBgImage})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' } : undefined}
                 className={`absolute inset-0 z-0 transition-all duration-1000 ${bgMode === 'theme' ? `bg-gradient-to-br ${THEMES.find(t => t.text === fontSettings.textColor)?.bg || 'from-[#020813] via-[#0a1931] to-[#15305b]'}` : 'bg-transparent'}`}
             >
@@ -538,7 +538,7 @@ export default function LyricsPage() {
 
                 <AnimatePresence>
                     {announceActive && (
-                        <motion.div 
+                        <motion.div
                             initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }}
                             className="w-full bg-gradient-to-r from-cyan-950/80 via-black/70 to-blue-950/80 border border-cyan-500/30 py-1 px-4 rounded-xl flex items-center justify-between gap-4 backdrop-blur-md h-8 relative overflow-hidden shadow-[0_0_12px_rgba(6,182,212,0.15)]"
                         >
@@ -558,8 +558,8 @@ export default function LyricsPage() {
             </div>
 
             {/* ส่วนตรงกลางแสดงสายพานเนื้อร้องโครงสร้างดั้งเดิมแผ่น v637R ยิงเรนเดอร์แกนสมูทแท้เลื่อนนิ่มนวลที่สุด */}
-            <div 
-                ref={scrollRef} className="w-full max-w-5xl mx-auto h-[70vh] overflow-y-auto text-center px-12 z-20 no-scrollbar relative" 
+            <div
+                ref={scrollRef} className="w-full max-w-5xl mx-auto h-[70vh] overflow-y-auto text-center px-12 z-20 no-scrollbar relative"
                 style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                 onClick={(e) => { e.stopPropagation(); handleLiveTimeActionTrigger(); }}
             >
@@ -571,7 +571,7 @@ export default function LyricsPage() {
                         const isUpcomingAlert = isUsingTimeMapping && !isPast && !isCurrent && (secondsUntilLine > 0 && secondsUntilLine <= 3.0);
 
                         let opacityStyle = "opacity-100 scale-105 font-black";
-                        let textGlow = `0 0 ${fontSettings.glowRadius}px ${fontSettings.textColor}, 0 0 ${Math.max(fontSettings.glowRadius/2, 2)}px ${fontSettings.textColor}`;
+                        let textGlow = `0 0 ${fontSettings.glowRadius}px ${fontSettings.textColor}, 0 0 ${Math.max(fontSettings.glowRadius / 2, 2)}px ${fontSettings.textColor}`;
                         let colorStyle = "#FFFFFF";
 
                         if (isUsingTimeMapping) {
@@ -597,7 +597,7 @@ export default function LyricsPage() {
                         }
 
                         return (
-                            <div 
+                            <div
                                 key={index} style={{ color: isUsingTimeMapping ? colorStyle : fontSettings.textColor, textShadow: isUsingTimeMapping ? textGlow : 'none' }}
                                 className={`text-2xl md:text-5xl leading-tight tracking-tighter relative flex items-center justify-center gap-4 transition-all duration-500 ${opacityStyle}`}
                             >
@@ -616,8 +616,8 @@ export default function LyricsPage() {
 
             {/* ส่วนที่ 5 - ล่างสุด: SINGLE-ROW CONTROL DOCK */}
             <div className="w-full bg-gradient-to-r from-[#0a1931]/95 via-[#15305b]/90 to-[#0c2447]/95 backdrop-blur-2xl border-t border-cyan-500/20 py-3 px-5 flex items-center justify-between gap-2 text-white z-50" onClick={(e) => e.stopPropagation()}>
-                <button 
-                    onClick={() => router.push('/studio')} 
+                <button
+                    onClick={() => router.push('/studio')}
                     className="p-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:opacity-90 text-white rounded-xl flex items-center gap-2 font-black text-[10px] tracking-wider active:scale-95 transition-all"
                 >
                     <Sliders size={13} strokeWidth={2.5} />
@@ -674,7 +674,7 @@ export default function LyricsPage() {
                                 <h3 className="text-xs font-black text-amber-400 tracking-wider uppercase">⏱ CONFIG MASTER</h3>
                                 <button onClick={() => setShowConfigModal(false)} className="text-gray-500 text-xs">✕</button>
                             </div>
-                            
+
                             <div className="space-y-1.5 bg-black/50 p-3 rounded-xl border border-amber-500/10">
                                 <div className="flex justify-between items-center text-[10px] font-bold text-amber-200/70 uppercase">
                                     <span>วินาทีเริ่มเลื่อนคิว ({startDelay} วิ):</span>
@@ -693,20 +693,20 @@ export default function LyricsPage() {
                                 </div>
                             </div>
 
-                            <button 
-                                type="button" 
+                            <button
+                                type="button"
                                 onClick={async () => {
                                     if (currentTrackId) {
-                                        await supabase.from('tracks').update({ 
-                                            start_delay: startDelay, 
-                                            play_speed: speedMultiplier, 
-                                            glow_size: fontSettings.glowRadius 
+                                        await supabase.from('tracks').update({
+                                            start_delay: startDelay,
+                                            play_speed: speedMultiplier,
+                                            glow_size: fontSettings.glowRadius
                                         }).eq('id', currentTrackId);
-                                        
+
                                         alert('⚙️ ล็อกบันทึกค่าหน่วงเวลา และความเร็ว Default ลงตารางสำเร็จ!');
                                         setShowConfigModal(false);
                                     }
-                                }} 
+                                }}
                                 className="w-full py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-black font-black text-xs uppercase tracking-widest rounded-xl"
                             >
                                 ฝังบันทึกจำค่าคิวเพลงนี้

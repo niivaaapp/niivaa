@@ -19,6 +19,7 @@ if (typeof window !== 'undefined' && !document.getElementById('youtube-api')) {
 }
 
 export default function SmartKaraokePage({ params }: { params: any }) {
+  const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
   // 1. การรับค่าพารามิเตอร์
   const { id: playlistId } = React.use(params) as any;
   const router = useRouter();

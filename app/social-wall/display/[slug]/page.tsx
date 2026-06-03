@@ -39,7 +39,10 @@ export default function NiivaaSmartDisplayFinal({ params }: { params: Promise<{ 
                 event: '*',
                 schema: 'public',
                 table: 'social_messages'
-            }, () => fetchMessages());
+     }, () => {
+         // @ts-ignore
+         fetchMessages();
+       });
 
         return () => {
             supabase.removeChannel(screenSub);

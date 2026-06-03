@@ -48,7 +48,7 @@ function SMMasterControlContent() {
     let vid = '';
     if (url.includes('embed/')) vid = url.split('embed/')[1].split('?')[0];
     else if (url.includes('youtu.be/')) vid = url.split('youtu.be/')[1].split('?')[0];
-    else if (url.includes('youtube.com/watch?v=')) vid = new URL(url).searchParams.get('v');
+    else if (url.includes('youtube.com/watch?v=')) vid = new URL(url).searchParams.get('v') || '';
     return vid ? `https://img.youtube.com/vi/${vid}/mqdefault.jpg` : '';
   };
 

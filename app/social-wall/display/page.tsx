@@ -9,7 +9,7 @@ export default function NiivaaSmartDisplay({ params }: { params: any }) {
 
   // --- [STATES] ---
   const [screenSettings, setScreenSettings] = useState<any>(null);
-  const [messages, setMessages] = useState<any[]>([]); 
+  const [messages, setMessages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showControls, setShowControls] = useState(false);
   const [localIsPaused, setLocalIsPaused] = useState(false);
@@ -31,7 +31,7 @@ export default function NiivaaSmartDisplay({ params }: { params: any }) {
         const { data: screen } = await supabase.from('social_screens').select('*').eq('slug', slug).maybeSingle();
         if (screen) {
           setScreenSettings(screen);
-          
+
           const { data: msgs } = await supabase
             .from('social_messages')
             .select('*')
@@ -72,7 +72,7 @@ export default function NiivaaSmartDisplay({ params }: { params: any }) {
 
   return (
     <main className="relative w-full h-screen bg-[#000a12] overflow-hidden font-prompt text-slate-100 select-none">
-      
+
       {/* BLACKOUT LAYER */}
       {blackout_mode && (
         <div className="absolute inset-0 z-[200] bg-black flex flex-col items-center justify-center">
@@ -82,7 +82,7 @@ export default function NiivaaSmartDisplay({ params }: { params: any }) {
 
       {/* ⚡ [กล่องควบคุมหลักมุมขวาบน] วางรวมกันในระนาบกล่องเดียวกัน 100% พี่เห็นปุ่มชัวร์ครับ! */}
       <div className="absolute top-6 right-8 z-[250] w-[360px] flex flex-col gap-3 bg-black/80 p-5 rounded-3xl border border-white/10 backdrop-blur-md shadow-2xl">
-        
+
         {/* แถวบนสุด: โลโก้ระบบหลัก */}
         <div className="flex flex-col items-end pointer-events-none w-full">
           <h1 className="text-xl font-black italic tracking-tighter text-white">
@@ -96,9 +96,9 @@ export default function NiivaaSmartDisplay({ params }: { params: any }) {
 
         {/* 🛠 [ระนาบปุ่มคู่ขนานควบคุมงาน] วางเคียงข้างขนาบคู่กับปุ่ม CONFIG เดิมเลยครับผม */}
         <div className="flex items-center gap-2 w-full mt-1">
-          
+
           {/* 🚀 ปุ่ม UPDATE DATA เรืองแสงสีฟ้านีออน ตัวหนาเต็มพิกัด วางอยู่ด้านซ้ายมือของปุ่มตั้งค่าเดิมเป๊ะๆ ครับ */}
-          <button 
+          <button
             onClick={handleForceManualRefresh}
             className="flex-1 flex items-center justify-center gap-1.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-xs py-3.5 rounded-xl shadow-lg shadow-cyan-500/10 active:scale-95 transition-all tracking-wide uppercase cursor-pointer"
           >
@@ -107,8 +107,8 @@ export default function NiivaaSmartDisplay({ params }: { params: any }) {
           </button>
 
           {/* ปุ่ม CONFIG เดิมของพี่ที่ใช้งานได้ปกติ วางสแตนด์บายฝั่งขวามือ */}
-          <button 
-            onClick={() => setShowControls(!showControls)} 
+          <button
+            onClick={() => setShowControls(!showControls)}
             className="bg-slate-800 hover:bg-slate-700 border border-white/10 px-3 py-3.5 rounded-xl text-[10px] font-black tracking-widest transition-all text-white flex items-center gap-1 cursor-pointer shrink-0"
           >
             {showControls ? <X size={12} /> : <Settings size={12} />}
@@ -118,7 +118,7 @@ export default function NiivaaSmartDisplay({ params }: { params: any }) {
         </div>
 
         {/* ปุ่มลิงก์กระโดดกลับไปหน้าส่งข้อความ Join ด้านล่างกล่อง */}
-        <button 
+        <button
           onClick={() => window.location.href = `/social-wall/join/${slug}`}
           className="w-full flex items-center justify-center gap-2 bg-slate-900/90 border border-white/5 text-slate-400 font-bold text-xs py-2 rounded-xl hover:bg-slate-800 transition-colors active:scale-95 cursor-pointer"
         >
@@ -134,7 +134,7 @@ export default function NiivaaSmartDisplay({ params }: { params: any }) {
         ) : (
           <div className="w-full flex items-center overflow-hidden relative py-12">
             {!localIsPaused && !blackout_mode ? (
-              <div 
+              <div
                 className={`flex gap-16 whitespace-nowrap will-change-transform ${isHorizontal ? 'animate-css-marquee-horiz' : 'flex-col animate-css-marquee-vert h-full'}`}
                 style={{ '--marquee-duration': cssSpeedDuration } as React.CSSProperties}
               >
@@ -143,9 +143,9 @@ export default function NiivaaSmartDisplay({ params }: { params: any }) {
                     <div key={`msg-a-${msg.id}-${i}`} className="inline-flex flex-col items-center justify-center bg-white/[0.02] backdrop-blur-sm border border-white/5 rounded-[3rem] mx-6 px-16 py-12 min-w-[550px]">
                       <p className="text-5xl md:text-8xl font-black text-white text-center leading-tight tracking-tighter">{msg.text}</p>
                       <div className="mt-6 flex items-center gap-4 opacity-70">
-                         <div className="h-[1px] w-8 bg-green-500" />
-                         <span className="text-2xl md:text-4xl text-green-400 font-light">{msg.author}</span>
-                         <div className="h-[1px] w-8 bg-green-500" />
+                        <div className="h-[1px] w-8 bg-green-500" />
+                        <span className="text-2xl md:text-4xl text-green-400 font-light">{msg.author}</span>
+                        <div className="h-[1px] w-8 bg-green-500" />
                       </div>
                     </div>
                   ))
@@ -158,9 +158,9 @@ export default function NiivaaSmartDisplay({ params }: { params: any }) {
                   <div key={`msg-b-${msg.id}-${i}`} className="inline-flex flex-col items-center justify-center bg-white/[0.02] backdrop-blur-sm border border-white/5 rounded-[3rem] mx-6 px-16 py-12 min-w-[550px]">
                     <p className="text-5xl md:text-8xl font-black text-white text-center leading-tight tracking-tighter">{msg.text}</p>
                     <div className="mt-6 flex items-center gap-4 opacity-70">
-                       <div className="h-[1px] w-8 bg-green-500" />
-                       <span className="text-2xl md:text-4xl text-green-400 font-light">{msg.author}</span>
-                       <div className="h-[1px] w-8 bg-green-500" />
+                      <div className="h-[1px] w-8 bg-green-500" />
+                      <span className="text-2xl md:text-4xl text-green-400 font-light">{msg.author}</span>
+                      <div className="h-[1px] w-8 bg-green-500" />
                     </div>
                   </div>
                 ))}
@@ -178,11 +178,20 @@ export default function NiivaaSmartDisplay({ params }: { params: any }) {
           <div className="absolute top-[195px] right-8 w-[350px] p-4 rounded-2xl bg-slate-900 border border-white/10 shadow-2xl space-y-3" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between text-xs">
               <span className={blackout_mode ? 'text-rose-500 font-bold' : 'text-slate-400'}>BLACKOUT MODE</span>
-              <button onClick={() => updateSettings({ blackout_mode: !blackout_mode })} className={`relative w-8 h-4 rounded-full ${blackout_mode ? 'bg-rose-500' : 'bg-slate-700'}`}><div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${blackout_mode ? 'left-4.5' : 'left-0.5'}`} /></button>
+              <button onClick={() => {
+                // @ts-ignore
+                updateSettings({ blackout_mode: !blackout_mode });
+              }} className={`relative w-8 h-4 rounded-full ${blackout_mode ? 'bg-rose-500' : 'bg-slate-700'}`}><div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${blackout_mode ? 'left-4.5' : 'left-0.5'}`} /></button>
             </div>
             <div className="grid grid-cols-2 gap-1.5 text-[10px] font-bold">
-              <button onClick={() => updateSettings({ direction: "horizontal" })} className={`py-1.5 rounded border ${isHorizontal ? 'bg-green-600 border-green-400' : 'bg-slate-800 opacity-50'}`}>HORIZONTAL</button>
-              <button onClick={() => updateSettings({ direction: "vertical" })} className={`py-1.5 rounded border ${!isHorizontal ? 'bg-green-600 border-green-400' : 'bg-slate-800 opacity-50'}`}>VERTICAL</button>
+              <button onClick={() => {
+                // @ts-ignore
+                updateSettings({ direction: "horizontal" });
+              }} className={`py-1.5 rounded border ${isHorizontal ? 'bg-green-600 border-green-400' : 'bg-slate-800 opacity-50'}`}>HORIZONTAL</button>
+              <button onClick={() => {
+                // @ts-ignore
+                updateSettings({ direction: "vertical" });
+              }} className={`py-1.5 rounded border ${!isHorizontal ? 'bg-green-600 border-green-400' : 'bg-slate-800 opacity-50'}`}>VERTICAL</button>
             </div>
             <button onClick={() => setLocalIsPaused(!localIsPaused)} className={`w-full py-2 rounded-lg font-bold text-[10px] ${localIsPaused ? 'bg-blue-600' : 'bg-rose-600'}`}>{localIsPaused ? "▶ RUN" : "⏸ PAUSE"}</button>
           </div>
@@ -190,7 +199,8 @@ export default function NiivaaSmartDisplay({ params }: { params: any }) {
       )}
 
       {/* ⚡ ใช้ป้ายสไตล์มาตรฐานดิบ การันตีผ่านคอมไพเลอร์ Next.js แน่นอน */}
-      <style dangerouslySetInnerHTML={{__html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         @keyframes cssMarqueeHorizontal { 0% { transform: translate3d(0, 0, 0); } 100% { transform: translate3d(-50%, 0, 0); } }
         @keyframes cssMarqueeVertical { 0% { transform: translate3d(0, 0, 0); } 100% { transform: translate3d(0, -50%, 0); } }
         .animate-css-marquee-horiz { animation: cssMarqueeHorizontal var(--marquee-duration, 20s) linear infinite; }
