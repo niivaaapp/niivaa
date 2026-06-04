@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense  } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Play, Pause, ArrowLeft, Send, MessageSquare, CheckCircle, AlertCircle, X, HelpCircle, Camera, Loader2, Image as ImageIcon } from 'lucide-react';
@@ -12,7 +12,7 @@ interface AgendaItem {
   sort_order: number;
   is_live_now: boolean;
   start_time?: string;
-  sub_script?: string; 
+  sub_script?: string;
   responsible_person?: string;
   target_depts?: string[];
   sm_readiness_state: Record<string, string>;
@@ -37,14 +37,14 @@ const DEPARTMENTS = [
   { key: 'photo_tab', label: 'ถ่ายภาพ' }
 ];
 
-export default function StageManagerMasterDashboard() {
+function StageManagerContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const eventId = searchParams.get('event_id') || 'current';
 
   const [time, setTime] = useState(new Date());
   const [agendaItems, setAgendaItems] = useState<AgendaItem[]>([]);
-  
+
   // --- [STATES แผงข้อความ SM ไปยังลูกข่าย (Intercom กล่องขวาล่าง)] ---
   const [customAlertText, setCustomAlertText] = useState('');
   const [isIntercomOpen, setIsIntercomOpen] = useState(false);
@@ -77,7 +77,7 @@ export default function StageManagerMasterDashboard() {
       const filtered = data.filter((item: any) => {
         if (item.is_live_now && item.updated_at) {
           const minsPassed = (now.getTime() - new Date(item.updated_at).getTime()) / 60000;
-          if (minsPassed > Number(item.duration_minutes || 5) + 2) return false; 
+          if (minsPassed > Number(item.duration_minutes || 5) + 2) return false;
         }
         return true;
       });
@@ -172,13 +172,13 @@ export default function StageManagerMasterDashboard() {
     try {
       let imageUrl = '';
       if (smUploadFile) imageUrl = await uploadImageToStorage(smUploadFile, 'sm_alerts');
-      
-      await supabase.from('screen_state').update({ 
-        sm_intercom_msg: text, 
-        sm_intercom_image: imageUrl, 
-        updated_at: new Date().toISOString() 
+
+      await supabase.from('screen_state').update({
+        sm_intercom_msg: text,
+        sm_intercom_image: imageUrl,
+        updated_at: new Date().toISOString()
       }).eq('id', 'current');
-      
+
       setCustomAlertText('');
       setSmUploadFile(null);
       setIsIntercomOpen(false); // พับเก็บแผง
@@ -198,14 +198,14 @@ export default function StageManagerMasterDashboard() {
       if (liveItem) {
         let imageUrl = '';
         if (mcReplyFile) imageUrl = await uploadImageToStorage(mcReplyFile, 'sm_replies');
-        
+
         let appendText = `\n📌 [SM ตอบกลับด่วน]: ${mcReplyText}`;
         if (imageUrl) appendText += `\n📷 [ดูภาพแนบ]: ${imageUrl}`;
 
         const updatedSubScript = (liveItem.sub_script || '') + appendText;
         await supabase.from('event_agenda_items').update({ sub_script: updatedSubScript.trim() }).eq('id', liveItem.id);
       }
-      
+
       await supabase.from('screen_state').update({ mc_help_request: '', mc_help_image: '' }).eq('id', 'current');
       setMcHelpRequestMsg(''); setMcHelpRequestImage('');
       setMcReplyText(''); setMcReplyFile(null);
@@ -230,35 +230,35 @@ export default function StageManagerMasterDashboard() {
 
   return (
     <div className="min-h-screen bg-[#020617] text-white p-4 font-sans flex flex-col gap-4 select-none overflow-x-hidden relative">
-      
+
       {/* 🚨 แบนเนอร์รับคำขอ+รูปภาพจาก MC (ส่วนบน) */}
       {(mcHelpRequestMsg || mcHelpRequestImage) && (
         <div className="fixed top-4 left-4 right-4 z-[9999] bg-gradient-to-r from-cyan-800 via-blue-900 to-indigo-900 border-2 border-cyan-400 text-white p-4 rounded-2xl shadow-[0_20px_50px_rgba(6,182,212,0.5)] flex flex-col md:flex-row items-start md:items-center justify-between gap-4 animate-in slide-in-from-top-6">
           <div className="flex flex-col sm:flex-row items-start gap-4 flex-1 min-w-0">
-             <div className="p-2 bg-black/30 rounded-xl text-cyan-400 animate-bounce shrink-0 self-start"><HelpCircle size={24} /></div>
-             <div className="min-w-0 flex-1">
-               <span className="bg-cyan-400 text-black font-black px-2 py-0.5 rounded text-[10px] uppercase tracking-wider animate-pulse">🙋‍♂️ คำขอด่วนจากพิธีกร (MC)</span>
-               {mcHelpRequestMsg && <p className="text-sm md:text-base font-black tracking-wide text-white mt-1 break-words">{mcHelpRequestMsg}</p>}
-               {mcHelpRequestImage && (
-                 <a href={mcHelpRequestImage} target="_blank" rel="noreferrer">
-                   <img src={mcHelpRequestImage} alt="MC Image" className="mt-2 max-h-32 rounded-lg border-2 border-cyan-400/50 shadow-md cursor-pointer hover:opacity-80 transition-opacity" />
-                 </a>
-               )}
-             </div>
+            <div className="p-2 bg-black/30 rounded-xl text-cyan-400 animate-bounce shrink-0 self-start"><HelpCircle size={24} /></div>
+            <div className="min-w-0 flex-1">
+              <span className="bg-cyan-400 text-black font-black px-2 py-0.5 rounded text-[10px] uppercase tracking-wider animate-pulse">🙋‍♂️ คำขอด่วนจากพิธีกร (MC)</span>
+              {mcHelpRequestMsg && <p className="text-sm md:text-base font-black tracking-wide text-white mt-1 break-words">{mcHelpRequestMsg}</p>}
+              {mcHelpRequestImage && (
+                <a href={mcHelpRequestImage} target="_blank" rel="noreferrer">
+                  <img src={mcHelpRequestImage} alt="MC Image" className="mt-2 max-h-32 rounded-lg border-2 border-cyan-400/50 shadow-md cursor-pointer hover:opacity-80 transition-opacity" />
+                </a>
+              )}
+            </div>
           </div>
           <div className="flex flex-wrap gap-2 w-full md:w-auto mt-2 md:mt-0 items-center">
-             <input type="text" value={mcReplyText} onChange={e => setMcReplyText(e.target.value)} placeholder="พิมพ์ตอบกลับแทรกโพย..." className="bg-black/50 border border-cyan-400/50 rounded-xl px-3 py-2 text-xs outline-none focus:border-cyan-300 w-full md:w-56" />
-             
-             {/* 📸 ปุ่มแนบรูปตอบกลับจาก SM ไปลงโพย */}
-             <label className="bg-black/30 hover:bg-black/50 border border-cyan-400/30 text-cyan-400 px-3 py-2 rounded-xl cursor-pointer transition-all flex items-center justify-center shadow-md">
-               <input type="file" accept="image/*" capture="environment" className="hidden" onChange={e => setMcReplyFile(e.target.files?.[0] || null)} />
-               {mcReplyFile ? <ImageIcon size={16} className="text-emerald-400"/> : <Camera size={16} />}
-             </label>
+            <input type="text" value={mcReplyText} onChange={e => setMcReplyText(e.target.value)} placeholder="พิมพ์ตอบกลับแทรกโพย..." className="bg-black/50 border border-cyan-400/50 rounded-xl px-3 py-2 text-xs outline-none focus:border-cyan-300 w-full md:w-56" />
 
-             <button onClick={handleReplyToMc} disabled={isReplyingUpload} className="bg-cyan-500 hover:bg-cyan-400 text-black font-black px-4 py-2 rounded-xl text-xs shadow-md flex items-center gap-1 w-[120px] justify-center">
-               {isReplyingUpload ? <Loader2 size={14} className="animate-spin"/> : 'ตอบกลับลงโพย'}
-             </button>
-             <button onClick={handleClearMcHelp} className="bg-black/30 hover:bg-black/50 px-3 py-2 rounded-xl font-bold text-xs transition-colors border border-white/10">❌ ปิด</button>
+            {/* 📸 ปุ่มแนบรูปตอบกลับจาก SM ไปลงโพย */}
+            <label className="bg-black/30 hover:bg-black/50 border border-cyan-400/30 text-cyan-400 px-3 py-2 rounded-xl cursor-pointer transition-all flex items-center justify-center shadow-md">
+              <input type="file" accept="image/*" capture="environment" className="hidden" onChange={e => setMcReplyFile(e.target.files?.[0] || null)} />
+              {mcReplyFile ? <ImageIcon size={16} className="text-emerald-400" /> : <Camera size={16} />}
+            </label>
+
+            <button onClick={handleReplyToMc} disabled={isReplyingUpload} className="bg-cyan-500 hover:bg-cyan-400 text-black font-black px-4 py-2 rounded-xl text-xs shadow-md flex items-center gap-1 w-[120px] justify-center">
+              {isReplyingUpload ? <Loader2 size={14} className="animate-spin" /> : 'ตอบกลับลงโพย'}
+            </button>
+            <button onClick={handleClearMcHelp} className="bg-black/30 hover:bg-black/50 px-3 py-2 rounded-xl font-bold text-xs transition-colors border border-white/10">❌ ปิด</button>
           </div>
         </div>
       )}
@@ -295,7 +295,7 @@ export default function StageManagerMasterDashboard() {
         </div>
         <div className="flex justify-between items-center bg-zinc-900/60 p-3 rounded-2xl border border-white/5">
           <div className="flex items-center gap-3">
-            <button onClick={() => router.back()} className="p-2.5 bg-white/5 rounded-xl text-zinc-400 hover:text-white"><ArrowLeft size={16}/></button>
+            <button onClick={() => router.back()} className="p-2.5 bg-white/5 rounded-xl text-zinc-400 hover:text-white"><ArrowLeft size={16} /></button>
             <div>
               <h1 className="text-sm font-black text-white">แผงผู้บัญชาการ SM ระบบรวมศูนย์ควบคุมความพร้อม</h1>
               <p className="text-cyan-400 font-mono text-[11px] mt-0.5">เวลาหน้างาน: {time.toLocaleTimeString('th-TH')}</p>
@@ -303,7 +303,7 @@ export default function StageManagerMasterDashboard() {
           </div>
           <div className="flex items-center gap-2">
             <button onClick={handleToggleShowRun} className={`px-6 py-2.5 rounded-xl font-black text-xs border shadow-md ${runStatus === 'RUNNING' ? 'bg-yellow-600 border-yellow-400 text-white' : 'bg-gradient-to-b from-emerald-500 to-teal-600 border-emerald-400 text-white'}`}>
-              {runStatus === 'RUNNING' ? <><Pause size={13} className="inline mr-1"/> PAUSE</> : <><Play size={13} className="inline mr-1"/> SHOW RUN</>}
+              {runStatus === 'RUNNING' ? <><Pause size={13} className="inline mr-1" /> PAUSE</> : <><Play size={13} className="inline mr-1" /> SHOW RUN</>}
             </button>
             <button onClick={handleFinishEvent} className="px-4 py-2.5 bg-red-900/40 border border-red-800 text-red-200 text-xs font-black rounded-xl">🏁 FINISH EVENT</button>
             <div className="h-8 w-px bg-zinc-800 mx-2"></div>
@@ -338,7 +338,7 @@ export default function StageManagerMasterDashboard() {
                   const label = DEPARTMENTS.find(d => d.key === deptKey)?.label || deptKey;
                   return (
                     <button key={deptKey} onClick={() => handleToggleDepartmentStatus(item, deptKey)} className={`w-[65px] h-[46px] rounded-xl border text-[9px] flex flex-col items-center justify-center gap-0.5 transition-all active:scale-90 ${stateColor === 'red' ? 'bg-red-600 border-red-300 text-white animate-pulse' : stateColor === 'yellow' ? 'bg-yellow-500 border-yellow-300 text-black' : stateColor === 'green' ? 'bg-emerald-500 border-emerald-300 text-black' : 'bg-zinc-900 border-zinc-700 text-zinc-500'}`}>
-                      {stateColor === 'green' ? <CheckCircle size={12}/> : stateColor === 'yellow' ? <AlertCircle size={12}/> : null}
+                      {stateColor === 'green' ? <CheckCircle size={12} /> : stateColor === 'yellow' ? <AlertCircle size={12} /> : null}
                       <span className="truncate w-full px-1">{label}</span>
                     </button>
                   );
@@ -358,10 +358,10 @@ export default function StageManagerMasterDashboard() {
         {isIntercomOpen && (
           <div className="mb-3 w-[320px] bg-zinc-950/95 backdrop-blur-xl border border-cyan-500/40 rounded-3xl p-4 shadow-[0_20px_50px_rgba(0,0,0,0.9)] animate-in slide-in-from-bottom-5">
             <div className="flex items-center justify-between border-b border-zinc-800 pb-2 mb-3">
-              <span className="text-[11px] font-black text-cyan-400 uppercase tracking-widest flex items-center gap-1.5"><MessageSquare size={12}/> ประกาศด่วนลงทุกจอ</span>
-              <button onClick={() => setIsIntercomOpen(false)} className="text-zinc-600 hover:text-white"><X size={14}/></button>
+              <span className="text-[11px] font-black text-cyan-400 uppercase tracking-widest flex items-center gap-1.5"><MessageSquare size={12} /> ประกาศด่วนลงทุกจอ</span>
+              <button onClick={() => setIsIntercomOpen(false)} className="text-zinc-600 hover:text-white"><X size={14} /></button>
             </div>
-            
+
             <div className="grid grid-cols-2 gap-1.5">
               {QUICK_ALERTS.map(msg => (
                 <button key={msg.id} onClick={() => handleSendUrgentIntercom(msg.text)} className={`bg-gradient-to-br ${msg.color} p-2.5 rounded-xl border text-left flex flex-col h-14 justify-between transition-all active:scale-95`}>
@@ -376,13 +376,13 @@ export default function StageManagerMasterDashboard() {
               {smUploadFile && (
                 <div className="relative w-fit">
                   <img src={URL.createObjectURL(smUploadFile)} alt="Preview" className="h-16 rounded-lg border border-cyan-500/50 object-cover" />
-                  <button onClick={() => setSmUploadFile(null)} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-0.5"><X size={12}/></button>
+                  <button onClick={() => setSmUploadFile(null)} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-0.5"><X size={12} /></button>
                 </div>
               )}
-              
+
               <div className="flex gap-1.5">
                 <input type="text" value={customAlertText} onChange={e => setCustomAlertText(e.target.value)} placeholder="พิมพ์ข้อความ..." className="flex-1 bg-black border border-zinc-800 px-3 py-1.5 text-[10px] rounded-lg outline-none focus:border-cyan-500 text-white font-bold" />
-                
+
                 {/* 📸 ปุ่มเปิดกล้อง/แนบรูป (Floating Intercom) */}
                 <label className="bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 text-cyan-400 px-2.5 py-1.5 rounded-lg cursor-pointer transition-all flex items-center justify-center shadow-md">
                   <input type="file" accept="image/*" capture="environment" className="hidden" onChange={e => setSmUploadFile(e.target.files?.[0] || null)} />
@@ -390,7 +390,7 @@ export default function StageManagerMasterDashboard() {
                 </label>
 
                 <button onClick={() => handleSendUrgentIntercom(customAlertText)} disabled={isSmUploading} className="bg-cyan-600 hover:bg-cyan-500 text-white text-[10px] font-bold px-3 rounded-lg transition-all flex items-center justify-center w-12 shadow-md">
-                  {isSmUploading ? <Loader2 size={12} className="animate-spin"/> : 'ส่ง'}
+                  {isSmUploading ? <Loader2 size={12} className="animate-spin" /> : 'ส่ง'}
                 </button>
               </div>
             </div>
@@ -402,5 +402,13 @@ export default function StageManagerMasterDashboard() {
       </div>
 
     </div>
+  );
+}
+// 3. เพิ่มฟังก์ชันนี้ไปที่บรรทัดสุดท้ายของไฟล์เพื่อเป็นตัวเปิดหลัก
+export default function StageManagerMasterDashboard() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#020617] flex items-center justify-center text-cyan-500">Loading Dashboard...</div>}>
+      <StageManagerContent />
+    </Suspense>
   );
 }

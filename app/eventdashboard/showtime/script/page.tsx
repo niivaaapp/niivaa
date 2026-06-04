@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Mic, Clock, Layers, ArrowLeft, ToggleLeft, ToggleRight, HelpCircle, Send, Save, AlertTriangle, MessageSquare } from 'lucide-react';
@@ -18,7 +18,8 @@ interface AgendaItem {
   responsible_person?: string;
 }
 
-export default function EmceeShowtimeScriptPrompter() {
+// 1. แยกเนื้อหาหลักออกมาเป็น Component ย่อย
+function EmceeShowtimeScriptContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const eventId = searchParams.get('event_id') || 'current';
@@ -95,13 +96,11 @@ export default function EmceeShowtimeScriptPrompter() {
       activeRowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   }, [currentLiveItem, isRealtimeActive]);
-  // ฟังก์ชันสำหรับกดปิดและล้างข้อความออกจากฐานข้อมูลอย่างถาวร
+
   const handleAcknowledgeMessage = async () => {
-    // 1. ซ่อนแถบข้อความบนหน้าจอตัวเองทันที
     setShowUrgentBanner(false);
     setUrgentIntercomMsg(''); 
 
-    // 2. วิ่งไปล้างข้อความใน Supabase ทิ้ง เพื่อไม่ให้เด้งกลับมาอีกตอน Refresh
     try {
       await supabase
         .from('screen_state')
@@ -131,7 +130,6 @@ export default function EmceeShowtimeScriptPrompter() {
     }
   };
 
-  // 🚀 💡 แก้ไขลอจิก: ส่งคำขอไปหาจอ SM (ไม่แก้สคริปต์ตัวเอง)
   const handleSendHelpRequest = async (predefinedText?: string) => {
     const textToSend = predefinedText || assistantInputText;
     if (!textToSend.trim()) return;
@@ -240,7 +238,6 @@ export default function EmceeShowtimeScriptPrompter() {
               </button>
             </div>
 
-            {/* 💡 แผงส่งคำขอไปหา SM แทนที่จะแทรกโพยตัวเอง */}
             {isHelpPanelOpen && (
               <div className="p-4 bg-black/60 border border-cyan-500/30 rounded-2xl animate-in fade-in duration-150 space-y-3 shadow-inner">
                 <p className="text-[10px] font-black text-cyan-400 uppercase tracking-wider">🎯 กดส่งรหัสคำขอด่วน เพื่อให้กะพริบแจ้งเตือนที่จอผู้กำกับเวที (SM):</p>
@@ -311,5 +308,14 @@ export default function EmceeShowtimeScriptPrompter() {
 
       </div>
     </div>
+  );
+}
+
+// 2. Component หลักที่ห่อหุ้มด้วย Suspense เพื่อแก้บั๊กตอน Build
+export default function EmceeShowtimeScriptPrompter() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#020617] text-white flex items-center justify-center font-mono">Loading Script Prompter...</div>}>
+      <EmceeShowtimeScriptContent />
+    </Suspense>
   );
 }

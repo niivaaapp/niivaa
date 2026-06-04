@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Sliders, Loader2, ArrowLeft, Armchair, Check, X, RefreshCw, Search, Trash2, ArrowRightLeft, UserCheck } from 'lucide-react';
@@ -21,7 +21,8 @@ interface SeatAssignment {
   live_presence: 'pending' | 'arrived' | 'seated' | 'away';
 }
 
-export default function DynamicMultiZoneSeatingPlanner() {
+// 1. แยกเนื้อหาหลักออกมาเป็น Component ย่อย
+function SeatingPlannerContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const eventId = searchParams.get('event_id') || 'current';
@@ -502,5 +503,14 @@ export default function DynamicMultiZoneSeatingPlanner() {
       )}
       
     </div>
+  );
+}
+
+// 2. Component หลักที่ห่อหุ้มด้วย Suspense เพื่อแก้บั๊กตอน Build
+export default function DynamicMultiZoneSeatingPlanner() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#0c1633] flex items-center justify-center text-white font-mono">Loading Seating Planner...</div>}>
+      <SeatingPlannerContent />
+    </Suspense>
   );
 }

@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { Search, QrCode, PlusCircle, MessageSquare, ScrollText, Radio, Users, Loader2, X, Save, Send, ImagePlus, CheckCircle2 } from 'lucide-react';
+import { Search,CheckCircle2,QrCode, PlusCircle, MessageSquare, ScrollText, Radio, Users, Loader2, X, Save, Send, ImagePlus, Gift, Filter } from 'lucide-react';
 
 interface Attendee {
   id: string;
@@ -11,12 +11,22 @@ interface Attendee {
   fullname: string;
   position: string;
   organization: string;
-  phone: string;
+  contact_info?: string;
+  phone?: string;
   attendee_type: string;
   created_at: string;
+  // ฟิลด์ใหม่ที่เพิ่มเข้ามา
+  bio_note?: string;
+  role_in_event?: string;
+  gift_number?: string;
+  gift_style?: string;
+  status?: string;
+  special_act1?: string;
+  special_act2?: string;
 }
 
-export default function AttendeesReportPage() {
+// 1. แยกเนื้อหาหลักออกมาเป็น Component ย่อย
+function AttendeesReportContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const eventId = searchParams.get('event_id') || 'current';
@@ -29,6 +39,16 @@ export default function AttendeesReportPage() {
   const [filteredAttendees, setFilteredAttendees] = useState<Attendee[]>([]);
   const [selectedAttendee, setSelectedAttendee] = useState<Attendee | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // 🎛️ Toggle States
+  const [showGift, setShowGift] = useState(false);
+  const [filterMode, setFilterMode] = useState<number>(0); // 0:VIP, 1:Staff, 2:Act1, 3:Act2
+  const filterLabels = [
+    { id: 'VIP', label: '🌟 กรอง: เฉพาะ VIP' },
+    { id: 'Staff', label: '🎧 กรอง: เฉพาะ Staff' },
+    { id: 'Act1', label: '🎭 กรอง: Special Act 1' },
+    { id: 'Act2', label: '🎬 กรอง: Special Act 2' }
+  ];
 
   // 🎛️ Modal States (ระบบควบคุมการเปิด-ปิดหน้าต่าง Pop-up)
   const [showAddModal, setShowAddModal] = useState(false);
@@ -61,8 +81,7 @@ export default function AttendeesReportPage() {
       if (error) console.error("Fetch Error:", error);
       else if (data) {
         setAttendees(data);
-        setFilteredAttendees(data);
-        if (data.length > 0 && !selectedAttendee) setSelectedAttendee(data[0]);
+        // การตั้งค่าเริ่มต้นตอนโหลดเสร็จ จะถูกจัดการใน useEffect ของ Search Logic
       }
     } catch (err) { console.error("System Error:", err); }
     setLoading(false);
@@ -70,16 +89,41 @@ export default function AttendeesReportPage() {
 
   useEffect(() => { fetchAttendees(); }, []);
 
-  // Search Logic
+  // 🔍 Search & Filter Logic (รวม 2 เงื่อนไขเข้าด้วยกัน)
   useEffect(() => {
-    if (!searchTerm.trim()) { setFilteredAttendees(attendees); return; }
-    const keyword = searchTerm.toLowerCase().replace(/\s+/g, '');
-    const filtered = attendees.filter(a => {
-      const combined = `${a.prefix || ''}${a.fullname || ''}${a.organization || ''}`.toLowerCase().replace(/\s+/g, '');
-      return combined.includes(keyword);
-    });
-    setFilteredAttendees(filtered);
-  }, [searchTerm, attendees]);
+    let result = attendees;
+
+    // 1. กรองตามหมวดหมู่ (Toggle 2)
+    if (filterMode === 0) {
+      result = result.filter(a => a.attendee_type?.toUpperCase() === 'VIP');
+    } else if (filterMode === 1) {
+      result = result.filter(a => a.attendee_type?.toUpperCase() === 'STAFF' || a.attendee_type === 'Staff');
+    } else if (filterMode === 2) {
+      result = result.filter(a => a.special_act1 && a.special_act1.trim() !== '');
+    } else if (filterMode === 3) {
+      result = result.filter(a => a.special_act2 && a.special_act2.trim() !== '');
+    }
+
+    // 2. กรองตามคำค้นหา (Search Box)
+    if (searchTerm.trim()) {
+      const keyword = searchTerm.toLowerCase().replace(/\s+/g, '');
+      result = result.filter(a => {
+        const combined = `${a.prefix || ''}${a.fullname || ''}${a.organization || ''}`.toLowerCase().replace(/\s+/g, '');
+        return combined.includes(keyword);
+      });
+    }
+
+    setFilteredAttendees(result);
+    // อัปเดตคนที่ถูกเลือกให้สัมพันธ์กับรายการที่กรอง (ถ้ามีรายการ)
+    if (result.length > 0 && !result.find(r => r.id === selectedAttendee?.id)) {
+      setSelectedAttendee(result[0]);
+    } else if (result.length === 0) {
+      setSelectedAttendee(null);
+    }
+  }, [searchTerm, attendees, filterMode]);
+
+  // ฟังก์ชันสลับกลุ่มกรอง
+  const handleCycleFilter = () => setFilterMode(prev => (prev + 1) % 4);
 
   // 💾 ฟังก์ชันบันทึกรายชื่อใหม่ลงฐานข้อมูล
   const handleSaveNewAttendee = async (e: React.FormEvent) => {
@@ -98,15 +142,8 @@ export default function AttendeesReportPage() {
       alert("✅ บันทึกรายชื่อใหม่สำเร็จ!");
       setShowAddModal(false);
 
-      // 🎯 แก้ไขตรงนี้: เปลี่ยน phone เป็น contact_info ให้ตรงกับ State ต้นทาง
       setFormData({
-        prefix: '',
-        fullname: '',
-        position: '',
-        organization: '',
-        contact_info: '',
-        attendee_type: 'VIP',
-        priority_level: 50
+        prefix: '', fullname: '', position: '', organization: '', contact_info: '', attendee_type: 'VIP', priority_level: 50
       });
 
       fetchAttendees(); // รีเฟรชตาราง
@@ -121,13 +158,11 @@ export default function AttendeesReportPage() {
     if (!smsData.message) return alert("กรุณาพิมพ์ข้อความก่อนส่งครับ");
 
     try {
-      // อัปเดตข้อความลงตาราง screen_state (สมมติให้คอลัมน์ sm_urgent_alert เป็นตัวรับข้อความด่วน)
       const payload = `${smsData.message} ${smsData.imageUrl ? '| IMG: ' + smsData.imageUrl : ''}`;
-
       const { error } = await supabase
         .from('screen_state')
         .update({ sm_urgent_alert: payload })
-        .eq('id', 'current'); // อิงตาม id ของตารางควบคุมกลางที่พี่มี
+        .eq('id', 'current'); 
 
       if (error) throw error;
 
@@ -170,15 +205,25 @@ export default function AttendeesReportPage() {
         {/* ⬅️ คอลัมน์ซ้าย: กล่องพรีวิวข้อมูล & เครื่องมือด่วน */}
         <div className="w-full md:w-1/3 flex flex-col gap-4 shrink-0">
 
+          {/* 🎛️ ปุ่ม Toggle เครื่องมือพิเศษ */}
+          <div className="flex gap-2">
+            <button onClick={handleCycleFilter} className="flex-1 bg-zinc-900 hover:bg-zinc-800 border border-cyan-500/30 text-cyan-400 font-bold text-xs py-2 rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5">
+              <Filter size={14} /> {filterLabels[filterMode].label}
+            </button>
+            <button onClick={() => setShowGift(!showGift)} className={`px-4 bg-zinc-900 border text-xs font-bold rounded-xl transition-all shadow-md flex items-center gap-1.5 ${showGift ? 'border-pink-500/50 text-pink-400' : 'border-white/10 text-zinc-400 hover:bg-zinc-800'}`}>
+              <Gift size={14} /> {showGift ? 'ซ่อน Gift' : 'โชว์ Gift'}
+            </button>
+          </div>
+
           {/* Detail Box */}
-          <div className="bg-zinc-900/50 backdrop-blur-md border border-white/10 rounded-2xl p-6 shadow-xl flex flex-col h-64 relative overflow-hidden group">
+          <div className="bg-zinc-900/50 backdrop-blur-md border border-white/10 rounded-2xl p-6 shadow-xl flex flex-col h-[22rem] relative overflow-hidden group">
             <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-600/10 rounded-full blur-3xl"></div>
-            <h2 className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-4 border-b border-white/5 pb-2">
+            <h2 className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-4 border-b border-white/5 pb-2 shrink-0">
               🔍 ข้อมูลบุคคลเชิงลึก (คลิกที่ตารางเพื่อดู)
             </h2>
 
             {selectedAttendee ? (
-              <div className="flex flex-col gap-2 z-10">
+              <div className="flex flex-col gap-2 z-10 overflow-y-auto custom-scrollbar pr-2">
                 <div className="text-sm">
                   <span className="text-zinc-400 mr-2">ลำดับที่:</span>
                   <span className="font-mono text-white font-bold bg-white/10 px-2 py-0.5 rounded">{selectedAttendee.id.substring(0, 8)}...</span>
@@ -187,18 +232,43 @@ export default function AttendeesReportPage() {
                   <span className="text-zinc-300 text-lg mr-1">{selectedAttendee.prefix || ''}</span>
                   <span className="text-cyan-400">{selectedAttendee.fullname || 'ไม่ระบุชื่อ'}</span>
                 </div>
-                <div className="text-sm mt-2 flex items-start gap-2">
-                  <span className="text-zinc-400 w-16 shrink-0">ตำแหน่ง:</span>
+                
+                <div className="text-sm mt-3 flex items-start gap-2">
+                  <span className="text-zinc-400 w-16 shrink-0 mt-0.5">ตำแหน่ง:</span>
                   <span className="text-amber-400 font-bold">{selectedAttendee.position || '-'}</span>
                 </div>
                 <div className="text-sm flex items-start gap-2">
-                  <span className="text-zinc-400 w-16 shrink-0">หน่วยงาน:</span>
+                  <span className="text-zinc-400 w-16 shrink-0 mt-0.5">หน่วยงาน:</span>
                   <span className="text-purple-400 font-bold">{selectedAttendee.organization || '-'}</span>
                 </div>
+                
+                {/* ข้อมูลที่เพิ่มใหม่ */}
                 <div className="text-sm flex items-start gap-2">
-                  <span className="text-zinc-400 w-16 shrink-0">ประเภท:</span>
-                  <span className="text-emerald-400 font-bold uppercase tracking-wider bg-emerald-900/30 px-2 rounded">{selectedAttendee.attendee_type || '-'}</span>
+                  <span className="text-zinc-400 w-16 shrink-0 mt-0.5">บทบาท:</span>
+                  <span className="text-blue-400 font-bold">{selectedAttendee.role_in_event || '-'}</span>
                 </div>
+                <div className="text-sm flex items-start gap-2">
+                  <span className="text-zinc-400 w-16 shrink-0 mt-0.5">ประวัติ:</span>
+                  <span className="text-emerald-400 font-bold whitespace-pre-wrap">{selectedAttendee.bio_note || '-'}</span>
+                </div>
+
+                {/* กล่องแสดงของที่ระลึก (Toggle 1) */}
+                {showGift && (
+                  <div className="mt-3 p-3 bg-pink-950/20 rounded-xl border border-pink-500/20 flex flex-col gap-1.5 animate-in fade-in zoom-in-95">
+                    <div className="flex items-center gap-2 border-b border-pink-500/10 pb-1.5 mb-1">
+                      <Gift size={14} className="text-pink-400" />
+                      <span className="text-xs font-black text-pink-400 uppercase tracking-widest">GIFT ASSIGNMENT</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-zinc-400 text-xs">Number:</span>
+                      <span className="text-yellow-400 font-mono font-black text-base bg-black/40 px-2 py-0.5 rounded">{selectedAttendee.gift_number || 'ไม่มีระบุ'}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-zinc-400 text-xs">Style:</span>
+                      <span className="text-pink-300 font-bold">{selectedAttendee.gift_style || '-'}</span>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="flex-1 flex items-center justify-center text-zinc-600 font-bold text-sm">
@@ -241,10 +311,10 @@ export default function AttendeesReportPage() {
           </div>
         </div>
 
-        {/* ➡️ คอลัมน์ขวา: ตารางรายชื่อ (Data Table) */}
+        {/* ➡️ คอลัมน์ขวา: ตารางรายชื่อ (Data Table - ปรับให้เลื่อนแนวนอน และล็อกหัวตารางได้) */}
         <div className="w-full md:w-2/3 bg-zinc-950/80 backdrop-blur-xl border border-white/10 rounded-2xl flex flex-col shadow-2xl overflow-hidden">
 
-          <div className="p-4 md:p-5 border-b border-white/10 flex flex-col sm:flex-row justify-between items-center gap-4 bg-zinc-900/30">
+          <div className="p-4 md:p-5 border-b border-white/10 flex flex-col sm:flex-row justify-between items-center gap-4 bg-zinc-900/30 shrink-0">
             <div className="flex items-center bg-black/50 border border-white/10 rounded-xl px-3 py-2 w-full sm:w-72 focus-within:border-cyan-500 transition-colors">
               <Search className="text-zinc-500 mr-2 shrink-0" size={16} />
               <input
@@ -255,43 +325,66 @@ export default function AttendeesReportPage() {
 
             <div className="flex items-center gap-2 bg-cyan-950/30 border border-cyan-500/30 px-4 py-2 rounded-xl shrink-0">
               <Users size={16} className="text-cyan-400" />
-              <span className="text-xs font-bold text-zinc-300">จำนวนในระบบขณะนี้:</span>
+              <span className="text-xs font-bold text-zinc-300">จำนวนในกลุ่มนี้:</span>
               <span className="text-lg font-black text-cyan-400 leading-none">{filteredAttendees.length}</span>
               <span className="text-xs font-bold text-zinc-500">ท่าน</span>
             </div>
           </div>
 
-          <div className="flex-1 overflow-auto custom-scrollbar">
+          {/* 🎯 ส่วนคอนเทนเนอร์หลักที่ควบคุม Scroll 2 แกน */}
+          <div className="flex-1 overflow-auto custom-scrollbar relative">
             {loading ? (
-              <div className="h-full flex items-center justify-center text-cyan-500"><Loader2 className="animate-spin mr-2" size={24} /> กำลังโหลดข้อมูล...</div>
+              <div className="absolute inset-0 flex items-center justify-center text-cyan-500 bg-zinc-950/50 z-20"><Loader2 className="animate-spin mr-2" size={24} /> กำลังโหลดข้อมูล...</div>
             ) : (
-              <table className="w-full text-left border-collapse text-sm min-w-[800px]">
-                <thead className="sticky top-0 bg-zinc-900/95 backdrop-blur z-10 border-b border-white/10 shadow-sm text-xs font-black text-zinc-400 uppercase tracking-wider">
+              <table className="w-full text-left border-collapse text-sm min-w-max">
+                <thead className="sticky top-0 bg-zinc-900/95 backdrop-blur-md z-10 shadow-md text-xs font-black text-zinc-400 uppercase tracking-wider">
                   <tr>
-                    <th className="p-4 w-16 text-center">ลำดับ</th>
-                    <th className="p-4">คำนำหน้า</th>
-                    <th className="p-4">ชื่อ - นามสกุล</th>
-                    <th className="p-4">ตำแหน่ง</th>
-                    <th className="p-4">หน่วยงาน</th>
-                    <th className="p-4">ประเภท</th>
+                    {/* หัวตารางมีการเพิ่ม whitespace-nowrap เพื่อไม่ให้ข้อความตกบรรทัด และดันตารางให้กว้างขึ้น */}
+                    <th className="p-4 w-16 text-center border-b border-white/10">ลำดับ</th>
+                    <th className="p-4 whitespace-nowrap border-b border-white/10">คำนำหน้า</th>
+                    <th className="p-4 whitespace-nowrap border-b border-white/10">ชื่อ - นามสกุล</th>
+                    <th className="p-4 whitespace-nowrap border-b border-white/10">ตำแหน่ง</th>
+                    <th className="p-4 whitespace-nowrap border-b border-white/10">หน่วยงาน</th>
+                    <th className="p-4 whitespace-nowrap border-b border-white/10">บทบาทในงาน</th>
+                    <th className="p-4 min-w-[200px] border-b border-white/10">เกียรติประวัติ (Bio Note)</th>
+                    <th className="p-4 whitespace-nowrap border-b border-white/10 text-center">Gift No.</th>
+                    <th className="p-4 whitespace-nowrap border-b border-white/10 text-center">Gift Style</th>
+                    <th className="p-4 whitespace-nowrap border-b border-white/10 text-center">สถานะ</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
                   {filteredAttendees.length > 0 ? (
                     filteredAttendees.map((att, index) => (
                       <tr key={att.id} onClick={() => setSelectedAttendee(att)} className={`cursor-pointer transition-colors group ${selectedAttendee?.id === att.id ? 'bg-cyan-900/20 border-l-2 border-cyan-400' : 'hover:bg-white/5 border-l-2 border-transparent'}`}>
-                        <td className="p-4 text-center font-mono text-zinc-500">{index + 1}</td>
-                        <td className="p-4 text-zinc-400">{att.prefix || '-'}</td>
-                        <td className={`p-4 font-bold ${selectedAttendee?.id === att.id ? 'text-cyan-400' : 'text-zinc-200 group-hover:text-white'}`}>{att.fullname}</td>
-                        <td className="p-4 text-amber-200/70">{att.position || '-'}</td>
-                        <td className="p-4 text-purple-300/70">{att.organization || '-'}</td>
-                        <td className="p-4">
-                          <span className="bg-zinc-800 text-zinc-300 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider">{att.attendee_type || '-'}</span>
+                        <td className="p-4 text-center font-mono text-zinc-500 whitespace-nowrap">{index + 1}</td>
+                        <td className="p-4 text-zinc-400 whitespace-nowrap">{att.prefix || '-'}</td>
+                        <td className={`p-4 font-bold whitespace-nowrap ${selectedAttendee?.id === att.id ? 'text-cyan-400' : 'text-zinc-200 group-hover:text-white'}`}>{att.fullname}</td>
+                        <td className="p-4 text-amber-200/70 whitespace-nowrap">{att.position || '-'}</td>
+                        <td className="p-4 text-purple-300/70 whitespace-nowrap">{att.organization || '-'}</td>
+                        
+                        {/* ข้อมูลใหม่ในตาราง */}
+                        <td className="p-4 text-blue-300/80 whitespace-nowrap">{att.role_in_event || '-'}</td>
+                        <td className="p-4 text-emerald-200/70 text-xs">
+                          <div className="line-clamp-2 max-w-sm" title={att.bio_note}>{att.bio_note || '-'}</div>
+                        </td>
+                        <td className="p-4 text-center text-yellow-400 font-mono font-bold whitespace-nowrap">{att.gift_number || '-'}</td>
+                        <td className="p-4 text-center text-pink-300/70 whitespace-nowrap">{att.gift_style || '-'}</td>
+                        
+                        <td className="p-4 text-center whitespace-nowrap">
+                          {att.status === 'arrived' ? (
+                            <span className="bg-emerald-900/50 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1 w-fit mx-auto">
+                              <CheckCircle2 size={12} /> มาถึงแล้ว
+                            </span>
+                          ) : (
+                            <span className="bg-zinc-800 text-zinc-400 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider w-fit mx-auto block">
+                              {att.status || 'รอยืนยัน'}
+                            </span>
+                          )}
                         </td>
                       </tr>
                     ))
                   ) : (
-                    <tr><td colSpan={6} className="p-10 text-center text-zinc-500 font-bold">ไม่พบข้อมูลรายชื่อในระบบ</td></tr>
+                    <tr><td colSpan={10} className="p-16 text-center text-zinc-500 font-bold bg-black/20">ไม่พบข้อมูลรายชื่อในกลุ่มนี้</td></tr>
                   )}
                 </tbody>
               </table>
@@ -342,7 +435,6 @@ export default function AttendeesReportPage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-zinc-400">เบอร์โทรศัพท์ (Phone)</label>
-                  {/* 🎯 แก้ไข phone เป็น contact_info ใน onChange */}
                   <input type="text" value={formData.contact_info} onChange={e => setFormData({ ...formData, contact_info: e.target.value })} placeholder="08X-XXX-XXXX" className="w-full bg-zinc-900 border border-white/10 rounded-xl p-3 text-sm text-white focus:border-cyan-500 outline-none font-mono" />
                 </div>
                 <div className="space-y-1">
@@ -381,7 +473,6 @@ export default function AttendeesReportPage() {
             <h3 className="font-black text-2xl text-zinc-900 mb-1">จุดลงทะเบียนออนไลน์</h3>
             <p className="text-xs text-zinc-500 font-bold mb-6">สแกน QR Code เพื่อกรอกข้อมูลเข้างานด้วยโทรศัพท์ของท่าน</p>
 
-            {/* จำลองสร้าง QR Code จาก API ฟรี โดยฝังลิงก์ URL ปัจจุบันต่อท้ายด้วย /register */}
             <div className="p-4 border-4 border-dashed border-zinc-200 rounded-3xl mb-6 bg-white">
               <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent('https://niivaa.com/register')}`} alt="Register QR Code" className="w-48 h-48 mix-blend-multiply" />
             </div>
@@ -423,5 +514,14 @@ export default function AttendeesReportPage() {
       )}
 
     </div>
+  );
+}
+
+// 2. Component หลักที่ห่อหุ้มด้วย Suspense เพื่อแก้บั๊กตอน Build
+export default function AttendeesReportPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#0a1128] flex items-center justify-center text-cyan-400 font-mono">Loading Attendees Page...</div>}>
+      <AttendeesReportContent />
+    </Suspense>
   );
 }

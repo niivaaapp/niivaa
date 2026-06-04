@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import {
@@ -2660,19 +2660,18 @@ export default function SeminarUltimateAdvancePreparationPage() {
                         </div>
                       </div>
 
-                      {/* 💾 ปุ่มบันทึกสไตล์ Dark Metallic เข้มด้าน */}
+                      {/* 💾 ปุ่มบันทึกสไตล์ Dark Metallic เข้มด้าน (ฉบับสมบูรณ์) */}
                       <button
                         type="button"
                         onClick={async () => {
                           try {
-                            if (!eventId) { alert('⚠️ ไม่พบ ID ของงานสัมมนา กรุณาสร้างงานใหม่ก่อนครับ'); return; }
+                            if (!eventId || eventId === 'current') { alert('⚠️ ไม่พบ ID ของงานสัมมนา กรุณาสร้างงานใหม่ก่อนครับ'); return; }
 
                             const mDate = (document.getElementById('v11_meal_date') as HTMLInputElement).value;
                             const mType = (document.getElementById('v11_meal_type') as HTMLInputElement).value;
-
                             if (!mType.trim()) { alert('⚠️ กรุณาระบุ "มื้ออาหาร" ก่อนบันทึกครับ'); return; }
 
-                            const { error: mealErr } = await supabase.from('event_meals').insert({
+                            const mealPayload = {
                               event_id: eventId,
                               meal_name: mType,
                               meal_date: mDate || null,
@@ -2682,14 +2681,59 @@ export default function SeminarUltimateAdvancePreparationPage() {
                               grid_cols: roomSetup.cols,
                               total_tables: roomSetup.tables,
                               seats_per_table: roomSetup.seats
-                            });
-                            if (mealErr) throw mealErr;
+                            };
 
+                            // 1. เช็คว่ามีมื้ออาหารของงานนี้สร้างไว้หรือยัง
+                            const { data: existingMeal } = await supabase.from('event_meals').select('id').eq('event_id', eventId).maybeSingle();
+                            
+                            let mealId;
+                            if (existingMeal) {
+                              // ถ้ามีแล้ว ให้อัปเดต
+                              const { data, error } = await supabase.from('event_meals').update(mealPayload).eq('id', existingMeal.id).select().single();
+                              if (error) throw error;
+                              mealId = data.id;
+                            } else {
+                              // ถ้ายังไม่มี ให้สร้างใหม่
+                              const { data, error } = await supabase.from('event_meals').insert(mealPayload).select().single();
+                              if (error) throw error;
+                              mealId = data.id;
+                            }
+
+                            // 2. ล้างโต๊ะเก่าทิ้ง (รีเซ็ตผัง) และสร้างอาร์เรย์โต๊ะใหม่
+                            await supabase.from('event_meal_tables').delete().eq('meal_id', mealId);
+
+                            const tablesToInsert = [];
+                            for (let i = 0; i < roomSetup.tables; i++) {
+                              const r = Math.floor(i / roomSetup.cols);
+                              const s = i % roomSetup.cols;
+                              
+                              let gName = "";
+                              let stat = "empty";
+                              if (i <= 9) { gName = "คณะผู้บริหาร สพม. (VIP)"; stat = "confirmed"; }
+                              else if (i <= 24) { gName = `โรงเรียนเครือข่ายกลุ่มพิกัดเซ็ตที่ ${r + 1}`; stat = "reserved"; }
+                              else if (i === 44) { gName = "ทีมงานจัดแสงสีเสียงสตาฟ"; stat = "confirmed"; }
+
+                              tablesToInsert.push({
+                                meal_id: mealId,
+                                table_number: i + 1,
+                                group_name: gName,
+                                status: stat,
+                                grid_row_index: r,
+                                grid_col_index: s,
+                                table_capacity: roomSetup.seats
+                              });
+                            }
+
+                            // 3. ยิงข้อมูลโต๊ะรายตัวเข้าตารางลูก
+                            const { error: tableErr } = await supabase.from('event_meal_tables').insert(tablesToInsert);
+                            if (tableErr) throw tableErr;
+
+                            // 4. อัปเดตสถานะ Dashboard
                             const safeEvent = typeof projectInfo !== 'undefined' ? projectInfo : {};
                             const currentStatus = (safeEvent as any)?.departments_status || {};
                             await supabase.from('events').update({ departments_status: { ...currentStatus, dept_11: 'ready' } }).eq('id', eventId);
 
-                            alert('🎉 บันทึกข้อมูลมื้อจัดเลี้ยงพิกัดแมทริกซ์เรียบร้อย และส่งไฟสถานะ 🟢 ขึ้น Dashboard สำเร็จแล้วครับ!');
+                            alert('🎉 บันทึกผังโต๊ะสมบูรณ์! ลองเปิดหน้า Service Control Room ดูได้เลยครับ');
                           } catch (err: any) { alert('❌ เกิดข้อผิดพลาดในการบันทึก: ' + err.message); }
                         }}
                         className="w-full px-5 py-2.5 bg-gradient-to-b from-zinc-700 to-zinc-900 text-zinc-200 font-bold rounded-lg text-[10px] sm:text-xs border border-zinc-600 shadow-[0_4px_10px_rgba(0,0,0,0.6)] transition-all hover:bg-zinc-800 hover:scale-[1.02] cursor-pointer flex justify-center items-center gap-1.5"

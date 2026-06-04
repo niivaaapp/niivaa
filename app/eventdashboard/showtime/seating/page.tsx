@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect,Suspense} from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Search, MapPin, Armchair, ShieldCheck, AlertCircle } from 'lucide-react';
@@ -20,7 +20,7 @@ interface SeatAssignment {
   live_presence: 'pending' | 'arrived' | 'seated' | 'away';
 }
 
-export default function GuestSeatingView() {
+function StageManagerContent() {
   const searchParams = useSearchParams();
   const eventId = searchParams.get('event_id') || 'current';
 
@@ -310,5 +310,13 @@ export default function GuestSeatingView() {
       </div>
       
     </div>
+  );
+}
+// 3. เพิ่มฟังก์ชันนี้ไปที่บรรทัดสุดท้ายของไฟล์เพื่อเป็นตัวเปิดหลัก
+export default function StageManagerMasterDashboard() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#020617] flex items-center justify-center text-cyan-500">Loading Dashboard...</div>}>
+      <StageManagerContent />
+    </Suspense>
   );
 }
