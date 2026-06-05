@@ -970,142 +970,135 @@ useEffect(() => {
                 )}
               </div>
 
-              {/* 💿 Playlist Selection Section */}
-           {/* ส่วนหัว: รวม Label และ ปุ่มสร้างใหม่ ไว้ในบรรทัดเดียวกัน */}
-  <div className="flex justify-between items-end mb-2">
-    <label className="text-[9px] font-black text-cyan-400/40 uppercase tracking-widest leading-none">
-      Select Playlist
-    </label>
+             {/* 💿 Playlist Selection Section */}
+             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-2 gap-2">
+                <label className="text-[9px] font-black text-cyan-400/40 uppercase tracking-widest leading-none">
+                  Select Playlist
+                </label>
 
-    <Link href="/create-playlist">
-      <button className="flex items-center gap-1.5 text-[10px] font-bold text-cyan-400 hover:text-white transition-all bg-white/5 hover:bg-cyan-500/20 px-3 py-1 rounded-lg border border-white/10 hover:border-cyan-500/50 shadow-lg">
-        <Plus size={12} strokeWidth={3} />
-        CREATE PLAYLIST[สร้างชุดเพลงใหม่]
-      </button>
-    </Link>
-  </div>
-                <div className="relative">
-                  <select
-                    value={playlistId}
-                    onChange={(e) => router.push(`/playlist/${e.target.value}`)}
-                    className="w-full bg-[#001a33] border border-white/10 p-4 rounded-2xl text-cyan-400 font-bold outline-none text-sm appearance-none cursor-pointer hover:border-cyan-400/30 transition-all"
-                  >
-                    {allPlaylists.map(p => (
-                      <option key={p.id} value={p.id}>
-                        {p.name} ({p.tracks_count || 0} เพลง)
-                      </option>
-                    ))}
-                  </select>
+                <Link href="/create-playlist">
+                  <button className="flex items-center gap-1.5 text-[9px] sm:text-[10px] font-bold text-cyan-400 hover:text-white transition-all bg-white/5 hover:bg-cyan-500/20 px-2 py-1 sm:px-3 sm:py-1 rounded-lg border border-white/10 hover:border-cyan-500/50 shadow-lg whitespace-nowrap">
+                    <Plus size={12} strokeWidth={3} />
+                    <span className="hidden xs:inline">CREATE PLAYLIST</span>
+                    <span className="xs:hidden">CREATE</span>
+                  </button>
+                </Link>
+              </div>
 
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-cyan-400 pointer-events-none" size={16} />
-                </div>
-              
+              <div className="relative mb-4">
+                <select
+                  value={playlistId}
+                  onChange={(e) => router.push(`/playlist/${e.target.value}`)}
+                  className="w-full bg-[#001a33] border border-white/10 p-3 sm:p-4 rounded-2xl text-cyan-400 font-bold outline-none text-sm appearance-none cursor-pointer hover:border-cyan-400/30 transition-all"
+                >
+                  {allPlaylists.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} ({p.tracks_count || 0} เพลง)
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-cyan-400 pointer-events-none" size={16} />
+              </div>
 
-              
- {/* 3. QUEUE LIST (Sticky Play, Double Click, Drag & Drop) */}
-<div className="flex-1 overflow-y-auto custom-scrollbar pr-1 pb-24 space-y-2">
-  {tracks
-    .filter(t => {
-      const isK = t.master_songs?.title.toLowerCase().includes('karaoke') || t.master_songs?.title.includes('คาราโอเกะ');
-      return (isKaraokeMode || isListeningMode) ? isK : true;
-    })
-    .map((track, i) => {
-      const isPlaying = track.video_id === currentVideoId;
-      return (
-        <div
-          key={track.id}
-          draggable
-          onDoubleClick={async () => {
-            // 1. สั่งเล่นเพลงในหน้าจอหลัก
-            startApp(track.video_id, true);
-
-            // 2. ส่งสัญญาณ Sync ไปที่ตาราง current_playing
-            try {
-              await supabase
-                .from('current_playing')
-                .update({ 
-                  video_id: track.video_id, 
-                  title: track.master_songs?.title || 'Unknown Title',
-                  updated_at: new Date().toISOString() 
-                })
-                .eq('id', 1);
-              console.log("📡 Sync Success:", track.master_songs?.title);
-            } catch (err) {
-              console.error("❌ Sync Error:", err);
-            }
-          }}
-          onDragStart={(e) => {
-            e.dataTransfer.setData('trackId', track.id);
-            e.dataTransfer.setData('draggedIndex', i.toString());
-          }}
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => {
-            e.preventDefault();
-            handleReorder(parseInt(e.dataTransfer.getData('draggedIndex')), i);
-          }}
-          className={`flex items-center gap-3 p-3 rounded-2xl border transition-all duration-300 cursor-pointer ${
-            isPlaying
-              ? 'bg-green-900/60 border-green-400 shadow-[0_0_20px_rgba(74,222,128,0.7)] sticky top-0 z-20 scale-[1.02]'
-              : 'bg-white/5 border-transparent hover:bg-white/10'
-          }`}
-        >
-          {/* 1. เลขคิว */}
-          <div className={`w-6 text-center font-black text-[11px] drop-shadow-[0_0_8px_rgba(34,211,238,0.8)] ${
-            isPlaying ? 'text-white' : 'text-cyan-400'
-          }`}>
-            {isPlaying ? '▶️' : i}
-          </div>
-
-          {/* 2. รูปหน้าปก */}
-          <img 
-            src={track.master_songs?.thumbnail_url} 
-            className="w-10 h-10 rounded-xl object-cover shrink-0" 
-            alt="" 
-          />
-
-          {/* 3. ชื่อเพลง */}
-          <div className="flex-1 overflow-hidden">
-            <p className="text-[11px] font-bold truncate text-white/90">
-              {track.master_songs?.title}
-            </p>
-            {track.category && (
-              <span className="text-[8px] bg-cyan-400/20 text-cyan-400 px-1.5 py-0.5 rounded uppercase font-black tracking-tighter">
-                {track.category}
-              </span>
-            )}
-          </div>
-
-          {/* 4. S M E Status (ส่วนที่เคย Error เพราะหา track ไม่เจอ) */}
-          <div className="flex gap-1 shrink-0">
-             {track.start_time > 0 && <span className="bg-green-500 text-[8px] px-1 rounded text-white font-black shadow-[0_0_5px_#22c55e]">S</span>}
-                          {track.end_time > 0 && <span className="bg-red-500 text-[8px] px-1 rounded text-white font-black shadow-[0_0_5px_#ef4444]">E</span>}
-                          {track.skip_start > 0 && <span className="bg-yellow-500 text-black text-[8px] px-1 rounded font-black">M</span>}
+              {/* 3. QUEUE LIST (ปรับปรุงให้รองรับมือถือ) */}
+              <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 pb-24 space-y-2">
+                {tracks
+                  .filter(t => {
+                    const isK = t.master_songs?.title.toLowerCase().includes('karaoke') || t.master_songs?.title.includes('คาราโอเกะ');
+                    return (isKaraokeMode || isListeningMode) ? isK : true;
+                  })
+                  .map((track, i) => {
+                    const isPlaying = track.video_id === currentVideoId;
+                    return (
+                      <div
+                        key={track.id}
+                        draggable
+                        onDoubleClick={async () => {
+                          startApp(track.video_id, true);
+                          try {
+                            await supabase.from('current_playing').update({ 
+                              video_id: track.video_id, 
+                              title: track.master_songs?.title || 'Unknown Title',
+                              updated_at: new Date().toISOString() 
+                            }).eq('id', 1);
+                          } catch (err) { console.error(err); }
+                        }}
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData('trackId', track.id);
+                          e.dataTransfer.setData('draggedIndex', i.toString());
+                        }}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          handleReorder(parseInt(e.dataTransfer.getData('draggedIndex')), i);
+                        }}
+                        className={`flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-2xl border transition-all duration-300 cursor-pointer min-w-0 ${
+                          isPlaying
+                            ? 'bg-green-900/60 border-green-400 shadow-[0_0_20px_rgba(74,222,128,0.7)] sticky top-0 z-20 scale-[1.01]'
+                            : 'bg-white/5 border-transparent hover:bg-white/10'
+                        }`}
+                      >
+                        {/* 1. เลขคิว (ย่อขนาดเล็กน้อยในมือถือ) */}
+                        <div className={`w-5 sm:w-6 text-center font-black text-[10px] sm:text-[11px] shrink-0 ${
+                          isPlaying ? 'text-white' : 'text-cyan-400'
+                        }`}>
+                          {isPlaying ? '▶️' : i}
                         </div>
 
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setEditingTrack(track); }}
-                          className="text-white/20 hover:text-cyan-400 transition-colors"
-                        >
-                          <Settings size={14} />
-                        </button>
-          
-        </div>
-      );
-    })}
-</div>
+                        {/* 2. รูปหน้าปก (เล็กลงในมือถือ) */}
+                        <img 
+                          src={track.master_songs?.thumbnail_url} 
+                          className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl object-cover shrink-0" 
+                          alt="" 
+                        />
 
-              {/* 4. TRASH ZONE (แบบเพรียว แนวนอน ประหยัดพื้นที่) */}
+                        {/* 3. ชื่อเพลง (บังคับตัดคำให้เหลือพื้นที่ให้ปุ่มทางขวา) */}
+                        <div className="flex-1 min-w-0 overflow-hidden">
+                          <p className="text-[10px] sm:text-[11px] font-bold truncate text-white/90">
+                            {track.master_songs?.title}
+                          </p>
+                          {track.category && (
+                            <span className="text-[7px] sm:text-[8px] bg-cyan-400/20 text-cyan-400 px-1 py-0.5 rounded uppercase font-black tracking-tighter inline-block">
+                              {track.category}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* 4. S M E Status และปุ่ม Settings (จับกลุ่มให้ไม่แตกแถว) */}
+                        <div className="flex items-center gap-2 shrink-0 ml-auto">
+                          <div className="flex gap-0.5">
+                            {track.start_time > 0 && <span className="bg-green-500 text-[7px] px-1 rounded text-white font-black">S</span>}
+                            {track.end_time > 0 && <span className="bg-red-500 text-[7px] px-1 rounded text-white font-black">E</span>}
+                            {track.skip_start > 0 && <span className="bg-yellow-500 text-black text-[7px] px-1 rounded font-black">M</span>}
+                          </div>
+
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setEditingTrack(track); }}
+                            className="text-white/20 hover:text-cyan-400 p-1 transition-colors shrink-0"
+                          >
+                            <Settings size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+
+              {/* 4. TRASH ZONE (แบบประหยัดพื้นที่ที่แนะนำไปก่อนหน้า) */}
+              {/* 4. TRASH ZONE (ถังขยะสีแดงกลมมุมขวาล่าง) */}
               <div
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => {
                   e.preventDefault();
                   handleRemoveTrack(e.dataTransfer.getData('trackId'));
                 }}
-                className="absolute bottom-4 left-4 right-4 bg-cyan-900/20 backdrop-blur-md border-2 border-dashed border-cyan-400/30 py-2 px-4 rounded-2xl text-center shadow-[0_0_20px_rgba(34,211,238,0.2)] hover:border-cyan-400 transition-all group cursor-pointer"
+                className="fixed bottom-4 right-4 md:absolute md:bottom-4 md:left-4 md:right-4 md:w-auto w-14 h-14 md:h-auto bg-red-950/80 backdrop-blur-xl border-2 border-dashed border-red-500/60 md:py-3 md:px-4 rounded-full md:rounded-2xl flex items-center justify-center shadow-[0_0_20px_rgba(239,68,68,0.5)] hover:border-red-400 hover:bg-red-900 transition-all group cursor-pointer z-[100]"
               >
-                <div className="flex items-center justify-center gap-3">
-                  <Trash2 size={18} className="text-cyan-400 group-hover:scale-125 transition-transform" />
-                  <span className="text-[9px] font-black text-cyan-400/60 uppercase tracking-widest">ลากมาวางเพื่อลบเพลง</span>
+                <div className="flex items-center justify-center gap-2">
+                  <Trash2 size={24} className="text-red-400 group-hover:scale-125 transition-transform shrink-0" />
+                  <span className="hidden md:inline text-xs font-black text-red-400 uppercase tracking-widest whitespace-nowrap">
+                    ลากมาวางเพื่อลบเพลง
+                  </span>
                 </div>
               </div>
 
