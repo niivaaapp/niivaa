@@ -74,6 +74,17 @@ export default function SmartKaraokePage({ params }: { params: any }) {
   const handlePlay = (track: any) => {
     setPlayingVideoId(track.video_id); // เล่นเพลงในหน้าปัจจุบัน
     triggerLyrics(track.video_id);    // ส่งสัญญาณไปที่หน้า Lyrics (Tab อื่น)
+
+    // ⚡ แทรกโค้ด Media Session API อัปเดตข้อมูลขึ้นหน้าจอล็อกมือถือ
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: track.master_songs?.title || track.title || 'NiiVaa คาราโอเกะ',
+        artist: 'NiiVaa Smart System',
+        artwork: (track.master_songs?.thumbnail_url || track.thumbnail_url) ? [
+          { src: track.master_songs?.thumbnail_url || track.thumbnail_url, sizes: '512x512', type: 'image/jpeg' }
+        ] : []
+      });
+    }
   };
 
   // ฟังก์ชันสำหรับส่งสัญญาณเปลี่ยนเพลงไปที่หน้า Lyrics อัตโนมัติ
