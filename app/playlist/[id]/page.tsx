@@ -718,13 +718,13 @@ export default function SmartKaraokePage({ params }: { params: any }) {
         )}
 
         {/* 2. MAIN LAYOUT */}
-        <div className={`flex flex-1 gap-4 p-4 overflow-hidden ${isFullscreen ? 'flex-col' : ''}`}>
-
+       {/* <div className={`flex flex-1 gap-4 p-4 overflow-hidden ${isFullscreen ? 'flex-col' : ''}`}>*/}
+<div className="flex flex-col md:flex-row gap-4 h-screen overflow-y-auto md:overflow-hidden p-2 md:p-4 ...">
           {/* --- [LEFT SIDE: VIDEO & SEARCH] --- */}
-          <section className={`flex flex-col gap-4 transition-all duration-500 ${isFullscreen ? 'flex-1 h-screen w-full fixed inset-0 z-[9999] bg-black' : 'flex-[4] h-full'}`}>
+          <section className={`flex flex-col gap-3 md:gap-4 transition-all duration-500 ${isFullscreen ? 'flex-1 h-screen w-full fixed inset-0 z-[9999] bg-black' : 'w-full lg:flex-[4] h-auto md:h-full'}`}>
 
-            {/* VIDEO CONTAINER (ฉบับอัปเดตระบบ Hybrid Player: เสถียรสูง ป้องกันปัญหาลบ Node และรองรับการค้างหน้าจอโปรโมท) */}
-            <div className={`relative bg-black overflow-hidden transition-all duration-700 ${isFullscreen ? 'h-screen w-screen' : 'h-[480px] rounded-[2rem] border-2 border-[var(--user-border)] shadow-[var(--user-glow)]'}`}>
+            {/* VIDEO CONTAINER (ปรับความสูงให้หดตัวในมือถือแนวตั้ง และขยายเท่าเดิมในจอคอม) */}
+            <div className={`relative bg-black overflow-hidden transition-all duration-700 shrink-0 ${isFullscreen ? 'h-screen w-screen' : 'h-[35vh] sm:h-[45vh] md:h-[480px] rounded-2xl md:rounded-[2rem] border-2 border-[var(--user-border)] shadow-[var(--user-glow)] w-full'}`}>
 
               {/* 🎬 1. ตู้เล่น YouTube: บังคับให้สแตนบายอยู่ใน DOM ตลอดเวลาเพื่อป้องกันระบบลบ Node พัง แต่ใช้สไตล์คุมเปิด/ปิดการมองเห็น */}
               <div
@@ -862,103 +862,103 @@ export default function SmartKaraokePage({ params }: { params: any }) {
                       </button>
 
                       {/* ปุ่มไมค์ตัวที่ 3: พูดปุ๊บเล่นปั๊บ (Instant Autoplay - สีส้มอัมพันนีออน รองรับคลัง + YouTube เต็มรูปแบบ) */}
-              <button
-                type="button"
-                onClick={async () => {
-                  const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-                  if (!SpeechRecognition) {
-                    alert("อุปกรณ์หรือเบราว์เซอร์นี้ไม่รองรับการสั่งงานด้วยเสียงครับ");
-                    return;
-                  }
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+                          if (!SpeechRecognition) {
+                            alert("อุปกรณ์หรือเบราว์เซอร์นี้ไม่รองรับการสั่งงานด้วยเสียงครับ");
+                            return;
+                          }
 
-                  const recognition = new SpeechRecognition();
-                  recognition.lang = 'th-TH';
-                  recognition.interimResults = false;
+                          const recognition = new SpeechRecognition();
+                          recognition.lang = 'th-TH';
+                          recognition.interimResults = false;
 
-                  recognition.onstart = () => {
-                    setIsInstantListening(true);
-                  };
-
-                  recognition.onresult = async (event: any) => {
-                    setIsInstantListening(false);
-                    const voiceText = event.results[0][0].transcript.trim();
-                    setQuery(voiceText); // โชว์ข้อความในช่องค้นหา
-
-                    try {
-                      // 1. ค้นหาในคลัง (Stock) ก่อน
-                      let targetSong = allMasterSongs.find(s => {
-                        const isK = s.title.includes("คาราโอเกะ") || s.title.toLowerCase().includes("karaoke");
-                        const match = s.title.toLowerCase().includes(voiceText.toLowerCase());
-                        if (isKaraokeMode) return match && isK;
-                        if (isListeningMode) return match && !isK;
-                        return match;
-                      });
-
-                      // 2. ถ้าไม่มีในคลัง ให้ไปดึงจาก YouTube
-                      if (!targetSong) {
-                        const apiKey = "AIzaSyC3SFBRAazRzbkP1COhhkyQK2JTG6wHiTg"; // 🚩 ใส่ Key จริงของพี่ตรงนี้นะครับ
-                        const searchSuffix = isKaraokeMode ? " karaoke" : "";
-                        
-                        const res = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=1&q=${encodeURIComponent(voiceText + searchSuffix)}&type=video&key=${apiKey}`);
-                        const data = await res.json();
-
-                        if (data.items && data.items.length > 0) {
-                          const item = data.items[0];
-                          targetSong = {
-                            video_id: item.id.videoId,
-                            title: item.snippet.title,
-                            thumbnail_url: item.snippet.thumbnails.default.url
+                          recognition.onstart = () => {
+                            setIsInstantListening(true);
                           };
 
-                          // 🚩 บันทึกลงคลัง Master_songs ก่อน เพื่อให้ Database ยอมให้เพิ่มคิว
-                          await supabase.from('master_songs').upsert(targetSong, { onConflict: 'video_id' });
-                        }
-                      }
+                          recognition.onresult = async (event: any) => {
+                            setIsInstantListening(false);
+                            const voiceText = event.results[0][0].transcript.trim();
+                            setQuery(voiceText); // โชว์ข้อความในช่องค้นหา
 
-                      // 3. สั่งการ (Action - เล่นทันที)
-                      if (targetSong) {
-                        // 3.1 เพิ่มเข้าคิวแบบเงียบๆ
-                        await supabase.from('tracks').insert({ playlist_id: playlistId, video_id: targetSong.video_id });
-                        
-                        // 3.2 สั่ง Player เริ่มเล่น
-                        if (typeof startApp === 'function') {
-                          startApp(targetSong.video_id, true);
-                        }
-                        
-                        // 3.3 ส่งสัญญาณ Sync ไปที่จอหลัก
-                        await supabase.from('current_playing').update({ 
-                          video_id: targetSong.video_id, 
-                          title: targetSong.title || 'Unknown Title',
-                          updated_at: new Date().toISOString() 
-                        }).eq('id', 1);
+                            try {
+                              // 1. ค้นหาในคลัง (Stock) ก่อน
+                              let targetSong = allMasterSongs.find(s => {
+                                const isK = s.title.includes("คาราโอเกะ") || s.title.toLowerCase().includes("karaoke");
+                                const match = s.title.toLowerCase().includes(voiceText.toLowerCase());
+                                if (isKaraokeMode) return match && isK;
+                                if (isListeningMode) return match && !isK;
+                                return match;
+                              });
 
-                        // เคลียร์ UI การค้นหา
-                        setResults([]);
-                        setQuery('');
-                      } else {
-                        alert(`หาเพลง "${voiceText}" ไม่เจอทั้งในคลังและบน YouTube ครับ`);
-                      }
-                    } catch (err) {
-                      console.error("Instant Voice Error:", err);
-                      alert("เกิดข้อผิดพลาดในการดึงข้อมูลจาก YouTube");
-                    }
-                  };
+                              // 2. ถ้าไม่มีในคลัง ให้ไปดึงจาก YouTube
+                              if (!targetSong) {
+                                const apiKey = "AIzaSyC3SFBRAazRzbkP1COhhkyQK2JTG6wHiTg"; // 🚩 ใส่ Key จริงของพี่ตรงนี้นะครับ
+                                const searchSuffix = isKaraokeMode ? " karaoke" : "";
 
-                  recognition.onerror = () => {
-                    setIsInstantListening(false);
-                  };
+                                const res = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=1&q=${encodeURIComponent(voiceText + searchSuffix)}&type=video&key=${apiKey}`);
+                                const data = await res.json();
 
-                  recognition.onend = () => {
-                    setIsInstantListening(false);
-                  };
+                                if (data.items && data.items.length > 0) {
+                                  const item = data.items[0];
+                                  targetSong = {
+                                    video_id: item.id.videoId,
+                                    title: item.snippet.title,
+                                    thumbnail_url: item.snippet.thumbnails.default.url
+                                  };
 
-                  recognition.start();
-                }}
-                className={`p-2 rounded-xl transition-all duration-300 ${isInstantListening ? 'bg-amber-500 text-white shadow-[0_0_20px_#f59e0b] scale-110' : 'text-amber-500/40 hover:text-amber-400'}`}
-                title="พูดชื่อเพลงแล้วเล่นทันที (ค้นหา YouTube อัตโนมัติ)"
-              >
-                <Mic size={22} className={isInstantListening ? 'animate-pulse' : ''} />
-              </button>
+                                  // 🚩 บันทึกลงคลัง Master_songs ก่อน เพื่อให้ Database ยอมให้เพิ่มคิว
+                                  await supabase.from('master_songs').upsert(targetSong, { onConflict: 'video_id' });
+                                }
+                              }
+
+                              // 3. สั่งการ (Action - เล่นทันที)
+                              if (targetSong) {
+                                // 3.1 เพิ่มเข้าคิวแบบเงียบๆ
+                                await supabase.from('tracks').insert({ playlist_id: playlistId, video_id: targetSong.video_id });
+
+                                // 3.2 สั่ง Player เริ่มเล่น
+                                if (typeof startApp === 'function') {
+                                  startApp(targetSong.video_id, true);
+                                }
+
+                                // 3.3 ส่งสัญญาณ Sync ไปที่จอหลัก
+                                await supabase.from('current_playing').update({
+                                  video_id: targetSong.video_id,
+                                  title: targetSong.title || 'Unknown Title',
+                                  updated_at: new Date().toISOString()
+                                }).eq('id', 1);
+
+                                // เคลียร์ UI การค้นหา
+                                setResults([]);
+                                setQuery('');
+                              } else {
+                                alert(`หาเพลง "${voiceText}" ไม่เจอทั้งในคลังและบน YouTube ครับ`);
+                              }
+                            } catch (err) {
+                              console.error("Instant Voice Error:", err);
+                              alert("เกิดข้อผิดพลาดในการดึงข้อมูลจาก YouTube");
+                            }
+                          };
+
+                          recognition.onerror = () => {
+                            setIsInstantListening(false);
+                          };
+
+                          recognition.onend = () => {
+                            setIsInstantListening(false);
+                          };
+
+                          recognition.start();
+                        }}
+                        className={`p-2 rounded-xl transition-all duration-300 ${isInstantListening ? 'bg-amber-500 text-white shadow-[0_0_20px_#f59e0b] scale-110' : 'text-amber-500/40 hover:text-amber-400'}`}
+                        title="พูดชื่อเพลงแล้วเล่นทันที (ค้นหา YouTube อัตโนมัติ)"
+                      >
+                        <Mic size={22} className={isInstantListening ? 'animate-pulse' : ''} />
+                      </button>
 
                     </div>
                   </div>
@@ -1198,7 +1198,7 @@ export default function SmartKaraokePage({ params }: { params: any }) {
                   })}
               </div>
 
-                  {/* 4. TRASH ZONE (ปุ่มถังขยะลอยทรงกลมเล็ก สีแดงนีออน ถาวรทุกอุปกรณ์) */}
+              {/* 4. TRASH ZONE (ปุ่มถังขยะลอยทรงกลมเล็ก สีแดงนีออน ถาวรทุกอุปกรณ์) */}
               <div
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => {
@@ -1210,8 +1210,6 @@ export default function SmartKaraokePage({ params }: { params: any }) {
               >
                 <Trash2 size={20} className="text-red-400 drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
               </div>
-              
-
             </aside>
           )}
         </div>
