@@ -901,25 +901,27 @@ export default function SmartKaraokePage({ params }: { params: any }) {
                   </div>
 
                   {/* SEARCH INPUT (Synced with Mic 1, 2 & 3) */}
-                  {/* 🎛️ CONTROL PANEL: แถบค้นหา และ ปุ่มเครื่องมือ (Responsive: มือถือ 2 แถว / คอม 1 แถว) */}
-          <div className="flex flex-wrap lg:flex-nowrap items-center gap-3 w-full animate-in fade-in duration-500">
+                {/* 🎛️ CONTROL PANEL: แยกแถบค้นหา 100% และ แถวปุ่มเครื่องมือ */}
+          <div className="flex flex-col gap-3 w-full animate-in fade-in duration-500">
             
-            {/* 🔍 [ส่วนที่ 1] กล่องค้นหา: มือถืออยู่แถวบนสุดกว้าง 100% / คอมอยู่ตรงกลางยืดหยุ่น */}
-            <div className="w-full lg:flex-1 relative order-1 lg:order-2 group">
+            {/* 🔍 [แถวที่ 1] กล่องค้นหา: บังคับกางเต็ม 100% เสมอ */}
+            <div className="w-full relative group">
               <Search className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${isListening || isSmartListening || isInstantListening ? 'text-cyan-400 animate-pulse' : 'text-white/40'}`} size={20} />
               <input
                 value={query}
                 onChange={(e) => handleSearch(e.target.value)}
                 placeholder="ค้นหาชื่อเพลง หรือ ศิลปิน..."
-                // 💡 จุดสำคัญ: คืนพื้นที่ให้ข้อความ! เปลี่ยน pr-44 เป็น pr-4 เพื่อให้พิมพ์และมองเห็นข้อความได้เต็มช่อง
                 className="w-full bg-black/40 p-4 pl-12 pr-4 rounded-xl outline-none focus:border-cyan-400/50 border border-white/10 transition-all font-bold text-sm md:text-lg text-white shadow-inner"
               />
             </div>
 
-            {/* 🎛️ [ส่วนที่ 2] กลุ่มปุ่มซ้าย (Toggle & PiP): มือถืออยู่แถว 2 ซ้ายมือ / คอมอยู่ซ้ายสุด */}
-            <div className="flex items-center gap-2 order-2 lg:order-1 shrink-0">
+            {/* 🎛️ [แถวที่ 2] กลุ่มปุ่มเครื่องมือ: ขนาด 48x48 เท่ากันทุกปุ่ม ขอบนีออน เรียงแถวเดียวกัน */}
+            <div className="flex items-center gap-2 overflow-x-auto w-full custom-scrollbar pb-2 sm:pb-0">
               
-              {/* ปุ่ม Toggle (สลับโหมด) */}
+              {/* 1. ปุ่ม Auto DJ (พี่สามารถใส่โค้ด AutoDJ ของพี่ตรงนี้ แล้วใส่คลาส + สไตล์ด้านล่างให้ขนาดเท่ากัน) */}
+              {/* ตัวอย่างคลาส: className="p-3 rounded-xl border-2 border-slate-500 text-slate-400 ... shrink-0" style={{ height: '48px', minWidth: '48px' }} */}
+
+              {/* 2. ปุ่ม Toggle (สลับโหมด: ร้องคาราโอเกะ=ไมค์มีสายสีฟ้านีออน / ฟังเพลง=หูฟังสีน้ำเงิน) */}
               <button
                 onClick={() => {
                   if (isKaraokeMode) {
@@ -930,59 +932,41 @@ export default function SmartKaraokePage({ params }: { params: any }) {
                     setListeningMode(false);
                   }
                 }}
-                className={`p-3 rounded-xl border-2 transition-all duration-300 flex items-center justify-center ${
+                className={`p-3 rounded-xl border-2 transition-all duration-300 flex items-center justify-center shrink-0 ${
                   isKaraokeMode 
-                    ? 'border-purple-500 text-purple-400 shadow-[0_0_15px_#a855f7] bg-purple-950/30' 
+                    ? 'border-cyan-400 text-cyan-300 shadow-[0_0_15px_#22d3ee] bg-cyan-950/30' 
                     : 'border-blue-500 text-blue-400 shadow-[0_0_15px_#3b82f6] bg-blue-950/30'
                 }`}
                 style={{ height: '48px', minWidth: '48px' }}
-                title={isKaraokeMode ? "โหมดคาราโอเกะ (สีม่วง) - คลิกเพื่อสลับ" : "โหมดฟังเพลง (สีฟ้า) - คลิกเพื่อสลับ"}
+                title={isKaraokeMode ? "โหมดคาราโอเกะ (เปิดอยู่) - คลิกเพื่อสลับ" : "โหมดฟังเพลง (เปิดอยู่) - คลิกเพื่อสลับ"}
               >
-                {isKaraokeMode ? <Mic size={22} strokeWidth={2.5} /> : <Headphones size={22} strokeWidth={2.5} />}
+                {/* 🎤 เปลี่ยนมาใช้ Mic2 (ไมค์มีสาย) สำหรับร้องคาราโอเกะ */}
+                {isKaraokeMode ? <Mic2 size={22} strokeWidth={2.5} /> : <Headphones size={22} strokeWidth={2.5} />}
               </button>
 
-              {/* ปุ่ม PiP (หน้าต่างลอย) */}
-              <button
-                type="button"
-                onClick={togglePiP} // ฟังก์ชันจากที่ทำไว้ก่อนหน้า
-                className="p-3 rounded-xl border-2 border-fuchsia-500 text-fuchsia-400 bg-fuchsia-950/40 shadow-[0_0_15px_#d946ef] flex items-center justify-center"
-                style={{ height: '48px', minWidth: '48px' }}
-                title="ย่อจอเป็นหน้าต่างลอย (PiP)"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M8 4.5H4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V14" />
-                  <rect width="10" height="7" x="12" y="3.5" rx="1" fill="currentColor" className="opacity-30" />
-                </svg>
-              </button>
-            </div>
-
-            {/* 🎙️ [ส่วนที่ 3] กลุ่มปุ่มไมค์ขวา (Mic 1, 2, 3): มือถืออยู่แถว 2 ขวามือ / คอมอยู่ขวาสุด */}
-            {/* 💡 คำสั่ง ml-auto จะช่วยดันกลุ่มนี้ไปชิดขวาสุดเสมอเวลาอยู่ในมือถือ */}
-            <div className="flex items-center gap-2 order-3 lg:order-3 ml-auto lg:ml-0 shrink-0">
-              
-              {/* ไมค์ 1 (ค้นหาปกติ - สีแดง) */}
+              {/* 3. ไมค์ 1 (ค้นหาปกติ - นีออนแดง) */}
               <button
                 type="button"
                 onClick={startSpeechRecognition}
-                className={`p-2 rounded-xl transition-all border border-transparent flex items-center justify-center ${isListening ? 'bg-red-500 text-white animate-bounce shadow-[0_0_15px_#ef4444]' : 'bg-white/5 text-white/60 hover:text-white hover:bg-white/10'}`}
+                className={`p-3 rounded-xl border-2 transition-all duration-300 flex items-center justify-center shrink-0 ${isListening ? 'border-red-500 text-white bg-red-500 animate-bounce shadow-[0_0_15px_#ef4444]' : 'border-red-500/50 text-red-400 bg-red-950/20 hover:border-red-400 shadow-[0_0_10px_rgba(239,68,68,0.2)]'}`}
                 style={{ height: '48px', minWidth: '48px' }}
                 title="ค้นหาปกติ"
               >
-                <Mic size={22} />
+                <Mic size={22} strokeWidth={2.5} />
               </button>
 
-              {/* ไมค์ 2 (Smart Command - สีเขียว) */}
+              {/* 4. ไมค์ 2 (Smart Command - นีออนเขียว) */}
               <button
                 type="button"
                 onClick={startSmartVoiceSearch}
-                className={`p-2 rounded-xl transition-all duration-300 border border-transparent flex items-center justify-center ${isSmartListening ? 'bg-green-500 text-white shadow-[0_0_20px_#22c55e] scale-110' : 'bg-green-500/10 text-green-500 hover:bg-green-500/20 hover:text-green-400'}`}
+                className={`p-3 rounded-xl border-2 transition-all duration-300 flex items-center justify-center shrink-0 ${isSmartListening ? 'border-green-500 text-white bg-green-500 shadow-[0_0_20px_#22c55e] scale-110' : 'border-green-500/50 text-green-400 bg-green-950/20 hover:border-green-400 shadow-[0_0_10px_rgba(34,197,94,0.2)]'}`}
                 style={{ height: '48px', minWidth: '48px' }}
                 title="Smart Command (คิว/เล่นเลย/ลบ)"
               >
-                <Mic size={22} className={isSmartListening ? 'animate-pulse' : ''} />
+                <Mic size={22} strokeWidth={2.5} className={isSmartListening ? 'animate-pulse' : ''} />
               </button>
 
-              {/* ไมค์ 3 (Instant Autoplay - สีส้ม) */}
+              {/* 5. ไมค์ 3 (Instant Autoplay - นีออนส้มอัมพัน) */}
               <button
                 type="button"
                 onClick={async () => {
@@ -1002,11 +986,11 @@ export default function SmartKaraokePage({ params }: { params: any }) {
                   recognition.onend = () => setIsInstantListening(false);
                   recognition.start();
                 }}
-                className={`p-2 rounded-xl transition-all duration-300 border border-transparent flex items-center justify-center ${isInstantListening ? 'bg-amber-500 text-white shadow-[0_0_20px_#f59e0b] scale-110' : 'bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 hover:text-amber-400'}`}
+                className={`p-3 rounded-xl border-2 transition-all duration-300 flex items-center justify-center shrink-0 ${isInstantListening ? 'border-amber-500 text-white bg-amber-500 shadow-[0_0_20px_#f59e0b] scale-110' : 'border-amber-500/50 text-amber-400 bg-amber-950/20 hover:border-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.2)]'}`}
                 style={{ height: '48px', minWidth: '48px' }}
                 title="พูดชื่อเพลงแล้วเล่นทันที (ค้นหา YouTube อัตโนมัติ)"
               >
-                <Mic size={22} className={isInstantListening ? 'animate-pulse' : ''} />
+                <Mic size={22} strokeWidth={2.5} className={isInstantListening ? 'animate-pulse' : ''} />
               </button>
 
             </div>
@@ -1139,10 +1123,10 @@ export default function SmartKaraokePage({ params }: { params: any }) {
                 </label>
 
                 <Link href="/create-playlist">
-                  <button className="flex items-center gap-1.5 text-[9px] sm:text-[10px] font-bold text-cyan-400 hover:text-white transition-all bg-white/5 hover:bg-cyan-500/20 px-2 py-1 sm:px-3 sm:py-1 rounded-lg border border-white/10 hover:border-cyan-500/50 shadow-lg whitespace-nowrap">
-                    <Plus size={12} strokeWidth={3} />
-                    <span className="hidden xs:inline">CREATE PLAYLIST</span>
-                    <span className="xs:hidden">CREATE</span>
+                  <button className="flex items-center gap-1.5 text-[10px] font-bold text-cyan-400 hover:text-white transition-all bg-white/5 hover:bg-cyan-500/20 px-3 py-1.5 rounded-lg border border-white/10 hover:border-cyan-500/50 shadow-lg whitespace-nowrap">
+                    <Plus size={14} strokeWidth={3} />
+                    {/* 💡 ตัดคลาสซ่อนข้อความออก ให้โชว์คำเต็มๆ ตลอดเวลา */}
+                    <span>CREATE PLAYLIST</span>
                   </button>
                 </Link>
               </div>
