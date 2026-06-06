@@ -901,140 +901,116 @@ export default function SmartKaraokePage({ params }: { params: any }) {
                   </div>
 
                   {/* SEARCH INPUT (Synced with Mic 1, 2 & 3) */}
-                  <div className="relative flex-1 group">
-                    <Search className={`absolute left-5 top-1/2 -translate-y-1/2 transition-colors ${isListening || isSmartListening || isInstantListening ? 'text-cyan-400 animate-pulse' : 'text-white/20'}`} size={22} />
-                    <input
-                      value={query}
-                      onChange={(e) => handleSearch(e.target.value)}
-                      placeholder="ค้นหาชื่อเพลง หรือ ศิลปิน..."
-                      // ปรับขยาย pr-32 เป็น pr-44 เพื่อไม่ให้ตัวหนังสือที่พิมพ์วิ่งไปซ้อนทับกลุ่มปุ่มไมค์ทั้ง 3 ตัว
-                      className="w-full bg-black/40 p-5 pl-14 pr-44 rounded-2xl outline-none focus:border-cyan-400/50 border border-white/5 transition-all font-bold text-lg text-white"
-                    />
+                  {/* 🎛️ CONTROL PANEL: แถบค้นหา และ ปุ่มเครื่องมือ (Responsive: มือถือ 2 แถว / คอม 1 แถว) */}
+          <div className="flex flex-wrap lg:flex-nowrap items-center gap-3 w-full animate-in fade-in duration-500">
+            
+            {/* 🔍 [ส่วนที่ 1] กล่องค้นหา: มือถืออยู่แถวบนสุดกว้าง 100% / คอมอยู่ตรงกลางยืดหยุ่น */}
+            <div className="w-full lg:flex-1 relative order-1 lg:order-2 group">
+              <Search className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${isListening || isSmartListening || isInstantListening ? 'text-cyan-400 animate-pulse' : 'text-white/40'}`} size={20} />
+              <input
+                value={query}
+                onChange={(e) => handleSearch(e.target.value)}
+                placeholder="ค้นหาชื่อเพลง หรือ ศิลปิน..."
+                // 💡 จุดสำคัญ: คืนพื้นที่ให้ข้อความ! เปลี่ยน pr-44 เป็น pr-4 เพื่อให้พิมพ์และมองเห็นข้อความได้เต็มช่อง
+                className="w-full bg-black/40 p-4 pl-12 pr-4 rounded-xl outline-none focus:border-cyan-400/50 border border-white/10 transition-all font-bold text-sm md:text-lg text-white shadow-inner"
+              />
+            </div>
 
-                    {/* กลุ่มปุ่มไมค์ควบคุมการสั่งการด้วยเสียง */}
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
+            {/* 🎛️ [ส่วนที่ 2] กลุ่มปุ่มซ้าย (Toggle & PiP): มือถืออยู่แถว 2 ซ้ายมือ / คอมอยู่ซ้ายสุด */}
+            <div className="flex items-center gap-2 order-2 lg:order-1 shrink-0">
+              
+              {/* ปุ่ม Toggle (สลับโหมด) */}
+              <button
+                onClick={() => {
+                  if (isKaraokeMode) {
+                    setKaraokeMode(false);
+                    setListeningMode(true);
+                  } else {
+                    setKaraokeMode(true);
+                    setListeningMode(false);
+                  }
+                }}
+                className={`p-3 rounded-xl border-2 transition-all duration-300 flex items-center justify-center ${
+                  isKaraokeMode 
+                    ? 'border-purple-500 text-purple-400 shadow-[0_0_15px_#a855f7] bg-purple-950/30' 
+                    : 'border-blue-500 text-blue-400 shadow-[0_0_15px_#3b82f6] bg-blue-950/30'
+                }`}
+                style={{ height: '48px', minWidth: '48px' }}
+                title={isKaraokeMode ? "โหมดคาราโอเกะ (สีม่วง) - คลิกเพื่อสลับ" : "โหมดฟังเพลง (สีฟ้า) - คลิกเพื่อสลับ"}
+              >
+                {isKaraokeMode ? <Mic size={22} strokeWidth={2.5} /> : <Headphones size={22} strokeWidth={2.5} />}
+              </button>
 
-                      {/* ปุ่มไมค์ตัวที่ 1: ค้นหาปกติ (Voice Search - สีแดง) */}
-                      <button
-                        type="button"
-                        onClick={startSpeechRecognition}
-                        className={`p-2 rounded-xl transition-all ${isListening ? 'bg-red-500 text-white animate-bounce shadow-[0_0_15px_#ef4444]' : 'text-white/20 hover:text-white/60'}`}
-                        title="ค้นหาปกติ"
-                      >
-                        <Mic size={22} />
-                      </button>
+              {/* ปุ่ม PiP (หน้าต่างลอย) */}
+              <button
+                type="button"
+                onClick={togglePiP} // ฟังก์ชันจากที่ทำไว้ก่อนหน้า
+                className="p-3 rounded-xl border-2 border-fuchsia-500 text-fuchsia-400 bg-fuchsia-950/40 shadow-[0_0_15px_#d946ef] flex items-center justify-center"
+                style={{ height: '48px', minWidth: '48px' }}
+                title="ย่อจอเป็นหน้าต่างลอย (PiP)"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M8 4.5H4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V14" />
+                  <rect width="10" height="7" x="12" y="3.5" rx="1" fill="currentColor" className="opacity-30" />
+                </svg>
+              </button>
+            </div>
 
-                      {/* ปุ่มไมค์ตัวที่ 2: Smart Search (สีเขียวนีออน) */}
-                      <button
-                        type="button"
-                        onClick={startSmartVoiceSearch}
-                        className={`p-2 rounded-xl transition-all duration-300 ${isSmartListening ? 'bg-green-500 text-white shadow-[0_0_20px_#22c55e] scale-110' : 'text-green-500/40 hover:text-green-400'}`}
-                        title="Smart Command (คิว/เล่นเลย/ลบ)"
-                      >
-                        <Mic size={22} className={isSmartListening ? 'animate-pulse' : ''} />
-                      </button>
+            {/* 🎙️ [ส่วนที่ 3] กลุ่มปุ่มไมค์ขวา (Mic 1, 2, 3): มือถืออยู่แถว 2 ขวามือ / คอมอยู่ขวาสุด */}
+            {/* 💡 คำสั่ง ml-auto จะช่วยดันกลุ่มนี้ไปชิดขวาสุดเสมอเวลาอยู่ในมือถือ */}
+            <div className="flex items-center gap-2 order-3 lg:order-3 ml-auto lg:ml-0 shrink-0">
+              
+              {/* ไมค์ 1 (ค้นหาปกติ - สีแดง) */}
+              <button
+                type="button"
+                onClick={startSpeechRecognition}
+                className={`p-2 rounded-xl transition-all border border-transparent flex items-center justify-center ${isListening ? 'bg-red-500 text-white animate-bounce shadow-[0_0_15px_#ef4444]' : 'bg-white/5 text-white/60 hover:text-white hover:bg-white/10'}`}
+                style={{ height: '48px', minWidth: '48px' }}
+                title="ค้นหาปกติ"
+              >
+                <Mic size={22} />
+              </button>
 
-                      {/* ปุ่มไมค์ตัวที่ 3: พูดปุ๊บเล่นปั๊บ (Instant Autoplay - สีส้มอัมพันนีออน รองรับคลัง + YouTube เต็มรูปแบบ) */}
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-                          if (!SpeechRecognition) {
-                            alert("อุปกรณ์หรือเบราว์เซอร์นี้ไม่รองรับการสั่งงานด้วยเสียงครับ");
-                            return;
-                          }
+              {/* ไมค์ 2 (Smart Command - สีเขียว) */}
+              <button
+                type="button"
+                onClick={startSmartVoiceSearch}
+                className={`p-2 rounded-xl transition-all duration-300 border border-transparent flex items-center justify-center ${isSmartListening ? 'bg-green-500 text-white shadow-[0_0_20px_#22c55e] scale-110' : 'bg-green-500/10 text-green-500 hover:bg-green-500/20 hover:text-green-400'}`}
+                style={{ height: '48px', minWidth: '48px' }}
+                title="Smart Command (คิว/เล่นเลย/ลบ)"
+              >
+                <Mic size={22} className={isSmartListening ? 'animate-pulse' : ''} />
+              </button>
 
-                          const recognition = new SpeechRecognition();
-                          recognition.lang = 'th-TH';
-                          recognition.interimResults = false;
+              {/* ไมค์ 3 (Instant Autoplay - สีส้ม) */}
+              <button
+                type="button"
+                onClick={async () => {
+                  const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+                  if (!SpeechRecognition) { alert("ไม่รองรับการสั่งงานด้วยเสียง"); return; }
+                  const recognition = new SpeechRecognition();
+                  recognition.lang = 'th-TH'; recognition.interimResults = false;
+                  recognition.onstart = () => setIsInstantListening(true);
+                  recognition.onresult = async (event: any) => {
+                    setIsInstantListening(false);
+                    const voiceText = event.results[0][0].transcript.trim();
+                    if (typeof processSmartCommand === 'function') {
+                      processSmartCommand(voiceText + " เล่นเลย");
+                    }
+                  };
+                  recognition.onerror = () => setIsInstantListening(false);
+                  recognition.onend = () => setIsInstantListening(false);
+                  recognition.start();
+                }}
+                className={`p-2 rounded-xl transition-all duration-300 border border-transparent flex items-center justify-center ${isInstantListening ? 'bg-amber-500 text-white shadow-[0_0_20px_#f59e0b] scale-110' : 'bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 hover:text-amber-400'}`}
+                style={{ height: '48px', minWidth: '48px' }}
+                title="พูดชื่อเพลงแล้วเล่นทันที (ค้นหา YouTube อัตโนมัติ)"
+              >
+                <Mic size={22} className={isInstantListening ? 'animate-pulse' : ''} />
+              </button>
 
-                          recognition.onstart = () => {
-                            setIsInstantListening(true);
-                          };
-
-                          recognition.onresult = async (event: any) => {
-                            setIsInstantListening(false);
-                            const voiceText = event.results[0][0].transcript.trim();
-                            setQuery(voiceText); // โชว์ข้อความในช่องค้นหา
-
-                            try {
-                              // 1. ค้นหาในคลัง (Stock) ก่อน
-                              let targetSong = allMasterSongs.find(s => {
-                                const isK = s.title.includes("คาราโอเกะ") || s.title.toLowerCase().includes("karaoke");
-                                const match = s.title.toLowerCase().includes(voiceText.toLowerCase());
-                                if (isKaraokeMode) return match && isK;
-                                if (isListeningMode) return match && !isK;
-                                return match;
-                              });
-
-                              // 2. ถ้าไม่มีในคลัง ให้ไปดึงจาก YouTube
-                              if (!targetSong) {
-                                const apiKey = "AIzaSyC3SFBRAazRzbkP1COhhkyQK2JTG6wHiTg"; // 🚩 ใส่ Key จริงของพี่ตรงนี้นะครับ
-                                const searchSuffix = isKaraokeMode ? " karaoke" : "";
-
-                                const res = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=1&q=${encodeURIComponent(voiceText + searchSuffix)}&type=video&key=${apiKey}`);
-                                const data = await res.json();
-
-                                if (data.items && data.items.length > 0) {
-                                  const item = data.items[0];
-                                  targetSong = {
-                                    video_id: item.id.videoId,
-                                    title: item.snippet.title,
-                                    thumbnail_url: item.snippet.thumbnails.default.url
-                                  };
-
-                                  // 🚩 บันทึกลงคลัง Master_songs ก่อน เพื่อให้ Database ยอมให้เพิ่มคิว
-                                  await supabase.from('master_songs').upsert(targetSong, { onConflict: 'video_id' });
-                                }
-                              }
-
-                              // 3. สั่งการ (Action - เล่นทันที)
-                              if (targetSong) {
-                                // 3.1 เพิ่มเข้าคิวแบบเงียบๆ
-                                await supabase.from('tracks').insert({ playlist_id: playlistId, video_id: targetSong.video_id });
-
-                                // 3.2 สั่ง Player เริ่มเล่น
-                                if (typeof startApp === 'function') {
-                                  startApp(targetSong.video_id, true);
-                                }
-
-                                // 3.3 ส่งสัญญาณ Sync ไปที่จอหลัก
-                                await supabase.from('current_playing').update({
-                                  video_id: targetSong.video_id,
-                                  title: targetSong.title || 'Unknown Title',
-                                  updated_at: new Date().toISOString()
-                                }).eq('id', 1);
-
-                                // เคลียร์ UI การค้นหา
-                                setResults([]);
-                                setQuery('');
-                              } else {
-                                alert(`หาเพลง "${voiceText}" ไม่เจอทั้งในคลังและบน YouTube ครับ`);
-                              }
-                            } catch (err) {
-                              console.error("Instant Voice Error:", err);
-                              alert("เกิดข้อผิดพลาดในการดึงข้อมูลจาก YouTube");
-                            }
-                          };
-
-                          recognition.onerror = () => {
-                            setIsInstantListening(false);
-                          };
-
-                          recognition.onend = () => {
-                            setIsInstantListening(false);
-                          };
-
-                          recognition.start();
-                        }}
-                        className={`p-2 rounded-xl transition-all duration-300 ${isInstantListening ? 'bg-amber-500 text-white shadow-[0_0_20px_#f59e0b] scale-110' : 'text-amber-500/40 hover:text-amber-400'}`}
-                        title="พูดชื่อเพลงแล้วเล่นทันที (ค้นหา YouTube อัตโนมัติ)"
-                      >
-                        <Mic size={22} className={isInstantListening ? 'animate-pulse' : ''} />
-                      </button>
-
-                    </div>
-                  </div>
+            </div>
+          </div>
 
                   {/* [BULK ACTIONS] - แสดงเมื่อมีการเลือกหลายเพลง */}
                   {selectedResults.length > 0 && (
