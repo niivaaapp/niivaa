@@ -178,17 +178,35 @@ export default function SmartKaraokePage({ params }: { params: any }) {
   };
 
   // --- [LOGIC - ระบบการเล่นเพลง] ---
+ // --- [LOGIC - ระบบการเล่นเพลง] ---
   const startApp = (videoId: string, isFast = false) => {
     setIsAppStarted(true);
+
+    // ⚡ ฟังก์ชันช่วยค้นหาข้อมูลจากคลังแล้วอัปเดตขึ้นหน้าจอล็อกมือถือ
+    const updateLockScreenMetadata = (id: string) => {
+      if ('mediaSession' in navigator) {
+        const song = allMasterSongs?.find((s: any) => s.video_id === id);
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: song?.title || 'NiiVaa คาราโอเกะ',
+          artist: 'NiiVaa Smart System',
+          artwork: song?.thumbnail_url ? [
+            { src: song.thumbnail_url, sizes: '512x512', type: 'image/jpeg' }
+          ] : []
+        });
+      }
+    };
+
     if (isFast) {
       setIsTransitioning(false);
       setCurrentVideoId(videoId);
+      updateLockScreenMetadata(videoId); // ⚡ แทรกตรงนี้สำหรับโหมดเล่นทันที
     } else {
       setCurrentVideoId(null);
       setIsTransitioning(true);
       setTimeout(() => {
         setIsTransitioning(false);
         setCurrentVideoId(videoId);
+        updateLockScreenMetadata(videoId); // ⚡ แทรกตรงนี้หลังโชว์หน้าจอโปรโมทครบ 5 วินาที
       }, 5000);
     }
   };
