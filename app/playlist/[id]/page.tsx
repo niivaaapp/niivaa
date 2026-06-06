@@ -705,6 +705,33 @@ export default function SmartKaraokePage({ params }: { params: any }) {
     syncLyricsSignal();
   }, [currentVideoId]); // <--- ทำงานทุกครั้งที่ตัวแปรนี้เปลี่ยนค่า
 
+  // 📺 ฟังก์ชันสั่งเปิดโหมดหน้าต่างลอย (Picture-in-Picture) สำหรับ YouTube Iframe
+  const togglePiP = async () => {
+    try {
+      // 🔍 ค้นหาแท็ก iframe ของ YouTube ในหน้าจอ
+      const iframe = document.querySelector('iframe');
+      if (!iframe) {
+        alert("ไม่พบตัวเล่นวิดีโอในหน้าจอขณะนี้ครับ");
+        return;
+      }
+
+      // ตรวจสอบสิทธิ์และสั่งเปิดโหมดหน้าต่างลอยผ่าน Document Picture-in-Picture API
+      if ('documentPictureInPicture' in window) {
+        const pipWindow = await (window as any).documentPictureInPicture.requestWindow({
+          width: 320,
+          height: 180,
+        });
+        // ย้าย iframe ไปไว้ในหน้าต่างลอย
+        pipWindow.document.body.appendChild(iframe);
+      } else {
+        // Fallback: ถ้าเบราว์เซอร์มือถือบางรุ่นไม่รองรับ จะแจ้งเตือนให้เปิดผ่านโหมด Desktop หรือเบราว์เซอร์ที่รองรับ
+        alert("เบราว์เซอร์นี้รองรับระบบหน้าต่างลอยผ่านการกดปุ่มย่อจอของตัวเล่น YouTube โดยตรง หรือใช้เบราว์เซอร์ Chrome/Safari เวอร์ชันล่าสุดครับ");
+      }
+    } catch (error) {
+      console.error("PiP Error:", error);
+    }
+  };
+
   // --- [RENDER UI SET F - FULL FEATURE & NEON STYLE] ---
   return (
     <main className="flex h-screen overflow-hidden bg-[var(--user-bg)] font-prompt">
@@ -853,6 +880,23 @@ export default function SmartKaraokePage({ params }: { params: any }) {
                       ) : (
                         <Headphones size={28} strokeWidth={2.5} />
                       )}
+                    </button>
+                    {/* 📺 ปุ่มเปิดโหมดหน้าต่างลอย PiP (ขนาด บล็อก และขอบนีออน เท่าปุ่ม Auto DJ เป๊ะ) */}
+                    <button
+                      type="button"
+                      onClick={togglePiP}
+                      className="p-3 rounded-xl border-2 border-fuchsia-500 text-fuchsia-400 bg-fuchsia-950/40 shadow-[0_0_15px_#d946ef] hover:bg-fuchsia-900/60 hover:border-fuchsia-400 transition-all duration-300 shrink-0 flex items-center justify-center"
+                      style={{
+                        height: '44px', 
+                        minWidth: '44px'
+                      }}
+                      title="เปิดโหมดหน้าต่างลอย (Picture-in-Picture) สลับแอปเพลงไม่ดับ"
+                    >
+                      {/* ใช้ไอคอนแนวสี่เหลี่ยมซ้อนซ้อนเพื่อสื่อถึงการย่อหน้าต่างลอย */}
+                      <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="drop-shadow-[0_0_8px_#d946ef]">
+                        <path d="M8 4.5H4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V14" />
+                        <rect width="10" height="7" x="12" y="3.5" rx="1" fill="currentColor" className="opacity-30" />
+                      </svg>
                     </button>
                   </div>
 
