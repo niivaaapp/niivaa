@@ -1,4 +1,4 @@
-'use client' 
+'use client'
 import Link from 'next/link';
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -50,7 +50,7 @@ export default function SmartKaraokePage({ params }: { params: any }) {
   const [selectedResults, setSelectedResults] = useState<any[]>([]);
   const [isListening, setIsListening] = useState(false); // สถานะไมค์ 1
   const [isSmartListening, setIsSmartListening] = useState(false); // สถานะไมค์ 2
-
+  const [isInstantListening, setIsInstantListening] = useState(false);//6มิย69ไมค์ค้นเล่นทันที
   // --- [STATES - โหมดและประกาศ] ---
   const [isKaraokeMode, setKaraokeMode] = useState(false);
   const [isListeningMode, setListeningMode] = useState(false);
@@ -59,43 +59,43 @@ export default function SmartKaraokePage({ params }: { params: any }) {
   const [isLooping, setIsLooping] = useState(true);
   const [editingTrack, setEditingTrack] = useState<any | null>(null);
 
-// วางฟังก์ชันนี้ไว้ใน Playlist Component
-const triggerLyrics = async (v_id: string) => {
-  await supabase
-    .from('current_playing')
-    .update({ 
-      video_id: v_id, 
-      updated_at: new Date().toISOString() 
-    })
-    .eq('id', 1);
-};
+  // วางฟังก์ชันนี้ไว้ใน Playlist Component
+  const triggerLyrics = async (v_id: string) => {
+    await supabase
+      .from('current_playing')
+      .update({
+        video_id: v_id,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', 1);
+  };
 
-// ตอนที่พี่สั่งเล่นเพลง (ในปุ่ม Play หรือฟังก์ชันเปิดวิดีโอ)
-const handlePlay = (track: any) => {
-  setPlayingVideoId(track.video_id); // เล่นเพลงในหน้าปัจจุบัน
-  triggerLyrics(track.video_id);    // ส่งสัญญาณไปที่หน้า Lyrics (Tab อื่น)
-};
+  // ตอนที่พี่สั่งเล่นเพลง (ในปุ่ม Play หรือฟังก์ชันเปิดวิดีโอ)
+  const handlePlay = (track: any) => {
+    setPlayingVideoId(track.video_id); // เล่นเพลงในหน้าปัจจุบัน
+    triggerLyrics(track.video_id);    // ส่งสัญญาณไปที่หน้า Lyrics (Tab อื่น)
+  };
 
   // ฟังก์ชันสำหรับส่งสัญญาณเปลี่ยนเพลงไปที่หน้า Lyrics อัตโนมัติ
-const syncCurrentPlaying = async (video_id: string, title: string) => {
-  try {
-    console.log("📡 กำลังส่งสัญญาณเปลี่ยนเพลงไปที่หน้า Lyrics...");
-    
-    const { error } = await supabase
-      .from('current_playing')
-      .update({ 
-        video_id: video_id, 
-        title: title,
-        updated_at: new Date().toISOString() 
-      })
-      .eq('id', 1); // บังคับอัปเดตที่ id 1 เสมอ
+  const syncCurrentPlaying = async (video_id: string, title: string) => {
+    try {
+      console.log("📡 กำลังส่งสัญญาณเปลี่ยนเพลงไปที่หน้า Lyrics...");
 
-    if (error) throw error;
-    console.log("✅ ส่งสัญญาณสำเร็จ!");
-  } catch (err: any) {
-    console.error("❌ ส่งสัญญาณพลาด:", err.message);
-  }
-};
+      const { error } = await supabase
+        .from('current_playing')
+        .update({
+          video_id: video_id,
+          title: title,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', 1); // บังคับอัปเดตที่ id 1 เสมอ
+
+      if (error) throw error;
+      console.log("✅ ส่งสัญญาณสำเร็จ!");
+    } catch (err: any) {
+      console.error("❌ ส่งสัญญาณพลาด:", err.message);
+    }
+  };
 
   // --- [FETCH DATA - โหลดข้อมูลจาก Database] ---
   const fetchAllData = useCallback(async () => {
@@ -136,11 +136,11 @@ const syncCurrentPlaying = async (video_id: string, title: string) => {
 
 
       // ตั้งค่าเพลงโปรโมทตอนเริ่มต้น
-    // 🎯 [ปรับใหม่]: ดึงวิดีโอโปรโมทจากคลังตารางส่วนกลางบน Supabase มาสุ่มเล่นแทนแบบ Dynamic
+      // 🎯 [ปรับใหม่]: ดึงวิดีโอโปรโมทจากคลังตารางส่วนกลางบน Supabase มาสุ่มเล่นแทนแบบ Dynamic
       const { data: promoData } = await supabase.from('promo_videos').select('video_url');
       if (promoData && promoData.length > 0) {
         const globalUrls = promoData.map(v => v.video_url);
-        
+
         if (!currentVideoId && !promoId) {
           const randomPromo = globalUrls[Math.floor(Math.random() * globalUrls.length)];
           setPromoId(randomPromo);
@@ -200,7 +200,7 @@ const syncCurrentPlaying = async (video_id: string, title: string) => {
     glow: 15,
     pulse: 2
   });
-// 🎯 [เพิ่มใหม่]: ตัวนับรอบการทำงานของวิดีโอโปรโมทส่วนกลาง
+  // 🎯 [เพิ่มใหม่]: ตัวนับรอบการทำงานของวิดีโอโปรโมทส่วนกลาง
   const [promoLoopCount, setPromoLoopCount] = useState(0);
 
   // 🎯 [เพิ่มใหม่]: ลอจิกรีเซ็ตตัวนับรอบกลับไปเป็น 0 ทันทีที่มีเพลงหลักถูกเปิดขึ้นมาเล่น
@@ -342,98 +342,98 @@ const syncCurrentPlaying = async (video_id: string, title: string) => {
 
   // --- [LOGIC - ระบบ SMART VOICE SEARCH (Mic 2)] ---
   const processSmartCommand = async (transcript: string) => {
-  const command = transcript.trim().toLowerCase();
-  let action = "search"; 
-  let songName = command;
+    const command = transcript.trim().toLowerCase();
+    let action = "search";
+    let songName = command;
 
-  // 1. ตรวจจับคำสั่ง (Keywords)
-  const queueWords = /(ขอเพลง|เอาเพลง|จองเพลง|คิว|ต่อคิว)/;
-  const playWords = /(ร้องเลย|เปิดเลย|จัดมา|เล่นเลย|เล่นเดี๋ยวนี้)/;
+    // 1. ตรวจจับคำสั่ง (Keywords)
+    const queueWords = /(ขอเพลง|เอาเพลง|จองเพลง|คิว|ต่อคิว)/;
+    const playWords = /(ร้องเลย|เปิดเลย|จัดมา|เล่นเลย|เล่นเดี๋ยวนี้)/;
 
-  if (queueWords.test(command)) {
-    action = "queue";
-    songName = command.replace(queueWords, "").trim();
-  } else if (playWords.test(command)) {
-    action = "play";
-    songName = command.replace(playWords, "").trim();
-  }
-
-  setQuery(songName); // โชว์ชื่อเพลงในช่องค้นหา
-
-  // 2. ค้นหาในคลัง (Stock) ก่อน
-  let targetSong = allMasterSongs.find(s => {
-    const isK = s.title.includes("คาราโอเกะ") || s.title.toLowerCase().includes("karaoke");
-    const match = s.title.toLowerCase().includes(songName);
-    if (isKaraokeMode) return match && isK;
-    if (isListeningMode) return match && !isK;
-    return match;
-  });
-
-  // 3. 🚀 [หัวใจสำคัญ] ถ้าในคลังไม่มี ให้ไปดึงจาก YouTube มา "เดี๋ยวนี้"
-  if (!targetSong) {
-    speakResponse(`กำลังค้นหา ${songName} จากยูทูปให้ครับ`);
-    const apiKey = "AIzaSyC3SFBRAazRzbkP1COhhkyQK2JTG6wHiTg"; // 🚩 ใส่ Key จริงของพี่
-    const searchSuffix = isKaraokeMode ? " karaoke" : "";
-    
-    try {
-      const res = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=1&q=${encodeURIComponent(songName + searchSuffix)}&type=video&key=${apiKey}`);
-      const data = await res.json();
-      
-      if (data.items && data.items.length > 0) {
-        const item = data.items[0];
-        // แปลงข้อมูล YouTube ให้เป็นรูปแบบเดียวกับ Master Song
-        targetSong = {
-          video_id: item.id.videoId,
-          title: item.snippet.title,
-          thumbnail_url: item.snippet.thumbnails.default.url
-        };
-        
-        // 🚩 บันทึกลงคลัง Master_songs ก่อน เพื่อให้ Database ยอมให้เพิ่มคิว
-        await supabase.from('master_songs').upsert(targetSong, { onConflict: 'video_id' });
-      }
-    } catch (err) {
-      console.error("YouTube Smart Search Error:", err);
-    }
-  }
-
-  // 4. สั่งการ (Action)
-  if (targetSong) {
-    if (action === "queue") {
-      // สั่งเพิ่มคิว
-      const { data } = await supabase.from('tracks').insert({
-        playlist_id: playlistId,
-        video_id: targetSong.video_id
-      }).select();
-      
-      if (data) {
-        speakResponse(`เพิ่มเพลง ${targetSong.title} ลงคิวเรียบร้อยครับ`);
-        fetchAllData(); // อัปเดตรายการคิวด้านข้าง
-      }
-    } else if (action === "play") {
-      // สั่งเล่นทันที
-      // 1. เพิ่มเข้าคิวแบบเงียบๆ ก่อน
-      await supabase.from('tracks').insert({ playlist_id: playlistId, video_id: targetSong.video_id });
-      // 2. สั่ง Player เริ่มเล่น
-      startApp(targetSong.video_id, true);
-      speakResponse(`จัดไปครับ ร้องเพลง ${targetSong.title} เลย`);
-      fetchAllData();
+    if (queueWords.test(command)) {
+      action = "queue";
+      songName = command.replace(queueWords, "").trim();
+    } else if (playWords.test(command)) {
+      action = "play";
+      songName = command.replace(playWords, "").trim();
     }
 
-    const handlePlaySong = async (song: any) => {
-  // 1. สั่งเล่นในหน้าจอตัวเอง (โค้ดเดิมของพี่)
-  setPlayingVideoId(song.video_id);
+    setQuery(songName); // โชว์ชื่อเพลงในช่องค้นหา
 
-  // 2. ⚡ แทรกคำสั่งส่งสัญญาณ (เพิ่มเข้าไปตรงนี้ครับพี่)
-  await syncCurrentPlaying(song.video_id, song.title);
-};
-    
-    // เคลียร์ UI การค้นหา (เลียนแบบปุ่ม Esc)
-    setResults([]);
-    setQuery('');
-  } else {
-    speakResponse(`หาเพลง ${songName} ไม่เจอจริงๆ ครับ ลองเปลี่ยนชื่อเพลงดูนะ`);
-  }
-};
+    // 2. ค้นหาในคลัง (Stock) ก่อน
+    let targetSong = allMasterSongs.find(s => {
+      const isK = s.title.includes("คาราโอเกะ") || s.title.toLowerCase().includes("karaoke");
+      const match = s.title.toLowerCase().includes(songName);
+      if (isKaraokeMode) return match && isK;
+      if (isListeningMode) return match && !isK;
+      return match;
+    });
+
+    // 3. 🚀 [หัวใจสำคัญ] ถ้าในคลังไม่มี ให้ไปดึงจาก YouTube มา "เดี๋ยวนี้"
+    if (!targetSong) {
+      speakResponse(`กำลังค้นหา ${songName} จากยูทูปให้ครับ`);
+      const apiKey = "AIzaSyC3SFBRAazRzbkP1COhhkyQK2JTG6wHiTg"; // 🚩 ใส่ Key จริงของพี่
+      const searchSuffix = isKaraokeMode ? " karaoke" : "";
+
+      try {
+        const res = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=1&q=${encodeURIComponent(songName + searchSuffix)}&type=video&key=${apiKey}`);
+        const data = await res.json();
+
+        if (data.items && data.items.length > 0) {
+          const item = data.items[0];
+          // แปลงข้อมูล YouTube ให้เป็นรูปแบบเดียวกับ Master Song
+          targetSong = {
+            video_id: item.id.videoId,
+            title: item.snippet.title,
+            thumbnail_url: item.snippet.thumbnails.default.url
+          };
+
+          // 🚩 บันทึกลงคลัง Master_songs ก่อน เพื่อให้ Database ยอมให้เพิ่มคิว
+          await supabase.from('master_songs').upsert(targetSong, { onConflict: 'video_id' });
+        }
+      } catch (err) {
+        console.error("YouTube Smart Search Error:", err);
+      }
+    }
+
+    // 4. สั่งการ (Action)
+    if (targetSong) {
+      if (action === "queue") {
+        // สั่งเพิ่มคิว
+        const { data } = await supabase.from('tracks').insert({
+          playlist_id: playlistId,
+          video_id: targetSong.video_id
+        }).select();
+
+        if (data) {
+          speakResponse(`เพิ่มเพลง ${targetSong.title} ลงคิวเรียบร้อยครับ`);
+          fetchAllData(); // อัปเดตรายการคิวด้านข้าง
+        }
+      } else if (action === "play") {
+        // สั่งเล่นทันที
+        // 1. เพิ่มเข้าคิวแบบเงียบๆ ก่อน
+        await supabase.from('tracks').insert({ playlist_id: playlistId, video_id: targetSong.video_id });
+        // 2. สั่ง Player เริ่มเล่น
+        startApp(targetSong.video_id, true);
+        speakResponse(`จัดไปครับ ร้องเพลง ${targetSong.title} เลย`);
+        fetchAllData();
+      }
+
+      const handlePlaySong = async (song: any) => {
+        // 1. สั่งเล่นในหน้าจอตัวเอง (โค้ดเดิมของพี่)
+        setPlayingVideoId(song.video_id);
+
+        // 2. ⚡ แทรกคำสั่งส่งสัญญาณ (เพิ่มเข้าไปตรงนี้ครับพี่)
+        await syncCurrentPlaying(song.video_id, song.title);
+      };
+
+      // เคลียร์ UI การค้นหา (เลียนแบบปุ่ม Esc)
+      setResults([]);
+      setQuery('');
+    } else {
+      speakResponse(`หาเพลง ${songName} ไม่เจอจริงๆ ครับ ลองเปลี่ยนชื่อเพลงดูนะ`);
+    }
+  };
 
   const startSmartVoiceSearch = () => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -457,18 +457,18 @@ const syncCurrentPlaying = async (video_id: string, title: string) => {
     if (!error) setTracks(prev => prev.filter(t => t.id !== id));
   };
 
- const updateTrackSettings = async (id: string, updates: any) => {
+  const updateTrackSettings = async (id: string, updates: any) => {
     // 1. อัปเดตใน Local State ทันที (เพื่อให้เลขเปลี่ยนเดี๋ยวนั้น)
     setTracks(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
 
     // 2. ส่งข้อมูลไปที่ Supabase
     const { error } = await supabase.from('tracks').update(updates).eq('id', id);
-    
+
     if (error) {
-        alert("บันทึกข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
-        fetchAllData(); // ดึงค่าเก่ากลับมาถ้า Error
+      alert("บันทึกข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+      fetchAllData(); // ดึงค่าเก่ากลับมาถ้า Error
     }
-};
+  };
 
   const handleReorder = async (draggedIdx: number, targetIdx: number) => {
     const newTracks = [...tracks];
@@ -570,23 +570,23 @@ const syncCurrentPlaying = async (video_id: string, title: string) => {
     }, 500);
     return () => clearInterval(interval);
   }, [currentVideoId, tracks, isAppStarted, playNextSong]);
-// ฟังก์ชันที่เรียกเมื่อกดเล่นเพลง
-const playSong = async (song: any) => {
-  // 1. อัปเดตตาราง current_playing ว่าตอนนี้เล่นเพลงนี้อยู่
-  const { error } = await supabase
-    .from('current_playing')
-    .update({ 
-      video_id: song.video_id, 
-      title: song.title,
-      updated_at: new Date() 
-    })
-    .eq('id', 1);
+  // ฟังก์ชันที่เรียกเมื่อกดเล่นเพลง
+  const playSong = async (song: any) => {
+    // 1. อัปเดตตาราง current_playing ว่าตอนนี้เล่นเพลงนี้อยู่
+    const { error } = await supabase
+      .from('current_playing')
+      .update({
+        video_id: song.video_id,
+        title: song.title,
+        updated_at: new Date()
+      })
+      .eq('id', 1);
 
-  if (!error) {
-    // 2. สั่งเล่นเพลงในเครื่องนี้ตามปกติ (เช่นเปิด YouTube Embed)
-    setCurrentVideoId(song.video_id); 
-  }
-};
+    if (!error) {
+      // 2. สั่งเล่นเพลงในเครื่องนี้ตามปกติ (เช่นเปิด YouTube Embed)
+      setCurrentVideoId(song.video_id);
+    }
+  };
 
   // --- [KEYBOARD SHORTCUTS] ---
   useEffect(() => {
@@ -620,67 +620,67 @@ const playSong = async (song: any) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [query, tracks, currentVideoId, playNextSong]);
 
-// 🚩 เพิ่มโค้ดชุดนี้ใน Component หน้าที่ใช้แสดงคิวเพลง
-useEffect(() => {
-  if (!playlistId) return;
+  // 🚩 เพิ่มโค้ดชุดนี้ใน Component หน้าที่ใช้แสดงคิวเพลง
+  useEffect(() => {
+    if (!playlistId) return;
 
-  // 1. สร้าง Channel สำหรับฟังการเปลี่ยนแปลง
-  const channel = supabase
-    .channel('realtime-tracks') // ชื่อแชนแนล (ตั้งอะไรก็ได้)
-    .on(
-      'postgres_changes', 
-      { 
-        event: 'INSERT', // ฟังเฉพาะตอนที่มีการเพิ่มข้อมูลใหม่
-        schema: 'public', 
-        table: 'tracks',
-        filter: `playlist_id=eq.${playlistId}` // ฟังเฉพาะชุดเพลงที่เปิดอยู่
-      }, 
-      (payload) => {
-        console.log('พบเพลงใหม่เข้าคิว!', payload);
-        // 2. ⚡ สั่งให้โหลดข้อมูลใหม่ทันทีโดยไม่ต้องรีเฟรช
-        fetchAllData(); 
-        
-        // (Option) อาจจะเพิ่มเสียงแจ้งเตือนสั้นๆ หรือแจ้งเตือนบนหน้าจอ
-        // toast.success("มีเพื่อนส่งเพลงใหม่เข้ามา!");
-      }
-    )
-    .subscribe();
+    // 1. สร้าง Channel สำหรับฟังการเปลี่ยนแปลง
+    const channel = supabase
+      .channel('realtime-tracks') // ชื่อแชนแนล (ตั้งอะไรก็ได้)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT', // ฟังเฉพาะตอนที่มีการเพิ่มข้อมูลใหม่
+          schema: 'public',
+          table: 'tracks',
+          filter: `playlist_id=eq.${playlistId}` // ฟังเฉพาะชุดเพลงที่เปิดอยู่
+        },
+        (payload) => {
+          console.log('พบเพลงใหม่เข้าคิว!', payload);
+          // 2. ⚡ สั่งให้โหลดข้อมูลใหม่ทันทีโดยไม่ต้องรีเฟรช
+          fetchAllData();
 
-  // 3. ปิดการเชื่อมต่อเมื่อออกจากหน้า
-  return () => {
-    supabase.removeChannel(channel);
-  };
-}, [playlistId, fetchAllData]);
-// ⚡ ระบบรีโมทอัจฉริยะ: ส่งสัญญาณทุกครั้งที่ Video ID เปลี่ยน (ไม่ว่าจะกดเองหรือ Auto-Next)
-useEffect(() => {
-  const syncLyricsSignal = async () => {
-    if (!currentVideoId) return;
+          // (Option) อาจจะเพิ่มเสียงแจ้งเตือนสั้นๆ หรือแจ้งเตือนบนหน้าจอ
+          // toast.success("มีเพื่อนส่งเพลงใหม่เข้ามา!");
+        }
+      )
+      .subscribe();
 
-    // ค้นหาข้อมูลเพลงจากรายการ tracks เพื่อเอา Title
-    const currentTrack = tracks.find(t => t.video_id === currentVideoId);
-    
-    console.log("📡 กำลังซิงค์เพลงใหม่ไปหน้า Lyrics:", currentTrack?.master_songs?.title);
+    // 3. ปิดการเชื่อมต่อเมื่อออกจากหน้า
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [playlistId, fetchAllData]);
+  // ⚡ ระบบรีโมทอัจฉริยะ: ส่งสัญญาณทุกครั้งที่ Video ID เปลี่ยน (ไม่ว่าจะกดเองหรือ Auto-Next)
+  useEffect(() => {
+    const syncLyricsSignal = async () => {
+      if (!currentVideoId) return;
 
-    const { error } = await supabase
-      .from('current_playing')
-      .update({ 
-        video_id: currentVideoId, 
-        title: currentTrack?.master_songs?.title || 'Unknown Title',
-        updated_at: new Date().toISOString() 
-      })
-      .eq('id', 1);
+      // ค้นหาข้อมูลเพลงจากรายการ tracks เพื่อเอา Title
+      const currentTrack = tracks.find(t => t.video_id === currentVideoId);
 
-    if (error) console.error("❌ ส่งสัญญาณไม่สำเร็จ:", error.message);
-  };
+      console.log("📡 กำลังซิงค์เพลงใหม่ไปหน้า Lyrics:", currentTrack?.master_songs?.title);
 
-  syncLyricsSignal();
-}, [currentVideoId]); // <--- ทำงานทุกครั้งที่ตัวแปรนี้เปลี่ยนค่า
+      const { error } = await supabase
+        .from('current_playing')
+        .update({
+          video_id: currentVideoId,
+          title: currentTrack?.master_songs?.title || 'Unknown Title',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', 1);
+
+      if (error) console.error("❌ ส่งสัญญาณไม่สำเร็จ:", error.message);
+    };
+
+    syncLyricsSignal();
+  }, [currentVideoId]); // <--- ทำงานทุกครั้งที่ตัวแปรนี้เปลี่ยนค่า
 
   // --- [RENDER UI SET F - FULL FEATURE & NEON STYLE] ---
   return (
-   <main className="flex h-screen overflow-hidden bg-[var(--user-bg)] font-prompt">
+    <main className="flex h-screen overflow-hidden bg-[var(--user-bg)] font-prompt">
       {/* ⚡ [เพิ่มใหม่]: แผงฝังตัวแปรสไตล์ CSS Variables เพื่อลอนช์ค่าสีและ Slide bar วิ่งกระจายไปทั่วทั้งหน้าจอ */}
-        <style>{`
+      <style>{`
           :root {
             --user-bg: ${theme.bg};
             --user-border: ${theme.border};
@@ -725,10 +725,10 @@ useEffect(() => {
 
             {/* VIDEO CONTAINER (ฉบับอัปเดตระบบ Hybrid Player: เสถียรสูง ป้องกันปัญหาลบ Node และรองรับการค้างหน้าจอโปรโมท) */}
             <div className={`relative bg-black overflow-hidden transition-all duration-700 ${isFullscreen ? 'h-screen w-screen' : 'h-[480px] rounded-[2rem] border-2 border-[var(--user-border)] shadow-[var(--user-glow)]'}`}>
-              
+
               {/* 🎬 1. ตู้เล่น YouTube: บังคับให้สแตนบายอยู่ใน DOM ตลอดเวลาเพื่อป้องกันระบบลบ Node พัง แต่ใช้สไตล์คุมเปิด/ปิดการมองเห็น */}
-              <div 
-                id="main-player" 
+              <div
+                id="main-player"
                 className={`w-full h-full ${currentVideoId ? 'block' : 'hidden'}`}
               ></div>
 
@@ -740,12 +740,12 @@ useEffect(() => {
                   autoPlay
                   playsInline
                   // 🔊 รอบที่ 1 และ 2 (ค่า count เป็น 0 และ 1) จะเปิดเสียงปกติ พอขึ้นรอบที่ 3 (ค่า count >= 2) จะเปิดระบบ Muted ทันที
-                  muted={promoLoopCount >= 2} 
+                  muted={promoLoopCount >= 2}
                   controls={false}
                   onEnded={() => {
                     // เมื่อเล่นจบ 1 รอบ ให้เพิ่มแต้มตัวนับรอบขึ้นไป 1 แต้ม
                     setPromoLoopCount(prev => prev + 1);
-                    
+
                     // สั่งให้วิดีโอเริ่มรันเล่นรอบถัดไปทันทีแบบแมนนวล
                     if (videoPlayerRef.current) {
                       videoPlayerRef.current.play();
@@ -802,33 +802,48 @@ useEffect(() => {
 
                   {/* 🎤 NEON MODE BUTTONS */}
                   <div className="flex gap-3 shrink-0">
+                    {/* 🎛️ ปุ่ม Toggle สลับโหมดชิ้นเดียว (ขนาด บล็อก และขอบนีออน เท่าเดิม 100%) */}
                     <button
-                      onClick={() => { setKaraokeMode(!isKaraokeMode); if (!isKaraokeMode) setListeningMode(false); }}
-                      className={`p-3 rounded-xl border-2 transition-all duration-300 ${isKaraokeMode ? 'border-purple-500 text-purple-400 shadow-[0_0_15px_#a855f7] scale-105' : 'border-white/10 text-white/20'}`}
+                      onClick={() => {
+                        if (isKaraokeMode) {
+                          setKaraokeMode(false);
+                          setListeningMode(true);
+                        } else {
+                          setKaraokeMode(true);
+                          setListeningMode(false);
+                        }
+                      }}
+                      className={`p-3 rounded-xl border-2 transition-all duration-300 shrink-0 ${isKaraokeMode
+                        ? 'border-purple-500 text-purple-400 shadow-[0_0_15px_#a855f7] scale-105'
+                        : 'border-blue-500 text-blue-400 shadow-[0_0_15px_#3b82f6] scale-105'
+                        }`}
+                      title={isKaraokeMode ? "โหมดคาราโอเกะ (สีม่วง) - คลิกเพื่อสลับเป็นฟังเพลง" : "โหมดฟังเพลง (สีฟ้า) - คลิกเพื่อสลับเป็นร้องเพลง"}
                     >
-                      <Mic size={28} strokeWidth={2.5} />
-                    </button>
-                    <button
-                      onClick={() => { setListeningMode(!isListeningMode); if (!isListeningMode) setKaraokeMode(false); }}
-                      className={`p-3 rounded-xl border-2 transition-all duration-300 ${isListeningMode ? 'border-blue-500 text-blue-400 shadow-[0_0_15px_#3b82f6] scale-105' : 'border-white/10 text-white/20'}`}
-                    >
-                      <Headphones size={28} strokeWidth={2.5} />
+                      {isKaraokeMode ? (
+                        <Mic size={28} strokeWidth={2.5} />
+                      ) : (
+                        <Headphones size={28} strokeWidth={2.5} />
+                      )}
                     </button>
                   </div>
 
-                  {/* SEARCH INPUT (Synced with Mic 1 & 2) */}
+                  {/* SEARCH INPUT (Synced with Mic 1, 2 & 3) */}
                   <div className="relative flex-1 group">
-                    <Search className={`absolute left-5 top-1/2 -translate-y-1/2 transition-colors ${isListening || isSmartListening ? 'text-cyan-400 animate-pulse' : 'text-white/20'}`} size={22} />
+                    <Search className={`absolute left-5 top-1/2 -translate-y-1/2 transition-colors ${isListening || isSmartListening || isInstantListening ? 'text-cyan-400 animate-pulse' : 'text-white/20'}`} size={22} />
                     <input
                       value={query}
                       onChange={(e) => handleSearch(e.target.value)}
                       placeholder="ค้นหาชื่อเพลง หรือ ศิลปิน..."
-                      className="w-full bg-black/40 p-5 pl-14 pr-32 rounded-2xl outline-none focus:border-cyan-400/50 border border-white/5 transition-all font-bold text-lg text-white"
+                      // ปรับขยาย pr-32 เป็น pr-44 เพื่อไม่ให้ตัวหนังสือที่พิมพ์วิ่งไปซ้อนทับกลุ่มปุ่มไมค์ทั้ง 3 ตัว
+                      className="w-full bg-black/40 p-5 pl-14 pr-44 rounded-2xl outline-none focus:border-cyan-400/50 border border-white/5 transition-all font-bold text-lg text-white"
                     />
 
-                    {/* ปุ่มไมค์ตัวที่ 1: ค้นหาปกติ (Voice Search) */}
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 flex gap-2">
+                    {/* กลุ่มปุ่มไมค์ควบคุมการสั่งการด้วยเสียง */}
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
+
+                      {/* ปุ่มไมค์ตัวที่ 1: ค้นหาปกติ (Voice Search - สีแดง) */}
                       <button
+                        type="button"
                         onClick={startSpeechRecognition}
                         className={`p-2 rounded-xl transition-all ${isListening ? 'bg-red-500 text-white animate-bounce shadow-[0_0_15px_#ef4444]' : 'text-white/20 hover:text-white/60'}`}
                         title="ค้นหาปกติ"
@@ -838,34 +853,135 @@ useEffect(() => {
 
                       {/* ปุ่มไมค์ตัวที่ 2: Smart Search (สีเขียวนีออน) */}
                       <button
+                        type="button"
                         onClick={startSmartVoiceSearch}
                         className={`p-2 rounded-xl transition-all duration-300 ${isSmartListening ? 'bg-green-500 text-white shadow-[0_0_20px_#22c55e] scale-110' : 'text-green-500/40 hover:text-green-400'}`}
                         title="Smart Command (คิว/เล่นเลย/ลบ)"
                       >
                         <Mic size={22} className={isSmartListening ? 'animate-pulse' : ''} />
                       </button>
+
+                      {/* ปุ่มไมค์ตัวที่ 3: พูดปุ๊บเล่นปั๊บ (Instant Autoplay - สีส้มอัมพันนีออน รองรับคลัง + YouTube เต็มรูปแบบ) */}
+              <button
+                type="button"
+                onClick={async () => {
+                  const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+                  if (!SpeechRecognition) {
+                    alert("อุปกรณ์หรือเบราว์เซอร์นี้ไม่รองรับการสั่งงานด้วยเสียงครับ");
+                    return;
+                  }
+
+                  const recognition = new SpeechRecognition();
+                  recognition.lang = 'th-TH';
+                  recognition.interimResults = false;
+
+                  recognition.onstart = () => {
+                    setIsInstantListening(true);
+                  };
+
+                  recognition.onresult = async (event: any) => {
+                    setIsInstantListening(false);
+                    const voiceText = event.results[0][0].transcript.trim();
+                    setQuery(voiceText); // โชว์ข้อความในช่องค้นหา
+
+                    try {
+                      // 1. ค้นหาในคลัง (Stock) ก่อน
+                      let targetSong = allMasterSongs.find(s => {
+                        const isK = s.title.includes("คาราโอเกะ") || s.title.toLowerCase().includes("karaoke");
+                        const match = s.title.toLowerCase().includes(voiceText.toLowerCase());
+                        if (isKaraokeMode) return match && isK;
+                        if (isListeningMode) return match && !isK;
+                        return match;
+                      });
+
+                      // 2. ถ้าไม่มีในคลัง ให้ไปดึงจาก YouTube
+                      if (!targetSong) {
+                        const apiKey = "AIzaSyC3SFBRAazRzbkP1COhhkyQK2JTG6wHiTg"; // 🚩 ใส่ Key จริงของพี่ตรงนี้นะครับ
+                        const searchSuffix = isKaraokeMode ? " karaoke" : "";
+                        
+                        const res = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=1&q=${encodeURIComponent(voiceText + searchSuffix)}&type=video&key=${apiKey}`);
+                        const data = await res.json();
+
+                        if (data.items && data.items.length > 0) {
+                          const item = data.items[0];
+                          targetSong = {
+                            video_id: item.id.videoId,
+                            title: item.snippet.title,
+                            thumbnail_url: item.snippet.thumbnails.default.url
+                          };
+
+                          // 🚩 บันทึกลงคลัง Master_songs ก่อน เพื่อให้ Database ยอมให้เพิ่มคิว
+                          await supabase.from('master_songs').upsert(targetSong, { onConflict: 'video_id' });
+                        }
+                      }
+
+                      // 3. สั่งการ (Action - เล่นทันที)
+                      if (targetSong) {
+                        // 3.1 เพิ่มเข้าคิวแบบเงียบๆ
+                        await supabase.from('tracks').insert({ playlist_id: playlistId, video_id: targetSong.video_id });
+                        
+                        // 3.2 สั่ง Player เริ่มเล่น
+                        if (typeof startApp === 'function') {
+                          startApp(targetSong.video_id, true);
+                        }
+                        
+                        // 3.3 ส่งสัญญาณ Sync ไปที่จอหลัก
+                        await supabase.from('current_playing').update({ 
+                          video_id: targetSong.video_id, 
+                          title: targetSong.title || 'Unknown Title',
+                          updated_at: new Date().toISOString() 
+                        }).eq('id', 1);
+
+                        // เคลียร์ UI การค้นหา
+                        setResults([]);
+                        setQuery('');
+                      } else {
+                        alert(`หาเพลง "${voiceText}" ไม่เจอทั้งในคลังและบน YouTube ครับ`);
+                      }
+                    } catch (err) {
+                      console.error("Instant Voice Error:", err);
+                      alert("เกิดข้อผิดพลาดในการดึงข้อมูลจาก YouTube");
+                    }
+                  };
+
+                  recognition.onerror = () => {
+                    setIsInstantListening(false);
+                  };
+
+                  recognition.onend = () => {
+                    setIsInstantListening(false);
+                  };
+
+                  recognition.start();
+                }}
+                className={`p-2 rounded-xl transition-all duration-300 ${isInstantListening ? 'bg-amber-500 text-white shadow-[0_0_20px_#f59e0b] scale-110' : 'text-amber-500/40 hover:text-amber-400'}`}
+                title="พูดชื่อเพลงแล้วเล่นทันที (ค้นหา YouTube อัตโนมัติ)"
+              >
+                <Mic size={22} className={isInstantListening ? 'animate-pulse' : ''} />
+              </button>
+
                     </div>
                   </div>
 
                   {/* [BULK ACTIONS] - แสดงเมื่อมีการเลือกหลายเพลง */}
                   {selectedResults.length > 0 && (
                     <div className="flex gap-2 animate-in slide-in-from-right duration-300">
-                      {/* ปุ่มเพิ่มเข้าคิว (Bulk) */}
                       <button
+                        type="button"
                         onClick={() => handleBulkAction(false)}
-                        className="bg-teal-600 hover:bg-teal-500 ... "
+                        className="bg-teal-600 hover:bg-teal-500 p-4 rounded-2xl font-bold text-xs"
                       >
                         เพิ่มเข้าคิว ({selectedResults.length})
                       </button>
 
-                      {/* ปุ่มเล่นทันที (Bulk) */}
                       <button
+                        type="button"
                         onClick={() => handleBulkAction(true)}
-                        className="bg-blue-600 hover:bg-blue-500 ... "
+                        className="bg-blue-600 hover:bg-blue-500 p-4 rounded-2xl font-bold text-xs"
                       >
                         แทรกเล่นทันที
                       </button>
-                      <button onClick={() => setSelectedResults([])} className="bg-red-600 p-4 h-14 rounded-2xl hover:bg-red-500">
+                      <button type="button" onClick={() => setSelectedResults([])} className="bg-red-600 p-4 h-14 rounded-2xl hover:bg-red-500">
                         <X size={18} />
                       </button>
                     </div>
@@ -905,17 +1021,17 @@ useEffect(() => {
             <aside className="w-[380px] h-full flex flex-col overflow-hidden bg-[#000a12] border-l border-white/5 relative shadow-[0_0_20px_rgba(34,211,238,0.05)]">
 
 
-              
+
               {/* 1. Banner & Neon Control Panel (ฉบับอัปเดตระบบ White-Label ติดแบรนด์หน่วยงาน) */}
               <div className="bg-[#000a1a] p-4 border-b border-white/5 shrink-0">
                 <div className="flex items-center justify-center gap-3 mb-5">
-                  
+
                   {/* 🏢 [ส่วนที่ 1 - โลโก้]: แสดงรูปโลโก้หน่วยงานจริง หรือแสดงตัวอักษรแบรนด์ NIIVAA ทันสมัยหากไม่มีรูป */}
                   {playlistInfo?.logo_url ? (
-                    <img 
-                      src={playlistInfo.logo_url} 
-                      alt="Logo" 
-                      className="w-8 h-8 rounded-lg object-contain drop-shadow-[0_0_8px_rgba(34,211,238,0.4)]" 
+                    <img
+                      src={playlistInfo.logo_url}
+                      alt="Logo"
+                      className="w-8 h-8 rounded-lg object-contain drop-shadow-[0_0_8px_rgba(34,211,238,0.4)]"
                     />
                   ) : (
                     <div className="text-sm font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-[#CCFFFF] to-[#3333FF] drop-shadow-[0_0_5px_rgba(51,51,255,0.4)] italic">
@@ -928,7 +1044,7 @@ useEffect(() => {
                     <h1 className="text-white font-black tracking-wider italic text-xs uppercase">
                       {playlistInfo?.custom_banner || "SMARTKARAOKE"}
                     </h1>
-                    
+
                     {/* 🏷️ [ส่วนที่ 3 - สวิตช์ป้ายเล็ก]: ตรวจเช็คสวิตช์ ON/OFF ถ้าเปิดอยู่ให้เรืองแสงสแตนบายไว้เบาๆ */}
                     {playlistInfo?.show_niivaa_badge !== false && (
                       <span className="text-[7px] bg-cyan-500/20 text-cyan-300 px-1.5 py-0.5 rounded border border-cyan-500/30 uppercase tracking-widest font-bold mt-0.5 animate-pulse">
@@ -959,7 +1075,7 @@ useEffect(() => {
 
                 {/* 🛡️ [เพิ่มใหม่]: แผงปุ่มวิเศษตรวจสิทธิ์พรีเมียมองค์กร จะดีดโผล่ขึ้นมาให้เฉพาะสิทธิ์ Premium เท่านั้น */}
                 {/* เติม || true เข้าไปท้ายเงื่อนไข เพื่อสั่งเปิดเผยปุ่มจานสีออกมาให้ทดสอบก่อนชั่วคราวครับ */}
-{(playlistInfo?.is_premium === true || true) && (
+                {(playlistInfo?.is_premium === true || true) && (
                   <button
                     type="button"
                     onClick={() => setShowThemeModal(true)}
@@ -970,8 +1086,8 @@ useEffect(() => {
                 )}
               </div>
 
-             {/* 💿 Playlist Selection Section */}
-             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-2 gap-2">
+              {/* 💿 Playlist Selection Section */}
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-2 gap-2">
                 <label className="text-[9px] font-black text-cyan-400/40 uppercase tracking-widest leading-none">
                   Select Playlist
                 </label>
@@ -1016,10 +1132,10 @@ useEffect(() => {
                         onDoubleClick={async () => {
                           startApp(track.video_id, true);
                           try {
-                            await supabase.from('current_playing').update({ 
-                              video_id: track.video_id, 
+                            await supabase.from('current_playing').update({
+                              video_id: track.video_id,
                               title: track.master_songs?.title || 'Unknown Title',
-                              updated_at: new Date().toISOString() 
+                              updated_at: new Date().toISOString()
                             }).eq('id', 1);
                           } catch (err) { console.error(err); }
                         }}
@@ -1032,24 +1148,22 @@ useEffect(() => {
                           e.preventDefault();
                           handleReorder(parseInt(e.dataTransfer.getData('draggedIndex')), i);
                         }}
-                        className={`flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-2xl border transition-all duration-300 cursor-pointer min-w-0 ${
-                          isPlaying
-                            ? 'bg-green-900/60 border-green-400 shadow-[0_0_20px_rgba(74,222,128,0.7)] sticky top-0 z-20 scale-[1.01]'
-                            : 'bg-white/5 border-transparent hover:bg-white/10'
-                        }`}
+                        className={`flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-2xl border transition-all duration-300 cursor-pointer min-w-0 ${isPlaying
+                          ? 'bg-green-900/60 border-green-400 shadow-[0_0_20px_rgba(74,222,128,0.7)] sticky top-0 z-20 scale-[1.01]'
+                          : 'bg-white/5 border-transparent hover:bg-white/10'
+                          }`}
                       >
                         {/* 1. เลขคิว (ย่อขนาดเล็กน้อยในมือถือ) */}
-                        <div className={`w-5 sm:w-6 text-center font-black text-[10px] sm:text-[11px] shrink-0 ${
-                          isPlaying ? 'text-white' : 'text-cyan-400'
-                        }`}>
+                        <div className={`w-5 sm:w-6 text-center font-black text-[10px] sm:text-[11px] shrink-0 ${isPlaying ? 'text-white' : 'text-cyan-400'
+                          }`}>
                           {isPlaying ? '▶️' : i}
                         </div>
 
                         {/* 2. รูปหน้าปก (เล็กลงในมือถือ) */}
-                        <img 
-                          src={track.master_songs?.thumbnail_url} 
-                          className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl object-cover shrink-0" 
-                          alt="" 
+                        <img
+                          src={track.master_songs?.thumbnail_url}
+                          className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl object-cover shrink-0"
+                          alt=""
                         />
 
                         {/* 3. ชื่อเพลง (บังคับตัดคำให้เหลือพื้นที่ให้ปุ่มทางขวา) */}
@@ -1084,46 +1198,42 @@ useEffect(() => {
                   })}
               </div>
 
-              {/* 4. TRASH ZONE (แบบประหยัดพื้นที่ที่แนะนำไปก่อนหน้า) */}
-              {/* 4. TRASH ZONE (ถังขยะสีแดงกลมมุมขวาล่าง) */}
+                  {/* 4. TRASH ZONE (ปุ่มถังขยะลอยทรงกลมเล็ก สีแดงนีออน ถาวรทุกอุปกรณ์) */}
               <div
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => {
                   e.preventDefault();
                   handleRemoveTrack(e.dataTransfer.getData('trackId'));
                 }}
-                className="fixed bottom-4 right-4 md:absolute md:bottom-4 md:left-4 md:right-4 md:w-auto w-14 h-14 md:h-auto bg-red-950/80 backdrop-blur-xl border-2 border-dashed border-red-500/60 md:py-3 md:px-4 rounded-full md:rounded-2xl flex items-center justify-center shadow-[0_0_20px_rgba(239,68,68,0.5)] hover:border-red-400 hover:bg-red-900 transition-all group cursor-pointer z-[100]"
+                className="fixed bottom-4 right-4 w-12 h-12 bg-red-950/90 backdrop-blur-xl border-2 border-dashed border-red-500/60 rounded-full flex items-center justify-center shadow-[0_0_20px_rgba(239,68,68,0.6)] hover:border-red-400 hover:bg-red-900/80 transition-transform hover:scale-110 cursor-pointer z-[100]"
+                title="ลากเพลงในคิวมาปล่อยที่นี่เพื่อลบทิ้ง"
               >
-                <div className="flex items-center justify-center gap-2">
-                  <Trash2 size={24} className="text-red-400 group-hover:scale-125 transition-transform shrink-0" />
-                  <span className="hidden md:inline text-xs font-black text-red-400 uppercase tracking-widest whitespace-nowrap">
-                    ลากมาวางเพื่อลบเพลง
-                  </span>
-                </div>
+                <Trash2 size={20} className="text-red-400 drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
               </div>
+              
 
             </aside>
           )}
         </div>
 
-{/* 🎛️ [เพิ่มใหม่]: หน้าต่าง Pop-up คุมสไลด์บาร์ปรับแต่งสีกระพริบนีออนอิสระเฉพาะสมาชิกพรีเมียม */}
-{/* PREMIUM THEME SETTING MODAL (Turbopack Bug-Free Version) */}
+        {/* 🎛️ [เพิ่มใหม่]: หน้าต่าง Pop-up คุมสไลด์บาร์ปรับแต่งสีกระพริบนีออนอิสระเฉพาะสมาชิกพรีเมียม */}
+        {/* PREMIUM THEME SETTING MODAL (Turbopack Bug-Free Version) */}
         {showThemeModal && (
           <div className="fixed inset-0 z-[10005] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="bg-[#000d1a] border border-[var(--user-border)] p-6 rounded-[2.5rem] w-full max-w-xs shadow-[var(--user-glow)]">
               <h3 className="text-[var(--user-neon)] premium-pulse font-black text-xs uppercase tracking-wider mb-6 text-center">🎨 PREMIUM THEME CONTROL</h3>
-              
+
               <div className="space-y-4">
                 {/* 1. Background Color */}
                 <div className="flex justify-between items-center bg-black/30 p-2 rounded-xl border border-white/5">
                   <span className="text-[10px] text-gray-400 font-bold">Background Color</span>
-                  <input type="color" value={theme.bg} onChange={(e) => setTheme({...theme, bg: e.target.value})} className="w-8 h-8 rounded-lg cursor-pointer bg-transparent" />
+                  <input type="color" value={theme.bg} onChange={(e) => setTheme({ ...theme, bg: e.target.value })} className="w-8 h-8 rounded-lg cursor-pointer bg-transparent" />
                 </div>
 
                 {/* 2. Neon Glow Color */}
                 <div className="flex justify-between items-center bg-black/30 p-2 rounded-xl border border-white/5">
                   <span className="text-[10px] text-gray-400 font-bold">Neon & Font Color</span>
-                  <input type="color" value={theme.text} onChange={(e) => setTheme({...theme, text: e.target.value})} className="w-8 h-8 rounded-lg cursor-pointer bg-transparent" />
+                  <input type="color" value={theme.text} onChange={(e) => setTheme({ ...theme, text: e.target.value })} className="w-8 h-8 rounded-lg cursor-pointer bg-transparent" />
                 </div>
 
                 {/* 3. Slider: Glow Radius */}
@@ -1132,7 +1242,7 @@ useEffect(() => {
                     <span>Glow Radius</span>
                     <span className="text-[var(--user-neon)] font-black">{theme.glow}px</span>
                   </div>
-                  <input type="range" min="0" max="35" value={theme.glow} onChange={(e) => setTheme({...theme, glow: parseInt(e.target.value)})} className="w-full accent-cyan-400 cursor-pointer h-1" />
+                  <input type="range" min="0" max="35" value={theme.glow} onChange={(e) => setTheme({ ...theme, glow: parseInt(e.target.value) })} className="w-full accent-cyan-400 cursor-pointer h-1" />
                 </div>
 
                 {/* 4. Slider: Pulse Speed */}
@@ -1141,12 +1251,12 @@ useEffect(() => {
                     <span>Neon Pulse Speed</span>
                     <span className="text-cyan-400 font-black">{theme.pulse === 0 ? 'STILL' : `${theme.pulse}s`}</span>
                   </div>
-                  <input type="range" min="0" max="4" step="0.5" value={theme.pulse} onChange={(e) => setTheme({...theme, pulse: parseFloat(e.target.value)})} className="w-full accent-cyan-400 cursor-pointer h-1" />
+                  <input type="range" min="0" max="4" step="0.5" value={theme.pulse} onChange={(e) => setTheme({ ...theme, pulse: parseFloat(e.target.value) })} className="w-full accent-cyan-400 cursor-pointer h-1" />
                 </div>
               </div>
 
               <div className="flex gap-2 mt-6">
-                <button 
+                <button
                   type="button"
                   onClick={async () => {
                     await supabase.from('playlists').update({ theme_config: theme }).eq('id', playlistId);
@@ -1173,7 +1283,7 @@ useEffect(() => {
                     glow: 15,
                     pulse: 2
                   };
-                  
+
                   if (window.confirm('Do you want to reset theme to default?')) {
                     setTheme(defaultTheme);
                     await supabase.from('playlists').update({ theme_config: defaultTheme }).eq('id', playlistId);
@@ -1188,7 +1298,7 @@ useEffect(() => {
             </div>
           </div>
         )}
-        {/* ORIGINAL SME TRACK SETTING MODAL */}        
+        {/* ORIGINAL SME TRACK SETTING MODAL */}
         {/* --- 3. MODAL POPUP SETTINGS SME --- */}
         {editingTrack && (
           <div className="fixed inset-0 z-[10000] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setEditingTrack(null)}>
