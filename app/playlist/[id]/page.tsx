@@ -1018,10 +1018,7 @@ export default function SmartKaraokePage({ params }: { params: any }) {
 
           {/* --- [RIGHT SIDE: ASIDE] --- */}
           {!isFullscreen && (
-            <aside className="w-[380px] h-full flex flex-col overflow-hidden bg-[#000a12] border-l border-white/5 relative shadow-[0_0_20px_rgba(34,211,238,0.05)]">
-
-
-
+        <aside className="w-full lg:w-[380px] shrink-0 h-[60vh] lg:h-full flex flex-col overflow-hidden bg-[#000a12] border-t lg:border-t-0 lg:border-l border-white/5 relative shadow-[0_0_20px_rgba(34,211,238,0.05)] rounded-t-3xl lg:rounded-none mt-4 lg:mt-0">
               {/* 1. Banner & Neon Control Panel (ฉบับอัปเดตระบบ White-Label ติดแบรนด์หน่วยงาน) */}
               <div className="bg-[#000a1a] p-4 border-b border-white/5 shrink-0">
                 <div className="flex items-center justify-center gap-3 mb-5">
