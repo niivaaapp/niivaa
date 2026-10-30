@@ -4,20 +4,30 @@
 import { createClient as createServerClient } from '@/utils/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 
-export async function executeSilentOnboardingServer(appConfig: any, planId: string | null) {
+// 🌟 1. เพิ่มพารามิเตอร์รับค่า userId และ fullName จากฝั่งหน้าเว็บโดยตรง
+export async function executeSilentOnboardingServer(
+  appConfig: any, 
+  planId: string | null,
+  clientUserId?: string,
+  clientFullName?: string
+) {
   try {
-    // 1. เช็ค Auth ด้วย Client ปกติว่ามีคนล็อกอินจริง
+    // ลองเช็ค Auth ด้วย Server ก่อน (เผื่อคุกกี้ทำงานปกติ)
     const supabaseAuth = await createServerClient()
-    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser()
+    const { data: { user } } = await supabaseAuth.auth.getUser()
     
-    if (authError || !user) {
-      return { success: false, error: 'กรุณาเข้าสู่ระบบก่อนดำเนินการ' }
+    // 🌟 2. ถ้า Server มองไม่เห็นคุกกี้ (พบบ่อยในมือถือ) ให้ใช้ ID ที่หน้าเว็บส่งมาให้แทน!
+    const finalUserId = user?.id || clientUserId;
+    const finalFullName = user?.user_metadata?.full_name || clientFullName || 'คุณ';
+
+    if (!finalUserId) {
+      return { success: false, error: 'หมดเวลาเซสชันหรือคุกกี้ถูกบล็อก กรุณาเข้าสู่ระบบใหม่' }
     }
 
-    // 🌟 2. เรียกใช้กุญแจ Master Key ทะลุ RLS 100%
+    // 🌟 3. เรียกใช้กุญแจ Master Key ทะลุ RLS 100%
     const supabaseAdmin = createAdminClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY! // ใช้กุญแจที่คุณเพิ่งใส่ใน .env.local
+      process.env.SUPABASE_SERVICE_ROLE_KEY! 
     )
 
     // --- STEP 1: องค์กร (Organization) ---
@@ -25,7 +35,7 @@ export async function executeSilentOnboardingServer(appConfig: any, planId: stri
     const { data: memberData } = await supabaseAdmin
       .from('organization_members')
       .select('org_id')
-      .eq('profile_id', user.id)
+      .eq('profile_id', finalUserId) // 👈 ใช้ finalUserId
       .eq('org_role', 'owner')
       .limit(1)
       .maybeSingle()
@@ -35,14 +45,14 @@ export async function executeSilentOnboardingServer(appConfig: any, planId: stri
     } else {
       const { data: newOrg, error: orgError } = await supabaseAdmin
         .from('organizations')
-        .insert({ name: `Workspace ของ ${user.user_metadata?.full_name || 'คุณ'}` })
+        .insert({ name: `Workspace ของ ${finalFullName}` }) // 👈 ใช้ finalFullName
         .select('id').single()
       if (orgError) throw orgError
       orgId = newOrg.id
 
       const { error: memberError } = await supabaseAdmin
         .from('organization_members')
-        .insert({ org_id: orgId, profile_id: user.id, org_role: 'owner' })
+        .insert({ org_id: orgId, profile_id: finalUserId, org_role: 'owner' }) // 👈 ใช้ finalUserId
       if (memberError) throw memberError
     }
 
@@ -90,19 +100,19 @@ export async function executeSilentOnboardingServer(appConfig: any, planId: stri
     const { data: existingRole } = await supabaseAdmin
       .from('user_roles')
       .select('id')
-      .eq('profile_id', user.id)
+      .eq('profile_id', finalUserId) // 👈 ใช้ finalUserId
       .eq('org_id', orgId)
       .eq('app_id', appConfig.appId)
       .maybeSingle()
 
     if (!existingRole) {
       const { error: roleError } = await supabaseAdmin.from('user_roles').insert({
-        profile_id: user.id,
+        profile_id: finalUserId, // 👈 ใช้ finalUserId
         org_id: orgId,
         app_id: appConfig.appId,
         role: 'admin'
       })
-      if (roleError && roleError.code !== '23505') throw roleError // ป้องกันดักจับซ้ำซ้อน
+      if (roleError && roleError.code !== '23505') throw roleError 
     }
 
     // --- STEP 4: พื้นที่ทำงาน UI (Workspaces) ---
@@ -110,13 +120,13 @@ export async function executeSilentOnboardingServer(appConfig: any, planId: stri
     const { data: existingWorkspace } = await supabaseAdmin
       .from('workspaces')
       .select('id')
-      .eq('owner_id', user.id)
+      .eq('owner_id', finalUserId) // 👈 ใช้ finalUserId
       .eq('service_code', appConfig.serviceCode)
       .maybeSingle()
 
     if (!existingWorkspace) {
       const { data: newWs, error: wsError } = await supabaseAdmin.from('workspaces').insert({
-        owner_id: user.id,
+        owner_id: finalUserId, // 👈 ใช้ finalUserId
         service_code: appConfig.serviceCode,
         workspace_name: appConfig.workspaceName,
         theme_config: { primary_color: "#14b8a6" },
