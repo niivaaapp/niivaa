@@ -1,0 +1,26 @@
+
+C:\Users\User\Desktop\MyMusicApp\mymusic-app
+├── AGENTS.md
+├── app
+├── CLAUDE.md
+├── components
+├── eslint.config.mjs
+├── folder-structure.txt
+├── lib
+├── New folder
+├── next-env.d.ts
+├── next.config.ts
+├── package-lock.json
+├── package.json
+├── postcss.config.mjs
+├── public
+├── README.md
+├── tsconfig.json
+└── utils
+
+directory: 6 file: 11
+
+ignored: directory (1)
+
+
+[2K[1G

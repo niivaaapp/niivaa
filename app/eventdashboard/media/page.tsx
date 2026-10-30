@@ -1,11 +1,21 @@
 'use client';
-import React, { useState, useRef, useEffect } from 'react';
-import { supabase } from '@/lib/supabase'; // 💡 ต้อง import supabase ของจริงเข้ามา
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { LayoutGrid, Monitor, Clapperboard } from 'lucide-react';
+import React, { useState, useRef, useEffect, Suspense } from 'react'; // 🌟 เพิ่ม Suspense
+import { supabase } from '@/lib/supabase';
+import RouteGuard from '@/components/RouteGuard'; // 🌟 Import RouteGuard
 
-export default function MediaAssetHub() {
+// ==========================================
+// 1. คอมโพเนนต์เนื้อหาหลัก (แยกออกมาเพื่อให้ใช้ Suspense ครอบได้)
+// ==========================================
+function MediaAssetHubContent() {
   const [isUploading, setIsUploading] = useState(false);
   const [mediaAssets, setMediaAssets] = useState<any[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const searchParams = useSearchParams();
+  const eventId = searchParams.get('event_id');
 
   // 1. 🔄 ฟังก์ชันดึงรายการไฟล์ทั้งหมดจาก Bucket 'event-media' เมื่อเปิดหน้าจอ
   useEffect(() => {
@@ -30,7 +40,7 @@ export default function MediaAssetHub() {
             id: file.id,
             name: file.name,
             // คาดเดาประเภทไฟล์จากนามสกุล
-            type: file.name.match(/\.(mp4|mov|webm)$/i) ? 'video' : file.name.match(/\.(mp3|wav)$/i) ? 'audio' : 'image',
+            type: file.name.match(/\.(mp4|mov|webm)$/i) ? 'video' : file.name.match(/\.(mp3\vert{}wav)$/i) ? 'audio' : 'image',
             size: ((file.metadata?.size || 0) / (1024 * 1024)).toFixed(2) + ' MB',
             url: urlData.publicUrl,
             date: new Date(file.created_at || Date.now()).toISOString().split('T')[0]
@@ -98,6 +108,22 @@ export default function MediaAssetHub() {
     alert('📋 คัดลอก "ลิงก์ตรง (Direct URL)" สำเร็จ!\nนำไปวางในช่องสื่อของ ฝ่าย 4 ได้เลยครับ');
   };
 
+  // 🌟 ดึงค่า source จาก URL (ถ้าไม่มีให้มองว่าเป็น smartevent เป็นค่าเริ่มต้น)
+  const sourceApp = searchParams.get('source') || 'smartevent';
+
+  // 🌟 กำหนดค่าปลายทางและข้อความของปุ่มตาม Source
+  let backUrl = `/events/event-dashboard/${eventId}`;
+  let backLabel = "กลับศูนย์กลาง SmartEvent";
+  let BackIcon = LayoutGrid;
+  let btnColor = "text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500/50"; // สีธีม Event
+
+  if (sourceApp === 'smartmedia') {
+    backUrl = "/smart-media-dashboard";
+    backLabel = "กลับศูนย์กลาง SmartMedia";
+    BackIcon = Clapperboard;
+    btnColor = "text-cyan-400 hover:bg-cyan-500/20 hover:border-cyan-500/50"; // สีธีม Media
+  }
+
   return (
     <div className="min-h-screen bg-[#020617] text-white font-sans p-6">
 
@@ -112,7 +138,15 @@ export default function MediaAssetHub() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        {/* ปุ่มกลับที่เปลี่ยนเส้นทางและสีอัตโนมัติ */}
+        <div className="flex flex-wrap items-center gap-3">
+          <Link href={backUrl}>
+            <button className={`flex items-center gap-2 text-xs font-bold transition-all bg-white/5 px-4 py-2.5 rounded-xl border border-white/10 shadow-lg whitespace-nowrap ${btnColor}`}>
+              <BackIcon size={16} strokeWidth={2.5} />
+              <span>{backLabel}</span>
+            </button>
+          </Link>
+
           <input
             type="file"
             ref={fileInputRef}
@@ -123,10 +157,17 @@ export default function MediaAssetHub() {
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={isUploading}
-            className={`px-6 py-3 rounded-xl font-black text-sm flex items-center gap-2 transition-all shadow-lg ${isUploading ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed' : 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 hover:scale-105 text-white'}`}
+            className={`px-6 py-2.5 rounded-xl font-black text-sm flex items-center gap-2 transition-all shadow-lg ${isUploading ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed' : 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 hover:scale-105 text-white'}`}
           >
-            {isUploading ? '⏳ กำลังอัปโหลดขึ้นเซิร์ฟเวอร์...' : '☁️ อัปโหลดไฟล์สื่อใหม่'}
+            {isUploading ? '⏳ กำลังอัปโหลด...' : '☁️ อัปโหลดไฟล์สื่อใหม่'}
           </button>
+          <Link
+            href={`/eventdashboard/showtime/controller?event_id=${eventId}`}
+            className="group flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-teal-500/10 text-slate-400 hover:text-teal-400 rounded-xl transition-all duration-300 border border-slate-700 hover:border-teal-500/50 shrink-0"
+          >
+            <Monitor className="w-5 h-5 group-hover:scale-110 transition-transform" />
+            <span className="text-sm font-bold">ห้องควบคุมสื่อมัลติมีเดียและเกม</span>
+          </Link>
         </div>
       </div>
 
@@ -198,5 +239,19 @@ export default function MediaAssetHub() {
       </div>
 
     </div>
+  );
+}
+
+// ==========================================
+// 🚀 2. คอมโพเนนต์หลักที่ Export (มี Suspense + RouteGuard)
+// ==========================================
+export default function MediaAssetHub() {
+  return (
+    // 🌟 กำหนดสิทธิ์ให้ admin, mc และ controller
+    <Suspense fallback={<div className="min-h-screen bg-[#020617] text-cyan-400 flex items-center justify-center font-bold">กำลังโหลดศูนย์จัดการคลังสื่อ...</div>}>
+      <RouteGuard allowedRoles={['admin', 'mc', 'controller']}>
+        <MediaAssetHubContent />
+      </RouteGuard>
+    </Suspense>
   );
 }

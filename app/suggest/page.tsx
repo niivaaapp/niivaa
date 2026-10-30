@@ -140,8 +140,8 @@ export default function SmartSuggestPage() {
               <Music className="text-cyan-400" size={28} />
             </div>
             <div>
-              <h1 className="text-2xl font-black uppercase tracking-tighter italic">NiiVaa <span className="text-cyan-400">Hub</span></h1>
-              <p className="text-[9px] text-white/30 font-bold tracking-[0.3em] uppercase">Smart Suggestion System</p>
+              <h1 className="text-2xl font-black uppercase tracking-tighter italic">NiiVaa <span className="text-cyan-400">ADD</span></h1>
+              <p className="text-[9px] text-white/30 font-bold tracking-[0.3em] uppercase">Search & add media to your Albums System ระบบค้นหาและนำเพลงเข้าคิวในอัลบัม</p>
             </div>
           </div>
           

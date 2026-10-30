@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { BookOpen, Languages, Heart, Wrench, Music, Copy, LogOut, Plus, X, ArrowRight, Library, Eye } from 'lucide-react';
+import Link from 'next/link';
+import { LayoutDashboard, BookOpen, Languages, Heart, Wrench, Music, Copy, LogOut, Plus, X, ArrowRight, Library, Eye } from 'lucide-react';
 
 // ฟังก์ชันแมปไอคอนตามชื่อหมวดหมู่เพื่อความสวยงามล้ำสมัย
 const getCategoryIcon = (catName: string) => {
@@ -139,7 +140,14 @@ export default function WelcomePlaylistDashboard() {
                     <div className="p-2 bg-cyan-500/10 border border-cyan-500/30 rounded-xl text-cyan-400 font-mono font-black text-xs tracking-wider">NIIVAA HUB</div>
                     <span className="text-sm font-bold text-gray-400">| คลังสื่อมัลติมีเดียและแม่แบบการสอนกลาง</span>
                 </div>
-                <button onClick={() => supabase.auth.signOut().then(() => router.push('/launchpad'))} className="flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl text-xs font-bold transition-all">
+                <Link
+                    href={`/smart-media-dashboard`}
+                    className="flex items-center justify-center gap-2 px-4 py-2 sm:px-5 sm:py-2.5 bg-[#003366]/40 hover:bg-[#003366]/80 text-[#CCFFFF] border border-[#006666]/50 rounded-xl text-[10px] sm:text-xs font-bold transition-all shadow-md"
+                >
+                    <LayoutDashboard size={14} className="sm:w-4 sm:h-4" />
+                    <span className="hidden sm:inline">กลับศูนย์กลาง</span>
+                </Link>
+                <button onClick={() => supabase.auth.signOut().then(() => router.push('/'))} className="flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl text-xs font-bold transition-all">
                     ออกจากระบบ
                 </button>
             </div>

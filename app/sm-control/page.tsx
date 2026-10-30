@@ -1,12 +1,15 @@
 "use client";
-
+import RouteGuard from '@/components/RouteGuard';
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { 
-  Radio, Play, Plus, Trash2, Sliders, 
+import Link from 'next/link';
+import {
+  LayoutGrid,
+  Radio, Play, Plus, Trash2, Sliders,
   QrCode, Clock, MessageSquare, Volume2, VolumeX, Gamepad2, Monitor,
-  Square, ListMusic, ArrowUpRight, PlayCircle, Video, Presentation
+  Square, ListMusic, ArrowUpRight, PlayCircle, Video, Presentation,
+  ChevronUp, ChevronDown, SkipForward, Repeat // 🌟 เพิ่มไอคอนใหม่
 } from 'lucide-react';
 
 function SMMasterControlContent() {
@@ -15,11 +18,11 @@ function SMMasterControlContent() {
   const [eventsList, setEventsList] = useState<any[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<string>('');
   const [screens, setScreens] = useState<any[]>([]);
-  
+
   const [liveMessages, setLiveMessages] = useState<any[]>([]);
   const [newLiveMessage, setNewLiveMessage] = useState<string>('');
   const [queueInput, setQueueInput] = useState<{ [key: string]: string }>({});
-
+  const eventId = searchParams.get('event_id');
   const mediaPresets = {
     screen_default_bg: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1200",
     game_url: "https://quizizz.com/join",
@@ -38,11 +41,10 @@ function SMMasterControlContent() {
         const videoId = urlObj.searchParams.get('v');
         finalUrl = `https://www.youtube.com/embed/${videoId}`;
       }
-    } catch (e) {}
+    } catch (e) { }
     return finalUrl;
   };
 
-  // 🎯 ดึงรูปหน้าปก YouTube มาแสดงที่จอพรีวิวจิ๋ว เพื่อความเบาและรวดเร็ว
   const getYouTubeThumb = (url: string) => {
     if (!url) return '';
     let vid = '';
@@ -60,7 +62,7 @@ function SMMasterControlContent() {
         const urlEventId = searchParams?.get?.('event_id');
         if (urlEventId && data.some(e => e.id === urlEventId)) setSelectedEventId(urlEventId);
       }
-    } catch (err) {}
+    } catch (err) { }
   };
 
   const fetchScreensForSelectedEvent = async (targetEventId: string) => {
@@ -68,7 +70,7 @@ function SMMasterControlContent() {
     try {
       const { data, error } = await supabase.from('event_screens_control').select('*').eq('event_id', targetEventId);
       if (!error && data) setScreens(data.sort((a, b) => a.screen_id.localeCompare(b.screen_id, undefined, { numeric: true, sensitivity: 'base' })));
-    } catch (err) {}
+    } catch (err) { }
   };
 
   const fetchLiveMessages = async (targetEventId: string) => {
@@ -76,7 +78,7 @@ function SMMasterControlContent() {
     try {
       const { data, error } = await supabase.from('event_live_messages').select('*').eq('event_id', targetEventId).order('created_at', { ascending: false });
       if (!error && data) setLiveMessages(data);
-    } catch (err) {}
+    } catch (err) { }
   };
 
   useEffect(() => { fetchAllEventsDropdown(); }, []);
@@ -99,7 +101,7 @@ function SMMasterControlContent() {
     setScreens(prev => prev.map(s => s.screen_id === screenId ? { ...s, ...payload } : s));
     try {
       await supabase.from('event_screens_control').update(payload).match({ event_id: selectedEventId, screen_id: screenId });
-    } catch (err) {}
+    } catch (err) { }
   };
 
   const handleAddNewScreenDynamic = async () => {
@@ -107,7 +109,7 @@ function SMMasterControlContent() {
     const nextScreenNumber = screens.length + 1;
     const defaultScreenId = `screen_${nextScreenNumber}`;
     const customRoom = prompt(`🏢 ชื่อห้องบรรยายประจำ จอที่ ${nextScreenNumber}:`, `ห้องประชุมย่อย ${nextScreenNumber}`);
-    if (customRoom === null) return; 
+    if (customRoom === null) return;
     const customName = prompt(`📺 ชื่อเรียกจอภาพ:`, `จอหลัก ${customRoom}`);
     if (!customName) return;
 
@@ -118,10 +120,11 @@ function SMMasterControlContent() {
         media_type: 'image', media_url: mediaPresets.screen_default_bg, audio_output: 'muted', marquee_text: `ยินดีต้อนรับเข้าสู่ ${customRoom}`,
         marquee_mode: 'right-to-left', marquee_speed: 5, font_color: '#ffffff', is_marquee_on: true, is_qrcode_on: false,
         bg_theme: 'neon-dark', bg_img_url: '', marquee_position: 'bottom', clock_position: 'top-left',
-        filter_roles: ['VIP', 'CEO', 'SM', 'Staff', 'guest'], is_media_playing: true, media_queue: []
+        filter_roles: ['VIP', 'CEO', 'SM', 'Staff', 'guest'], is_media_playing: true, media_queue: [],
+        auto_play_queue: false // 🌟 เพิ่มค่าเริ่มต้น Auto Play
       }]);
       fetchScreensForSelectedEvent(selectedEventId);
-    } catch (err) {} finally { setLoading(false); }
+    } catch (err) { } finally { setLoading(false); }
   };
 
   const handleAddLiveMessage = async () => {
@@ -129,7 +132,7 @@ function SMMasterControlContent() {
     try {
       const { error } = await supabase.from('event_live_messages').insert([{ event_id: selectedEventId, message_text: newLiveMessage.trim(), is_approved: true }]);
       if (!error) { setNewLiveMessage(''); fetchLiveMessages(selectedEventId); }
-    } catch (err) {}
+    } catch (err) { }
   };
 
   const handleSwitchAudioMatrix = async (targetScreenId: string, currentStatus: string) => {
@@ -153,10 +156,37 @@ function SMMasterControlContent() {
     await handleUpdateScreenConfig(screenId, { media_queue: updatedQueue });
   };
 
+  // 🌟 ฟังก์ชันเลื่อนลำดับคิว
+  const handleMoveQueueItem = async (screenId: string, currentQueue: string[], index: number, direction: 'up' | 'down') => {
+    if (!currentQueue) return;
+    const newQueue = [...currentQueue];
+    if (direction === 'up' && index > 0) {
+      [newQueue[index - 1], newQueue[index]] = [newQueue[index], newQueue[index - 1]];
+    } else if (direction === 'down' && index < newQueue.length - 1) {
+      [newQueue[index + 1], newQueue[index]] = [newQueue[index], newQueue[index + 1]];
+    }
+    await handleUpdateScreenConfig(screenId, { media_queue: newQueue });
+  };
+
+  // 🌟 ฟังก์ชันดึงคิวแรกมาเล่นทันที (Play Next)
+  const handlePlayNextInQueue = async (screenId: string, currentQueue: string[]) => {
+    if (!currentQueue || currentQueue.length === 0) return;
+    const nextUrl = currentQueue[0];
+    const newQueue = currentQueue.slice(1); // หั่นตัวแรกทิ้ง
+    const type = nextUrl.includes('.mp4') ? 'video' : nextUrl.includes('.ppt') ? 'ppt' : nextUrl.match(/\.(jpeg|jpg|gif|png)$/i) ? 'image' : 'iframe';
+
+    await handleUpdateScreenConfig(screenId, {
+      media_url: nextUrl,
+      is_media_playing: true,
+      media_type: type,
+      media_queue: newQueue // อัปเดตคิวที่หักลบแล้ว
+    });
+  };
+
   return (
     <div className="min-h-screen bg-[#020617] text-white p-4 select-none font-sans">
       <div className="max-w-7xl mx-auto space-y-6">
-        
+        <Link href={`/events/event-dashboard/${eventId}`} className="flex items-center justify-center gap-2 px-4 py-2 sm:px-5 sm:py-2.5 bg-[#003366]/40 hover:bg-[#003366]/80 text-[#CCFFFF] border border-[#006666]/50 rounded-xl text-[10px] sm:text-xs font-bold transition-all shadow-md" > <LayoutGrid size={14} className="sm:w-4 sm:h-4" /> <span className="hidden sm:inline">กลับศูนย์กลาง</span> </Link>
         {/* SELECT EVENT */}
         <div className="bg-zinc-950 p-5 border border-purple-500/20 rounded-2xl shadow-2xl text-left">
           <label className="text-[11px] font-black text-purple-400 uppercase tracking-wider block mb-2">🏛️ เลือกโครงการสัมมนาหลัก</label>
@@ -168,26 +198,26 @@ function SMMasterControlContent() {
 
         {selectedEventId && (
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-            
+
             <div className="xl:col-span-2 space-y-6">
               <div className="bg-zinc-950 p-5 border border-white/5 rounded-3xl space-y-6 shadow-2xl text-left">
                 <div className="flex justify-between items-center border-b border-white/5 pb-4">
                   <h2 className="text-sm font-black text-purple-400 flex items-center gap-1.5"><Radio size={16} className="text-red-500 animate-pulse" /> แผงควบคุมสัญญาณภาพ NiiVaa Matrix</h2>
                   <button onClick={handleAddNewScreenDynamic} className="px-3 py-2 bg-purple-600 hover:bg-purple-500 text-white font-black rounded-xl text-[11px] flex items-center gap-1.5">
-                    <Plus size={14}/> เพิ่มจอภาพปลายทาง
+                    <Plus size={14} /> เพิ่มจอภาพปลายทาง
                   </button>
                 </div>
 
                 {screens.map((scr) => {
                   const isAudioLive = scr.audio_output === 'unmuted';
                   const ytThumb = getYouTubeThumb(scr.media_url);
-                  const combinedMarqueeString = liveMessages.length > 0 
+                  const combinedMarqueeString = liveMessages.length > 0
                     ? liveMessages.filter(m => scr.filter_roles?.includes(m.sender_role)).map(m => `🌟 [${m.sender_role}] ${m.message_text}`).join('  |  ')
                     : scr.marquee_text;
 
                   return (
                     <div key={scr.screen_id} className="bg-[#0b0f19] border border-white/5 rounded-2xl p-5 space-y-4 shadow-xl">
-                      
+
                       {/* HEADER */}
                       <div className="flex justify-between items-center border-b border-white/5 pb-3">
                         <div>
@@ -204,19 +234,19 @@ function SMMasterControlContent() {
                         </div>
                         <div className="flex items-center gap-2">
                           <button onClick={() => handleSwitchAudioMatrix(scr.screen_id, scr.audio_output)} className={`py-1 px-2.5 rounded-lg border font-black text-[10px] flex items-center gap-1 cursor-pointer ${isAudioLive ? 'bg-red-600 border-red-400 text-white animate-pulse' : 'bg-zinc-900 border-zinc-800 text-zinc-500'}`}>
-                            {isAudioLive ? <Volume2 size={12}/> : <VolumeX size={12}/>} {isAudioLive ? 'LIVE' : 'MUTED'}
+                            {isAudioLive ? <Volume2 size={12} /> : <VolumeX size={12} />} {isAudioLive ? 'LIVE' : 'MUTED'}
                           </button>
-                          <button onClick={() => { if(confirm('ลบจอนี้?')) { supabase.from('event_screens_control').delete().eq('id', scr.id); fetchScreensForSelectedEvent(selectedEventId); } }} className="p-1 bg-zinc-900 border border-zinc-800 text-zinc-600 hover:text-red-400 rounded-lg"><Trash2 size={12}/></button>
+                          <button onClick={() => { if (confirm('ลบจอนี้?')) { supabase.from('event_screens_control').delete().eq('id', scr.id); fetchScreensForSelectedEvent(selectedEventId); } }} className="p-1 bg-zinc-900 border border-zinc-800 text-zinc-600 hover:text-red-400 rounded-lg"><Trash2 size={12} /></button>
                         </div>
                       </div>
 
                       <div className="flex flex-col lg:flex-row gap-5">
-                        
-                        {/* 🎯 จอจิ๋ว SMART MONITOR แบบจำลอง UI เพื่อความเร็วแสง */}
+
+                        {/* 🎯 จอจิ๋ว SMART MONITOR แบบจำลอง UI */}
                         <div className="w-full lg:w-[280px] shrink-0 space-y-1.5">
-                          <span className="text-[10px] text-cyan-400 font-black uppercase flex items-center gap-1"><Monitor size={12}/> Smart Monitor</span>
-                          
-                          <div 
+                          <span className="text-[10px] text-cyan-400 font-black uppercase flex items-center gap-1"><Monitor size={12} /> Smart Monitor</span>
+
+                          <div
                             className="relative w-[280px] h-[157px] rounded-xl overflow-hidden border border-white/10 shadow-2xl flex flex-col items-center justify-center bg-black transition-all"
                             style={scr.bg_theme === 'custom-img' ? { backgroundImage: `url(${scr.bg_img_url})`, backgroundSize: 'cover' } : {}}
                           >
@@ -229,16 +259,16 @@ function SMMasterControlContent() {
                               {scr.is_media_playing === false ? (
                                 <span className="text-[10px] font-black text-amber-500 animate-pulse tracking-wider">STANDBY</span>
                               ) : scr.media_type === 'ppt' ? (
-                                <div className="text-center text-orange-400"><Presentation size={24} className="mx-auto mb-1"/><span className="text-[8px] font-bold">PPT ACTIVE</span></div>
+                                <div className="text-center text-orange-400"><Presentation size={24} className="mx-auto mb-1" /><span className="text-[8px] font-bold">PPT ACTIVE</span></div>
                               ) : scr.media_type === 'image' && scr.media_url ? (
                                 <img src={scr.media_url} className="w-full h-full object-cover opacity-80" />
                               ) : ytThumb ? (
                                 <div className="relative w-full h-full">
                                   <img src={ytThumb} className="w-full h-full object-cover opacity-60" />
-                                  <div className="absolute inset-0 flex items-center justify-center"><PlayCircle className="text-red-500 drop-shadow-md" size={32}/></div>
+                                  <div className="absolute inset-0 flex items-center justify-center"><PlayCircle className="text-red-500 drop-shadow-md" size={32} /></div>
                                 </div>
                               ) : scr.media_url?.includes('.mp4') ? (
-                                <div className="text-center text-blue-400"><Video size={24} className="mx-auto mb-1"/><span className="text-[8px] font-bold">VIDEO ACTIVE</span></div>
+                                <div className="text-center text-blue-400"><Video size={24} className="mx-auto mb-1" /><span className="text-[8px] font-bold">VIDEO ACTIVE</span></div>
                               ) : (
                                 <span className="text-[10px] font-black text-zinc-500">MEDIA ACTIVE</span>
                               )}
@@ -248,7 +278,7 @@ function SMMasterControlContent() {
                             <div className={`absolute w-1.5 h-1.5 bg-cyan-400 rounded-full z-20 ${scr.clock_position?.includes('top') ? 'top-2' : 'bottom-2'} ${scr.clock_position?.includes('left') ? 'left-2' : 'right-2'}`} />
 
                             {/* กล่อง QR จำลอง */}
-                            {scr.is_qrcode_on && <div className="absolute bottom-1 right-1 bg-white p-0.5 rounded border border-purple-500 z-20"><QrCode size={12} className="text-black"/></div>}
+                            {scr.is_qrcode_on && <div className="absolute bottom-1 right-1 bg-white p-0.5 rounded border border-purple-500 z-20"><QrCode size={12} className="text-black" /></div>}
 
                             {/* แถบตัววิ่งจำลอง */}
                             {scr.is_marquee_on && scr.marquee_mode !== 'game-fx' && (
@@ -273,8 +303,8 @@ function SMMasterControlContent() {
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[11px]">
                             <div className="space-y-1">
                               <span className="text-cyan-400 font-black">🔗 URL สื่อหลักที่กำลังฉายอยู่:</span>
-                              <input 
-                                type="text" value={scr.media_url}
+                              <input
+                                type="text" value={scr.media_url || ''}
                                 onChange={(e) => handleUpdateScreenConfig(scr.screen_id, { media_url: e.target.value })}
                                 onBlur={(e) => { const formatted = formatMediaUrl(e.target.value); handleUpdateScreenConfig(scr.screen_id, { media_url: formatted }); }}
                                 className="w-full bg-black/60 border border-white/5 rounded-xl p-2 font-mono text-[10px] text-zinc-300 outline-none focus:border-cyan-500"
@@ -282,34 +312,54 @@ function SMMasterControlContent() {
                             </div>
                             <div className="space-y-1">
                               <span className="text-purple-400 font-black">📝 ข้อความบอร์ดวิ่งตัวอักษร:</span>
-                              <input 
-                                type="text" value={scr.marquee_text}
+                              <input
+                                type="text" value={scr.marquee_text || ''}
                                 onChange={(e) => handleUpdateScreenConfig(scr.screen_id, { marquee_text: e.target.value })}
                                 className="w-full bg-black/60 border border-white/5 rounded-xl p-2 font-sans font-bold text-[10px] text-zinc-300 outline-none focus:border-purple-500"
                               />
                             </div>
                           </div>
 
-                          <div className="flex gap-2 bg-black/20 p-2 rounded-xl border border-white/5 items-center">
+                          {/* 🌟 ปรับปรุงการจัดวางปุ่มควบคุมให้ครบถ้วน */}
+                          <div className="flex gap-2 bg-black/20 p-2 rounded-xl border border-white/5 items-center flex-wrap">
                             <span className="text-[10px] text-zinc-400 font-bold">🕹️ การควบคุมวิดีโอ:</span>
-                            <button 
+                            <button
                               onClick={() => handleUpdateScreenConfig(scr.screen_id, { is_media_playing: true })}
                               className={`px-3 py-1 rounded-lg font-black text-[10px] flex items-center gap-1 cursor-pointer transition-all ${scr.is_media_playing !== false ? 'bg-cyan-600 text-white shadow-[0_0_10px_#0891b2]' : 'bg-zinc-800 text-zinc-500'}`}
                             >
-                              <Play size={10}/> PLAY วิดีโอ
+                              <Play size={10} /> PLAY
                             </button>
-                            <button 
+                            <button
                               onClick={() => handleUpdateScreenConfig(scr.screen_id, { is_media_playing: false })}
                               className={`px-3 py-1 rounded-lg font-black text-[10px] flex items-center gap-1 cursor-pointer transition-all ${scr.is_media_playing === false ? 'bg-red-600 text-white animate-pulse' : 'bg-zinc-800 text-zinc-500'}`}
                             >
-                              <Square size={10}/> STOP (สแตนบาย)
+                              <Square size={10} /> STOP
+                            </button>
+
+                            {/* 🌟 ปุ่มเล่นคิวถัดไป */}
+                            <button
+                              onClick={() => handlePlayNextInQueue(scr.screen_id, scr.media_queue)}
+                              disabled={!scr.media_queue || scr.media_queue.length === 0}
+                              className="px-3 py-1 rounded-lg font-black text-[10px] flex items-center gap-1 bg-amber-600 hover:bg-amber-500 text-white disabled:opacity-50 transition-all"
+                              title="ดึงสื่อลำดับที่ 1 ในคิวมาเล่นทันที"
+                            >
+                              <SkipForward size={10} /> NEXT (ดึงคิว)
+                            </button>
+
+                            {/* 🌟 ปุ่มสลับโหมด Auto Play */}
+                            <button
+                              onClick={() => handleUpdateScreenConfig(scr.screen_id, { auto_play_queue: !scr.auto_play_queue })}
+                              className={`px-3 py-1 rounded-lg font-black text-[10px] flex items-center gap-1 transition-all ${scr.auto_play_queue ? 'bg-purple-600 text-white shadow-[0_0_10px_#9333ea]' : 'bg-zinc-800 text-zinc-500'}`}
+                              title="ให้หน้าจอเวทีดึงคิวถัดไปมาเล่นอัตโนมัติเมื่อเพลงจบ"
+                            >
+                              <Repeat size={10} /> {scr.auto_play_queue ? 'AUTO PLAY: ON' : 'AUTO PLAY: OFF'}
                             </button>
                           </div>
 
-                          <div className="bg-black/40 border border-white/5 rounded-xl p-3 space-y-2">
-                            <span className="text-[10px] text-cyan-400 font-black flex items-center gap-1"><ListMusic size={12}/> ระบบจัดคิวลิงก์สื่อล่วงหน้า</span>
+                          <div className="bg-black/40 border border-white/5 rounded-xl p-3 space-y-3">
+                            <span className="text-[10px] text-cyan-400 font-black flex items-center gap-1"><ListMusic size={12} /> ระบบจัดคิวลิงก์สื่อล่วงหน้า</span>
                             <div className="flex gap-2">
-                              <input 
+                              <input
                                 type="text" placeholder="วางลิงก์วิดีโอ YouTube หรือรูปภาพ เพื่อต่อคิว..."
                                 value={queueInput[scr.screen_id] || ''}
                                 onChange={(e) => setQueueInput(prev => ({ ...prev, [scr.screen_id]: e.target.value }))}
@@ -317,20 +367,30 @@ function SMMasterControlContent() {
                               />
                               <button onClick={() => handleAddToQueue(scr.screen_id, scr.media_queue)} className="px-3 bg-cyan-700 hover:bg-cyan-600 text-white font-black text-[10px] rounded-lg shrink-0 cursor-pointer">➕ เข้าคิว</button>
                             </div>
-                            <div className="flex flex-wrap gap-1.5 pt-1">
+
+                            {/* 🌟 ระบบแสดงผลคิวใหม่ (จัดเรียงได้ เลื่อนขึ้น/ลงได้) */}
+                            <div className="flex flex-col gap-1.5 pt-2 max-h-[150px] overflow-y-auto custom-scrollbar">
                               {(!scr.media_queue || scr.media_queue.length === 0) && <p className="text-[9px] text-zinc-600 italic">ยังไม่มีคิวสื่อสแตนบาย</p>}
                               {scr.media_queue?.map((qUrl: string, qIdx: number) => (
-                                <div key={qIdx} className="flex items-center gap-1 bg-zinc-900 border border-white/5 rounded-md p-1 text-[9px]">
-                                  <span className="text-zinc-500 font-mono font-bold">#{qIdx+1}</span>
-                                  <button onClick={() => {
+                                <div key={qIdx} className="flex items-center justify-between bg-zinc-900 border border-white/10 hover:border-cyan-500/30 rounded-lg p-1.5 transition-colors group">
+                                  <div className="flex items-center gap-2 overflow-hidden flex-1">
+                                    <span className="text-zinc-500 font-mono font-bold text-[9px] w-4">{qIdx + 1}.</span>
+                                    <button onClick={() => {
                                       const type = qUrl.includes('.mp4') ? 'video' : qUrl.includes('.ppt') ? 'ppt' : qUrl.match(/\.(jpeg|jpg|gif|png)$/i) ? 'image' : 'iframe';
                                       handleUpdateScreenConfig(scr.screen_id, { media_url: qUrl, is_media_playing: true, media_type: type });
-                                    }} 
-                                    className="text-cyan-400 hover:underline font-mono max-w-[120px] truncate flex items-center gap-0.5"
-                                  >
-                                    {qUrl} <ArrowUpRight size={8}/>
-                                  </button>
-                                  <button onClick={() => { const nQ = scr.media_queue.filter((_: any, i: number) => i !== qIdx); handleUpdateScreenConfig(scr.screen_id, { media_queue: nQ }); }} className="text-zinc-600 hover:text-red-400 font-bold ml-1">×</button>
+                                    }}
+                                      className="text-cyan-400 hover:text-cyan-300 font-mono text-[9px] truncate flex items-center gap-1 text-left" title={qUrl}
+                                    >
+                                      <PlayCircle size={10} className="shrink-0" /> {qUrl}
+                                    </button>
+                                  </div>
+
+                                  {/* 🌟 กลุ่มปุ่มเลื่อนคิวและลบ (โชว์เมื่อ Hover) */}
+                                  <div className="flex items-center gap-1 shrink-0 opacity-50 group-hover:opacity-100 transition-opacity">
+                                    <button onClick={() => handleMoveQueueItem(scr.screen_id, scr.media_queue, qIdx, 'up')} disabled={qIdx === 0} className="p-1 hover:bg-zinc-700 rounded disabled:opacity-30"><ChevronUp size={12} className="text-zinc-300" /></button>
+                                    <button onClick={() => handleMoveQueueItem(scr.screen_id, scr.media_queue, qIdx, 'down')} disabled={qIdx === scr.media_queue.length - 1} className="p-1 hover:bg-zinc-700 rounded disabled:opacity-30"><ChevronDown size={12} className="text-zinc-300" /></button>
+                                    <button onClick={() => { const nQ = scr.media_queue.filter((_: any, i: number) => i !== qIdx); handleUpdateScreenConfig(scr.screen_id, { media_queue: nQ }); }} className="p-1 hover:bg-red-900/50 rounded ml-1"><Trash2 size={12} className="text-red-400" /></button>
+                                  </div>
                                 </div>
                               ))}
                             </div>
@@ -361,12 +421,12 @@ function SMMasterControlContent() {
                               </div>
                               <div>
                                 <div className="flex justify-between"><span className="text-zinc-500 text-[9px]">2. ความเร็ว</span><span className="text-purple-400 font-mono text-[9px]">Lv.{scr.marquee_speed}</span></div>
-                                <input type="range" min="1" max="12" value={scr.marquee_speed || 5} onChange={(e) => handleUpdateScreenConfig(scr.screen_id, { marquee_speed: parseInt(e.target.value) })} className="w-full accent-purple-500 h-1 bg-zinc-900 rounded cursor-pointer mt-1"/>
+                                <input type="range" min="1" max="12" value={scr.marquee_speed || 5} onChange={(e) => handleUpdateScreenConfig(scr.screen_id, { marquee_speed: parseInt(e.target.value) })} className="w-full accent-purple-500 h-1 bg-zinc-900 rounded cursor-pointer mt-1" />
                               </div>
                               <div>
                                 <span className="text-zinc-500 text-[9px] block mb-0.5">3. สีฟอนต์วิ่ง</span>
                                 <div className="flex items-center gap-1 bg-zinc-950 border border-white/10 rounded p-0.5">
-                                  <input type="color" value={scr.font_color || '#ffffff'} onChange={(e) => handleUpdateScreenConfig(scr.screen_id, { font_color: e.target.value })} className="w-4 h-4 cursor-pointer bg-transparent border-none"/>
+                                  <input type="color" value={scr.font_color || '#ffffff'} onChange={(e) => handleUpdateScreenConfig(scr.screen_id, { font_color: e.target.value })} className="w-4 h-4 cursor-pointer bg-transparent border-none" />
                                   <span className="font-mono text-zinc-400 text-[8px] uppercase truncate">{scr.font_color || '#ffffff'}</span>
                                 </div>
                               </div>
@@ -382,7 +442,7 @@ function SMMasterControlContent() {
                             </div>
 
                             <div className="bg-amber-950/20 border border-amber-500/20 rounded-lg p-2.5 mt-1">
-                              <span className="text-[10px] text-amber-400 font-black block mb-1.5"><Gamepad2 size={11} className="inline mr-1"/> ระบบเกมส์อัจฉริยะ</span>
+                              <span className="text-[10px] text-amber-400 font-black block mb-1.5"><Gamepad2 size={11} className="inline mr-1" /> ระบบเกมส์อัจฉริยะ</span>
                               <div className="flex gap-2">
                                 <select value={scr.game_sub_mode || 'fastest'} onChange={(e) => handleUpdateScreenConfig(scr.screen_id, { game_sub_mode: e.target.value })} className="flex-1 bg-black border border-white/10 rounded p-1 text-[10px] font-bold text-white cursor-pointer">
                                   <option value="fastest">⚡ คัด 3 คนแรกส่งเร็วสุด</option>
@@ -408,9 +468,9 @@ function SMMasterControlContent() {
             {/* RIGHT COLUMN: MESSAGES */}
             <div className="space-y-6">
               <div className="bg-zinc-950 p-5 border border-white/5 rounded-3xl shadow-2xl text-left">
-                <h2 className="text-xs font-black text-emerald-400 mb-4"><MessageSquare size={14} className="inline mr-1"/> คลังคำถามและประกาศด่วน</h2>
+                <h2 className="text-xs font-black text-emerald-400 mb-4"><MessageSquare size={14} className="inline mr-1" /> คลังคำถามและประกาศด่วน</h2>
                 <div className="flex gap-2 mb-4">
-                  <input type="text" placeholder="พิมพ์ข้อความใหม่..." value={newLiveMessage} onChange={(e) => setNewLiveMessage(e.target.value)} onKeyDown={(e) => { if(e.key === 'Enter') handleAddLiveMessage(); }} className="w-full bg-zinc-900 border border-white/10 rounded-xl p-2 text-[11px] outline-none text-white focus:border-emerald-500"/>
+                  <input type="text" placeholder="พิมพ์ข้อความใหม่..." value={newLiveMessage} onChange={(e) => setNewLiveMessage(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleAddLiveMessage(); }} className="w-full bg-zinc-900 border border-white/10 rounded-xl p-2 text-[11px] outline-none text-white focus:border-emerald-500" />
                   <button onClick={handleAddLiveMessage} className="px-3 bg-emerald-600 text-black font-black text-[11px] rounded-xl cursor-pointer">บันทึก</button>
                 </div>
                 <div className="space-y-2 max-h-[500px] overflow-y-auto pr-1">
@@ -418,11 +478,11 @@ function SMMasterControlContent() {
                     <div key={msg.id} className="bg-[#0b0f19] border border-white/5 rounded-xl p-3">
                       <p className="text-[11px] font-bold text-zinc-200">{msg.message_text}</p>
                       <div className="flex justify-between items-center pt-2 mt-2 border-t border-white/5">
-                        <select onChange={async (e) => { if(e.target.value) { await handleUpdateScreenConfig(e.target.value, { marquee_text: msg.message_text }); e.target.value = ""; } }} className="bg-black border border-white/10 rounded px-1 py-0.5 text-[9px] text-emerald-400 outline-none cursor-pointer">
+                        <select onChange={async (e) => { if (e.target.value) { await handleUpdateScreenConfig(e.target.value, { marquee_text: msg.message_text }); e.target.value = ""; } }} className="bg-black border border-white/10 rounded px-1 py-0.5 text-[9px] text-emerald-400 outline-none cursor-pointer">
                           <option value="">🚀 ส่งเข้าบอร์ดวิ่ง...</option>
                           {screens.map(s => <option key={s.screen_id} value={s.screen_id}>⏩ {s.screen_name}</option>)}
                         </select>
-                        <button onClick={async () => { if(confirm('ลบ?')) { await supabase.from('event_live_messages').delete().eq('id', msg.id); fetchLiveMessages(selectedEventId); } }} className="text-zinc-600 hover:text-red-400 cursor-pointer"><Trash2 size={10} /></button>
+                        <button onClick={async () => { if (confirm('ลบ?')) { await supabase.from('event_live_messages').delete().eq('id', msg.id); fetchLiveMessages(selectedEventId); } }} className="text-zinc-600 hover:text-red-400 cursor-pointer"><Trash2 size={10} /></button>
                       </div>
                     </div>
                   ))}
@@ -439,8 +499,11 @@ function SMMasterControlContent() {
 
 export default function SMMasterDynamicControlCenter() {
   return (
+    // 🌟 หุ้มด้วย RouteGuard และให้สิทธิ์ admin, mc และ controller
     <Suspense fallback={<div className="text-white p-4">Loading Matrix Dashboard...</div>}>
-      <SMMasterControlContent />
+      <RouteGuard allowedRoles={['admin', 'mc', 'controller']}>
+        <SMMasterControlContent />
+      </RouteGuard>
     </Suspense>
   );
 }

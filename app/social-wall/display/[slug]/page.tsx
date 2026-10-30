@@ -253,8 +253,8 @@ export default function DisplayPage() {
       setOriginUrl(window.location.origin);
     }
   }, []);
-  const generatedQrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=" + encodeURIComponent(originUrl + "/vote?slug=" + slug);
-
+  {/*const generatedQrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=" + encodeURIComponent(originUrl + "/social-wall/guest/" + slug);*/}
+  const generatedQrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=" + encodeURIComponent(originUrl + "/social-wall/join/" + slug);
   const mainClass = "relative w-full h-screen overflow-hidden font-prompt select-none transition-colors duration-1000 text-white";
   const liveBadgeClass = "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-black border border-white/10 text-cyan-400";
   const navTitleClass = "text-base font-black italic tracking-tighter text-white"; 

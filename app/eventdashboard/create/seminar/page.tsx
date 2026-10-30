@@ -12,7 +12,7 @@ import {
 export default function SeminarUltimateAdvancePreparationPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const eventId = searchParams.get('event_id') || 'mock-event-id';
+  const eventId = searchParams.get('event_id') || 'current';
   // นำไปวางรวมกับกลุ่ม useState เดิมของพี่ที่ด้านบนสุดของไฟล์
   const [roomSetup, setRoomSetup] = useState({ tables: 150, seats: 8, cols: 15, rows: 10 });
   const [activeMenu, setActiveMenu] = useState('project_info');
@@ -3105,7 +3105,7 @@ export default function SeminarUltimateAdvancePreparationPage() {
                                 { key: 'audio_media', label: '8. เครื่องเสียง & มัลติมีเดีย' },
                                 { key: 'cert_distribution', label: '9. พิธีมอบรางวัลเกียรติบัตร' },
                                 { key: 'gift_tab', label: '10. ฝ่ายแจกเอกสาร/ของที่ระลึก' },
-                                { key: 'catering_tab', label: '11. ฝ่ายจัดเลี้ยงภัตตาหาร' },
+                                { key: 'catering_tab', label: '11. ฝ่ายจัดเลี้ยงภัตตาคาร' },
                                 { key: 'photo_tab', label: '12. ฝ่ายบันทึกภาพหน้างาน' },
                                 { key: 'pr_tab', label: '13. ฝ่ายประชาสัมพันธ์' }
                               ].find(d => d.key === deptKey)?.label || deptKey;

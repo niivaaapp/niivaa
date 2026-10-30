@@ -78,13 +78,13 @@ export default function LyricsPage() {
     const [showIntermissionLayer, setShowIntermissionLayer] = useState(false);
     const [randomAnimStyle, setRandomAnimStyle] = useState(0);
 
-    // 🌧️💨 STATES ระบบสุ่มสลับพ่นควันหรือม่านสายฝน แพ็กคู่ขอบจอ
+    // 🌧️💨 STATES ระบบสุ่มสลับพ่นควันหรือม่านสายฝน แพ็กคู่พรีเมียม
     const [activeEffect, setActiveEffect] = useState<'none' | 'rain' | 'smoke'>('none');
 
     const scrollRef = useRef<HTMLDivElement>(null);
     const accumulatedTimeRef = useRef(0);
     const lastFrameTimeRef = useRef<number | null>(null);
-    const isLayerShowingRef = useRef(false);
+    const isLayerShowingRef = useRef(false); // Ref ล็อกสวิตช์ตรวจสอบเงื่อนไขภาพคั่น 8 วินาที
 
     const textScrollRequestRef = useRef<number | null>(null);
     const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -106,7 +106,7 @@ export default function LyricsPage() {
         return () => clearInterval(timer);
     }, []);
 
-    // 🎯 [ระบบตัวนับเวลาตัวเพลงของข้อ 3]: นับวินาทีไหลไปข้างหน้าต่อเนื่องเป็นอิสระ ควบคู่กับการประมวลสถานะเปิดภาพคั่น 8 วินาทีอย่างเงียบเชียบกริบ
+    // 🎯 [ซ่อมแซมจุดเดินเวลารอยต่อข้อ 1 & 3]: ย้ายการตรวจเงื่อนไขภาพคั่น 8 วิ มาทำงานคู่ขนานในเข็มวินาทีรวมของเพลง (นับเสถียร 1 วิครั้ง ล้างอาการ Marquee สะดุดถาวร)
     useEffect(() => {
         if (songClockRef.current) clearInterval(songClockRef.current);
         if (!isPaused) {
@@ -117,7 +117,7 @@ export default function LyricsPage() {
 
                 setDisplaySongSeconds(clampedSecs);
 
-                // ตรวจรอยต่อเปลี่ยนเพลง 8 วินาทีจากท่อเวลากลาง เพื่อสลับสวิตช์อย่างปลอดภัย
+                // สลับเอฟเฟกต์ภาพคั่นนครพนมผ่านท่อเวลากลางที่นิ่งสนิท ไม่กวนตัวอักษรเลื่อนหน้าจอ
                 if (isIntermissionSwitchOn && intermissionList.length > 0) {
                     const isNearEnd = clampedSecs >= (duration - 4);
                     const isNearStart = clampedSecs <= 4;
@@ -133,7 +133,7 @@ export default function LyricsPage() {
         return () => { if (songClockRef.current) clearInterval(songClockRef.current); };
     }, [duration, isPaused, isIntermissionSwitchOn, intermissionList]);
 
-    // ผู้กำกับควบคุมการสุ่มปล่อยม่านสายฝนและควันเวทีฟุ้งเป็นระยะ (สุ่มเงียบเชียบ สบายสายตา ไม่ถี่จนเกินไป)
+    // ผู้กำกับสุ่มปล่อยม่านสายฝนหรือเอฟเฟกต์คันเวทีลอยฟุ้งเป็นระยะ (สุ่มเงียบเชียบ สบายสายตา)
     useEffect(() => {
         if (effectDirectorRef.current) clearInterval(effectDirectorRef.current);
 
@@ -243,32 +243,20 @@ export default function LyricsPage() {
     }, [isPaused, showConfigModal]);
 
     // สุ่มภาพพื้นหลังแบคกราวน์หลัก
-    // 🟢 [แก้ไขจุดโหลดภาพ]: เพิ่มการเช็กและบังคับโหลดใหม่ทันทีที่สลับโหมด
     const loadBackgroundImageLoop = async () => {
         try {
-            console.log("Loading background images...");
-            let { data: images, error } = await supabase.from('screen_background_media').select('media_url').eq('isselected_for_loop', true);
-
-            if (error) throw error;
-
+            let { data: images } = await supabase.from('screen_background_media').select('media_url').eq('isselected_for_loop', true);
             if (images && images.length > 0) {
                 const randomIndex = Math.floor(Math.random() * images.length);
                 setCustomBgImage(images[randomIndex].media_url);
-            } else {
-                // ถ้าในตารางไม่มีภาพที่เลือกไว้ ให้ลองดึงภาพทั้งหมดมาเป็นสำรอง
-                const { data: allImages } = await supabase.from('screen_background_media').select('media_url');
-                if (allImages && allImages.length > 0) {
-                    setCustomBgImage(allImages[0].media_url);
-                }
             }
-        } catch (err) { console.error("Error loading background:", err); }
+        } catch (err) { console.error(err); }
     };
 
     useEffect(() => {
         if (imageLoopRef.current) clearInterval(imageLoopRef.current);
-
         if (bgMode === 'image') {
-            loadBackgroundImageLoop(); // โหลดครั้งแรกทันทีที่สลับโหมด
+            loadBackgroundImageLoop();
             imageLoopRef.current = setInterval(() => { loadBackgroundImageLoop(); }, 60000);
         } else {
             setCustomBgImage(null);
@@ -315,12 +303,12 @@ export default function LyricsPage() {
                         setLineEffects(timings.map(() => Math.floor(Math.random() * 3)));
                     } else {
                         setIsUsingTimeMapping(false);
-                        setLyricTimings(linesArray.map((line: string, index: number) => ({ line_index: index, lyric_text: line, target_second: 0 })));
+                      setLyricTimings(linesArray.map((line: any, index: number) => ({ line_index: index, lyric_text: line, target_second: 0 })));
                         setLineEffects(linesArray.map(() => 0));
                     }
                 } else {
                     setIsUsingTimeMapping(false);
-                    setLyricTimings(linesArray.map((line: string, index: number) => ({ line_index: index, lyric_text: line, target_second: 0 })));
+                    setLyricTimings(linesArray.map((line: any, index: number) => ({ line_index: index, lyric_text: line, target_second: 0 })));
                     setLineEffects(linesArray.map(() => 0));
                 }
 
@@ -359,7 +347,7 @@ export default function LyricsPage() {
         return () => { supabase.removeChannel(channel); if (timerRef.current) clearTimeout(timerRef.current); };
     }, [intermissionList]);
 
-    // 🟢 [เอนจิ้นทองคำความเร็วสูงจากแผ่น v637R ดั้งเดิมตัวแท้]: ดันพิกเซลเลื่อนคำร้องอย่างเนียนตา ไหลสมูท 60 FPS ปราศจากการสะดุด
+    // 🟢 [เอนจิ้นความเร็วสูงฉบับแผ่น v637R ดั้งเดิม 100%]: รันสายพานดันพิกเซลเพียว ๆ ไหลสมูท เนียนละมุนตาที่สุด ปราศจาก Logic แทรกแซง Re-render กวนใจ Ticker บอร์ดด้านบน
     useEffect(() => {
         if (isPaused || !isScrolling || lyricTimings.length === 0) return;
 
@@ -445,7 +433,7 @@ export default function LyricsPage() {
     return (
         <div className="h-screen w-screen flex flex-col justify-between overflow-hidden relative select-none cursor-pointer bg-black">
 
-            {/* LAYER 0: ฉากพื้นหลังวอลเปเปอร์หลัก (เปิดช่องไฟสว่างไสว ทะลุมิติเห็นรูปในคลังโหมด IMAGE LOOP สมบูรณ์แบบแล้วครับ) */}
+            {/* LAYER 0: ฉากพื้นหลังวอลเปเปอร์หลัก */}
             <div
                 style={bgMode === 'image' && customBgImage ? { backgroundImage: `url(${customBgImage})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' } : undefined}
                 className={`absolute inset-0 z-0 transition-all duration-1000 ${bgMode === 'theme' ? `bg-gradient-to-br ${THEMES.find(t => t.text === fontSettings.textColor)?.bg || 'from-[#020813] via-[#0a1931] to-[#15305b]'}` : 'bg-transparent'}`}
@@ -481,7 +469,7 @@ export default function LyricsPage() {
                 )}
             </AnimatePresence>
 
-            {/* 🎞️ [ซ่อมแซมใหญ่โครงสร้างสลับชั้นเลเยอร์ทองคำ]: แยกส่วนเงื่อนไขภาพคั่น 8 วินาทีออกนอกแท็กครอบอย่างเด็ดขาด ตัวกล่อง z-[180] จะถูกสร้างขยายขึ้นมาฉายภาพวิวแม่น้ำโขงสไตล์คอนเสิร์ตใหญ่เฉพาะตอนรอยต่อเพลงจริงเท่านั้น และหดตัวสลายหายไปทันทีเมื่อเพลงรันวินาทีที่ 5 เป็นต้นไป ปลุกความเคลียร์ใสให้โหมดสุ่มภาพหลังใช้งานได้จริงอย่างสมบูรณ์แบบแล้วครับพี่! */}
+            {/* 🎞️ LAYER 10: เลเยอร์ภาพคั่นจังหวะเปลี่ยนเพลง 8 วินาที */}
             <AnimatePresence mode="wait">
                 {showIntermissionLayer && currentIntermissionItem && (
                     <motion.div
@@ -490,7 +478,7 @@ export default function LyricsPage() {
                         animate={TRANSITIONS[randomAnimStyle].animate}
                         exit={TRANSITIONS[randomAnimStyle].exit}
                         transition={{ duration: 1.0, ease: "easeInOut" }}
-                        className="absolute inset-0 z-[180] overflow-hidden flex items-center justify-center bg-black pointer-events-auto"
+                        className="fixed inset-0 z-[180] overflow-hidden flex items-center justify-center bg-black"
                     >
                         {currentIntermissionItem.media_type === 'video' ? (
                             <video src={currentIntermissionItem.media_url} autoPlay loop muted playsInline className="w-full h-full object-cover" />
@@ -498,7 +486,7 @@ export default function LyricsPage() {
                             <img src={currentIntermissionItem.media_url} alt="Intermission Slide" className="w-full h-full object-cover" />
                         )}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/50" />
-                        <div className="absolute bottom-16 right-12 bg-black/50 border border-amber-500/30 px-4 py-2 rounded-2xl backdrop-blur-md flex items-center gap-2">
+                        <div className="absolute bottom-16 right-12 bg-black/50 border border-amber-500/30 px-4 py-2 rounded-2xl backdrop-blur-md flex items-center gap-2 animate-pulse">
                             <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
                             <span className="text-[10px] tracking-[0.3em] font-black font-sans text-amber-300 uppercase">NEXT TRACK COMING UP</span>
                         </div>
@@ -557,13 +545,14 @@ export default function LyricsPage() {
                 </AnimatePresence>
             </div>
 
-            {/* ส่วนตรงกลางแสดงสายพานเนื้อร้องโครงสร้างดั้งเดิมแผ่น v637R ยิงเรนเดอร์แกนสมูทแท้เลื่อนนิ่มนวลที่สุด */}
+            {/* 🟢 [กล่องแสดงสายพานเนื้อร้องโครงสร้างบริสุทธิ์คืนชีพ 100%]: ยึดลูปถอดรหัสแกะอักษรที่นิ่มนวลที่สุด ไม่ว่าจะใช้โหมดใดก็ตาม ตัวหนังสือจะพุ่งขึ้นตรงกลางจอเด่นสง่า ไหลละมุนดุจสายน้ำไร้อาการสะดุดครับพี่! */}
             <div
                 ref={scrollRef} className="w-full max-w-5xl mx-auto h-[70vh] overflow-y-auto text-center px-12 z-20 no-scrollbar relative"
                 style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                 onClick={(e) => { e.stopPropagation(); handleLiveTimeActionTrigger(); }}
             >
                 <div className="pt-[25vh] pb-[45vh] space-y-16 pointer-events-none">
+                    {/* ดึงอาร์เรย์คำร้องหลักออกมากางหน้าเวทีรวดเดียว ค้ำระบบให้ใช้งานลื่นไหลไม่มีหาย */}
                     {lyricTimings.map((line, index) => {
                         const isCurrent = isUsingTimeMapping ? (index === currentLineIndex) : false;
                         const isPast = isUsingTimeMapping ? (index < currentLineIndex) : false;
@@ -646,7 +635,7 @@ export default function LyricsPage() {
                     </div>
                     <div className="flex items-center gap-1.5 text-white/50">
                         <Clock size={12} className="opacity-40" />
-                        <span className="text-sm font-bold tracking-wider tabular-nums">
+                        <span className="text-sm font-bold tabular-nums">
                             {mounted && currentTime ? currentTime.toLocaleTimeString('th-TH', { hour12: false }) : "--:--:--"}
                         </span>
                     </div>
@@ -665,7 +654,7 @@ export default function LyricsPage() {
                 </div>
             </div>
 
-            {/* CONFIG MASTER MODAL */}
+            {/* CONFIG MASTER MODAL พ่วงฟีเจอร์จดจำค่า Default Speed ประจำแทร็กเพลง */}
             <AnimatePresence>
                 {showConfigModal && (
                     <div className="fixed inset-0 z-[250] bg-black/70 backdrop-blur-xs flex items-center justify-center p-4" onClick={() => setShowConfigModal(false)}>

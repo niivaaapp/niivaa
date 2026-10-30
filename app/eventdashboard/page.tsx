@@ -1,282 +1,243 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import Link from 'next/link';
 import { 
   Sparkles, Plus, Briefcase, Users, FileText, 
   Award, PartyPopper, Trophy, Flame, Heart, 
-  GraduationCap, ShieldAlert, Music, FolderOpen, Calendar, Clock, MapPin, ArrowRight
+  GraduationCap, ShieldAlert, Music, FolderOpen, Calendar, MapPin, ChevronRight, Loader2
 } from 'lucide-react';
 
-// 1. กำหนดประเภทงานทั้ง 11 Templates
 const EVENT_TEMPLATES = [
-  { id: 'seminar', name: 'การประชุมสัมมนาทางวิชาการ', icon: Briefcase, color: 'from-purple-500 to-indigo-500', recommended: true },
-  { id: 'forum', name: 'งานเสวนาทางวิชาการ', icon: Users, color: 'from-blue-500 to-cyan-500' },
-  { id: 'royal-ceremony', name: 'งานราชพิธี/งานพิธี', icon: Award, color: 'from-amber-500 to-yellow-600' },
-  { id: 'congrats', name: 'งานพิธีต้อนรับ/แสดงความยินดี', icon: PartyPopper, color: 'from-pink-500 to-rose-500' },
-  { id: 'sports', name: 'พิธีเปิด-ปิดการแข่งขันกีฬา', icon: Trophy, color: 'from-emerald-500 to-teal-500' },
-  { id: 'project-launch', name: 'พิธีเปิดโครงการ/กิจกรรม', icon: Flame, color: 'from-orange-500 to-amber-500' },
-  { id: 'wedding', name: 'งานแต่งงาน', icon: Heart, color: 'from-red-400 to-pink-500' },
-  { id: 'ordination', name: 'งานบวช', icon: GraduationCap, color: 'from-yellow-500 to-amber-600' },
-  { id: 'funeral', name: 'งานศพ', icon: ShieldAlert, color: 'from-zinc-600 to-zinc-800' },
-  { id: 'merit-making', name: 'งานพิธีทำบุญ', icon: FileText, color: 'from-indigo-400 to-purple-600' },
-  { id: 'concert', name: 'งานจัดแสดงดนตรี', icon: Music, color: 'from-violet-500 to-fuchsia-500' },
+  { id: 'official', name: 'งานรัฐพิธี / พิธีการทางการ', icon: Award, color: 'from-blue-500 to-cyan-500', ready: true },
+  { id: 'seminar', name: 'การประชุมสัมมนาทางวิชาการ', icon: Briefcase, color: 'from-teal-500 to-emerald-500', ready: true, recommended: true },
+  { id: 'farewell_welcome', name: 'งานพิธีต้อนรับ / แสดงความยินดี', icon: PartyPopper, color: 'from-cyan-500 to-blue-500', ready: true },
+  { id: 'wedding', name: 'งานแต่งงาน', icon: Heart, color: 'from-pink-500 to-rose-500', ready: false },
+  { id: 'ordination', name: 'งานบวช', icon: GraduationCap, color: 'from-orange-500 to-amber-500', ready: false },
+  { id: 'funeral', name: 'งานศพ', icon: ShieldAlert, color: 'from-slate-600 to-slate-800', ready: false },
+  { id: 'merit_making', name: 'งานพิธีทำบุญ', icon: FileText, color: 'from-indigo-400 to-blue-500', ready: false },
+  { id: 'concert', name: 'งานจัดแสดงดนตรี', icon: Music, color: 'from-violet-500 to-fuchsia-500', ready: false },
 ];
 
-export default function SmartEventWelcomePage() {
+function DashboardContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const activeType = searchParams.get('type');
+
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState(false);
-  const [showCreateSection, setShowCreateSection] = useState(false);
-  
-  // 🎯 [เพิ่มสถานะใหม่] สำหรับเก็บประวัติรายการอีเวนต์ทั้งหมดที่ผู้ใช้รายนี้เคยบันทึกสร้างไว้
+  const [creatingEvent, setCreatingEvent] = useState(false); // 🌟 State สำหรับปุ่มสร้างงาน
   const [savedEvents, setSavedEvents] = useState<any[]>([]);
 
-  // ตรวจสอบสิทธิ์รักษา Session และดึงข้อมูลประวัติโครงการเก่าจาก DB
+  const currentTemplateInfo = activeType ? EVENT_TEMPLATES.find(t => t.id === activeType) : null;
+
   useEffect(() => {
     const checkUserAndFetchEvents = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        router.push('/'); // ไม่มีสิทธิ์ ดีดกลับหน้าแรก
+        router.push('/'); 
         return;
       }
-      
       setUser(user);
 
-      // 📥 🚀 [จุดดึงข้อมูลสำคัญ] ทะลวงดึงรายชื่ออีเวนต์ที่เคยเซฟไว้ทั้งหมดของ User ท่านนี้ เรียงตามวันที่สร้างล่าสุด
-      const { data: eventsData, error } = await supabase
+      let query = supabase
         .from('events')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
+      if (activeType) {
+        query = query.eq('category', activeType);
+      }
+
+      const { data: eventsData, error } = await query;
+
       if (!error && eventsData) {
         setSavedEvents(eventsData);
       }
-
       setLoading(false);
     };
 
     checkUserAndFetchEvents();
-  }, [router]);
+  }, [router, activeType]);
 
-  // ฟังก์ชันจังหวะคลิกการ์ดเทมเพลตเพื่อสร้างอีเวนต์แถวใหม่ (Draft)
-  const handleSelectTemplate = async (templateId: string) => {
-    if (actionLoading) return;
+  const getCategoryThaiName = (cat: string) => {
+    return EVENT_TEMPLATES.find(t => t.id === cat)?.name || 'กิจกรรมทั่วไป';
+  };
 
-    if (templateId !== 'seminar') {
-      alert(`Template "${templateId}" อยู่ในระหว่างจัดเตรียมข้อมูลคิวงานมาตรฐานครับ`);
-      return;
-    }
-
+  // 🌟 ฟังก์ชันพิเศษสำหรับ "สร้างงานรัฐพิธี (Official)" โดยเฉพาะ
+  const handleCreateOfficialEvent = async () => {
     try {
-      setActionLoading(true);
-
+      setCreatingEvent(true);
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        alert("เซสชันหลุด กรุณาเข้าสู่ระบบใหม่อีกครั้งครับ");
-        return;
-      }
+      if (!session) throw new Error("กรุณาเข้าสู่ระบบ");
 
       const todayString = new Date().toISOString().split('T')[0];
 
-      // สร้างแถวแม่ดราฟต์จองพื้นที่ส่งจังหวัดและอำเภอตั้งต้นกันบั๊ก Not-Null
+      // สร้างร่าง (Draft) ลง Database อัตโนมัติ
       const { data: newEvent, error } = await supabase
         .from('events')
         .insert([{
           user_id: session.user.id,
-          title: 'กำลังกำหนดชื่องานสัมมนาใหม่...',
+          title: 'งานรัฐพิธี (ฉบับร่าง)',
           status: 'draft',
-          category: templateId, 
+          category: 'official', 
           event_date: todayString,
-          start_time: '09:00',
-          location_district: 'เมืองสุรินทร์',
-          location_province: 'สุรินทร์'
         }])
         .select()
         .single();
 
       if (error) throw error;
 
-      // พุ่งตัวเข้าหน้าสถาปัตยกรรมข้อมูล 16 ฝ่ายพร้อมส่ง ID แม่แนบ URL ทันที
-      router.push(`/eventdashboard/create/${templateId}?event_id=${newEvent.id}`);
+      // สร้างสำเร็จ พุ่งตัวไปหน้า Official Hub ทันที
+      router.push(`/officialeventdashboard/hub?event_id=${newEvent.id}`);
 
     } catch (error: any) {
-      console.error("Error generating event ID:", error.message);
-      alert(`ไม่สามารถจัดเตรียมกระดานงานได้: ${error.message}`);
-    } finally {
-      setActionLoading(false);
+      alert(`ไม่สามารถสร้างงานได้: ${error.message}`);
+      setCreatingEvent(false);
     }
-  };
-
-  // 🎯 ฟังก์ชันช่วยแปลงชื่อคีย์ภาษาอังกฤษของเทมเพลตกลับมาเป็นภาษาไทยเพื่อแสดงบนกล่องประวัติ
-  const getCategoryThaiName = (cat: string) => {
-    return EVENT_TEMPLATES.find(t => t.id === cat)?.name || 'กิจกรรมทั่วไป';
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#020617] flex items-center justify-center text-purple-400 font-bold animate-pulse text-sm">
-        กำลังเชื่อมต่อระบบ คลังข้อมูลคิวงาน NIIVAA Smart Event...
+      <div className="min-h-screen bg-[#0a1128] flex items-center justify-center text-teal-400 font-bold animate-pulse text-sm">
+        กำลังโหลดคลังข้อมูล NiiVaa Smart Event...
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#020617] via-[#0b0f19] to-[#020617] text-white p-6 select-none font-sans">
-      <div className="max-w-5xl w-full mx-auto space-y-10 py-6">
-        
-        {/* ส่วนหัว: แสดงแบรนด์ของระบบร่วมกับผู้ใช้งาน */}
-        <div className="flex justify-between items-center border-b border-purple-500/10 pb-4">
-          <div className="flex items-center gap-2">
-            <span className="font-black text-xs tracking-widest bg-gradient-to-r from-purple-400 to-indigo-400 bg-clip-text text-transparent">
-              NIIVAA SMART EVENT
-            </span>
-            <span className="text-zinc-600 text-xs">|</span>
-            <span className="text-zinc-400 text-xs font-bold">ผู้ดูแลงาน: {user?.email}</span>
-          </div>
-          <button 
-            onClick={() => router.push('/launchpad')} 
-            className="text-xs text-purple-400 hover:text-purple-300 font-bold transition-colors"
-          >
-            ← กลับหน้า Launchpad
-          </button>
+    <div className="max-w-5xl w-full mx-auto space-y-10 py-6 relative z-10">
+      {/* Header */}
+      <div className="flex justify-between items-center border-b border-teal-500/20 pb-4">
+        <div className="flex items-center gap-2">
+          <span className="font-black text-xs tracking-widest bg-gradient-to-r from-teal-400 to-cyan-400 bg-clip-text text-transparent">
+            NIIVAA SMART EVENT
+          </span>
+          <span className="text-slate-600 text-xs">|</span>
+          <span className="text-slate-400 text-xs font-bold">ผู้ดูแลงาน: {user?.email}</span>
         </div>
+        <button 
+          onClick={() => router.push('/eventhub')} 
+          className="text-xs text-teal-400 hover:text-teal-300 font-bold transition-colors"
+        >
+          ← กลับหน้าเลือกประเภทงาน
+        </button>
+      </div>
 
-        {/* ส่วนต้อนรับหลัก (Hero Section) */}
-        <div className="text-center space-y-4 max-w-2xl mx-auto py-4">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-purple-500/10 border border-purple-500/20 rounded-full text-purple-400 text-[10px] font-black uppercase tracking-widest mx-auto">
-            <Sparkles size={10} /> แพลตฟอร์มบริหารและกำกับเวทีอัจฉริยะรวมศูนย์
-          </div>
-          <h1 className="text-3xl md:text-4xl font-black tracking-tight leading-none">
-            ระบบจัดทำและ <span className="bg-gradient-to-r from-white via-purple-200 to-purple-400 bg-clip-text text-transparent">ควบคุมโชว์ไทม์</span> หน้างาน
-          </h1>
-          <p className="text-xs text-zinc-400 max-w-md mx-auto">
-            เข้าจัดระเบียบบทสคริปต์รายวัน จัดวางแปลนผังเก้าอี้ และตรวจประเมินผลความพร้อม 16 ฝ่ายภารกิจก่อนรันสถานการณ์จริง
-          </p>
-
-          <div className="pt-2">
-            <button
-              onClick={() => setShowCreateSection(!showCreateSection)}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 font-black text-xs rounded-2xl shadow-lg shadow-purple-500/10 hover:scale-[1.02] transition-all"
-            >
-              <Plus size={14} strokeWidth={3} /> {showCreateSection ? 'ปิดกล่องเลือกเทมเพลต' : 'สร้างอีเวนต์ใหม่ตอนนี้'}
-            </button>
-          </div>
+      {/* Hero Section */}
+      <div className="text-center space-y-4 max-w-2xl mx-auto py-4">
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-teal-500/10 border border-teal-500/20 rounded-full text-teal-400 text-[10px] font-black uppercase tracking-widest mx-auto">
+          <Sparkles size={10} /> แพลตฟอร์มบริหารและกำกับเวทีอัจฉริยะรวมศูนย์
         </div>
-
-        {/* 📋 โซนการเลือก Template (แสดง/ซ่อน สลับสวิตช์ตามปุ่มกด) */}
-        {showCreateSection && (
-          <div className="space-y-5 p-5 bg-zinc-900/20 border border-white/5 rounded-[30px] animate-in fade-in slide-in-from-bottom-3 duration-300">
-            <div className="text-center space-y-0.5">
-              <h2 className="text-sm font-black text-purple-300">เลือกประเภทโครงสร้างอีเวนต์ที่ต้องการจัดตั้ง</h2>
-              <p className="text-[10px] text-zinc-500">ระบบจะทำการสแกนแมตช์เช็กลิสต์และคิวงานมาตรฐานให้ผู้ดูแลทันที</p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              {EVENT_TEMPLATES.map((template) => {
-                const IconComponent = template.icon;
-                return (
-                  <div
-                    key={template.id}
-                    onClick={() => handleSelectTemplate(template.id)}
-                    className={`p-4 rounded-2xl bg-zinc-950/50 border ${template.recommended ? 'border-purple-500/30 hover:border-purple-400 shadow-md shadow-purple-500/5' : 'border-white/5 hover:border-zinc-700'} cursor-pointer flex items-center gap-4 group hover:bg-zinc-900 transition-all duration-200 ${actionLoading ? 'opacity-40 cursor-not-allowed' : ''}`}
-                  >
-                    <div className={`p-2.5 rounded-xl bg-gradient-to-br ${template.color} text-white shadow-inner`}>
-                      <IconComponent size={18} />
-                    </div>
-                    <div className="flex-1 min-w-0 text-left">
-                      <h3 className="text-xs font-black text-zinc-200 group-hover:text-white truncate">
-                        {template.name}
-                      </h3>
-                      <p className="text-[10px] text-zinc-500 mt-0.5">
-                        {actionLoading && template.id === 'seminar' ? '⏳ กำลังเปิดกระดาน...' : template.recommended ? '✨ แนะนำเริ่มต้นใช้งาน' : 'โครงสร้างมาตรฐาน'}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* 🎯 🎯 [โซนที่เพิ่มขึ้นมาใหม่ยักษ์] คลังประวัติแสดงผลการ์ดอีเวนต์ทั้งหมดที่เคยสร้างไว้ (SAVED EVENTS RECORDS) */}
-        <div className="space-y-4 pt-4">
-          <div className="flex items-center gap-2 border-b border-white/5 pb-2">
-            <FolderOpen size={16} className="text-indigo-400" />
-            <h2 className="text-sm font-black text-zinc-200 uppercase tracking-wider">คลังข้อมูลโครงการจัดตั้งทั้งหมดของคุณ ({savedEvents.length} อีเวนต์)</h2>
-          </div>
-
-          {savedEvents.length === 0 ? (
-            /* เคสไม่มีข้อมูลสำรองเลย */
-            <div className="p-12 bg-zinc-900/10 border border-dashed border-white/5 rounded-3xl text-center space-y-2">
-              <p className="text-xs font-bold text-zinc-500">ยังไม่พบโครงการที่เคยสร้างไว้ในประวัติระบบ</p>
-              <p className="text-[10px] text-zinc-600">รบกวนคุณพี่คลิกที่ปุ่ม "สร้างอีเวนต์ใหม่ตอนนี้" ด้านบนเพื่อเริ่มปั้นโครงการแรกเข้าสู่คลังระบบครับ</p>
-            </div>
+        <h1 className="text-3xl md:text-4xl font-black tracking-tight leading-none text-white">
+          {activeType && currentTemplateInfo ? (
+            <>ระบบจัดการ <span className="bg-gradient-to-r from-teal-300 to-cyan-400 bg-clip-text text-transparent">{currentTemplateInfo.name}</span></>
           ) : (
-            /* เคสสตรีมข้อมูลขึ้นการ์ดลิสสำเร็จ พร้อมเชื่อมลิ้งก์กลับตัวจริง */
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {savedEvents.map((event) => (
-                <div 
-                  key={event.id}
-                  className="bg-zinc-900/40 border border-white/5 rounded-2xl p-5 hover:border-purple-500/40 transition-all duration-300 flex flex-col justify-between group hover:bg-zinc-900/80 shadow-md relative"
-                >
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-start">
-                      <span className="bg-purple-950/60 text-purple-400 px-2 py-0.5 rounded-full text-[9px] font-black uppercase border border-purple-500/10">
-                        {getCategoryThaiName(event.category)}
-                      </span>
-                      <span className={`text-[9px] font-black px-2 py-0.5 rounded font-mono ${event.status === 'live' ? 'bg-red-950 text-red-400 border border-red-500/20' : 'bg-zinc-950 text-zinc-400'}`}>
-                        {event.status === 'live' ? '🔴 LIVE MODE' : '📝 PRE-EVENT DRAFT'}
-                      </span>
-                    </div>
+            <>ระบบจัดทำและ <span className="bg-gradient-to-r from-teal-300 to-cyan-400 bg-clip-text text-transparent">ควบคุมโชว์ไทม์</span> หน้างาน</>
+          )}
+        </h1>
+        <p className="text-xs text-slate-400 max-w-md mx-auto">
+          เข้าจัดระเบียบบทสคริปต์รายวัน จัดวางแปลนผังเก้าอี้ และตรวจประเมินผลความพร้อมก่อนรันสถานการณ์จริง
+        </p>
 
-                    <h3 className="text-sm font-black text-white line-clamp-1 group-hover:text-purple-300 transition-colors">
-                      {event.title || 'งานสัมมนาวิชาการไม่ระบุชื่องาน'}
-                    </h3>
-
-                    {/* แสดงรายละเอียดไอเทมพิกัดกำกับสถานที่และเวลาเริ่ม */}
-                    <div className="grid grid-cols-2 gap-y-1.5 text-[10px] font-bold text-zinc-500 border-t border-white/5 pt-3">
-                      <div className="flex items-center gap-1.5 truncate">
-                        <Calendar size={12} className="text-zinc-600" />
-                        <span>{event.event_date ? new Date(event.event_date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' }) : 'ไม่ระบุวัน'}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 truncate">
-                        <Clock size={12} className="text-zinc-600" />
-                        <span>เริ่มเวลา: {event.start_time || '09:00'} น.</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 sm:col-span-2 truncate">
-                        <MapPin size={12} className="text-zinc-600" />
-                        <span>{event.location_district || 'อ.เมือง'} , {event.location_province || 'สุรินทร์'}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* สวิตช์ปุ่มแตะทางลัด กระโดดเข้าสู่ฟอร์มเตรียมงานตัวจริงของโปรเจกต์นั้นโดยดึง ID จากแถว */}
-                  <div className="mt-5 pt-3 border-t border-white/5 flex gap-2">
-                    <button
-                      onClick={() => router.push(`/eventdashboard/create/${event.category || 'seminar'}?event_id=${event.id}`)}
-                      className="flex-1 py-2 px-3 bg-zinc-950 border border-white/5 hover:border-purple-500 rounded-xl font-black text-[10px] text-zinc-300 hover:text-white flex items-center justify-center gap-1 transition-all"
-                    >
-                      🛠️ จัดการข้อมูล 16 ฝ่าย
-                    </button>
-                    
-                    <button
-                      onClick={() => router.push(`/eventdashboard/live?event_id=${event.id}`)}
-                      className="py-2 px-3 bg-purple-600 hover:bg-purple-500 rounded-xl font-black text-[10px] text-white flex items-center justify-center gap-1 transition-all"
-                    >
-                      คุมคิว Live <ArrowRight size={10} />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
+        <div className="pt-2">
+          {/* 🌟 เช็คปุ่มสร้างงาน: ถ้าเป็น Official ให้ทำงานแบบหนึ่ง ถ้าเป็นแบบอื่นให้ทำงานอีกแบบ */}
+          {activeType === 'official' ? (
+            <button
+              onClick={handleCreateOfficialEvent}
+              disabled={creatingEvent}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-400 hover:to-cyan-500 text-black font-black text-sm rounded-2xl shadow-[0_0_15px_rgba(20,184,166,0.3)] hover:shadow-[0_0_25px_rgba(20,184,166,0.5)] transition-all hover:-translate-y-1 disabled:opacity-50"
+            >
+              {creatingEvent ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} strokeWidth={3} />}
+              สร้าง{currentTemplateInfo?.name || 'อีเวนต์'}ใหม่
+            </button>
+          ) : (
+            <Link
+              href={`/events/event-dashboard/create?category=${activeType || ''}`}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-400 hover:to-cyan-500 text-black font-black text-sm rounded-2xl shadow-[0_0_15px_rgba(20,184,166,0.3)] hover:shadow-[0_0_25px_rgba(20,184,166,0.5)] transition-all hover:-translate-y-1"
+            >
+              <Plus size={16} strokeWidth={3} /> 
+              {activeType && currentTemplateInfo ? `สร้าง${currentTemplateInfo.name}ใหม่` : 'สร้างอีเวนต์ใหม่ตอนนี้'}
+            </Link>
           )}
         </div>
-
       </div>
+
+      {/* คลังประวัติแสดงผลการ์ดอีเวนต์ */}
+      <div className="space-y-4 pt-4">
+        <div className="flex items-center gap-2 border-b border-slate-700/50 pb-2">
+          <FolderOpen size={16} className="text-cyan-400" />
+          <h2 className="text-sm font-black text-slate-200 uppercase tracking-wider">
+            คลังข้อมูล{activeType && currentTemplateInfo ? currentTemplateInfo.name : 'โครงการจัดตั้งทั้งหมด'} ({savedEvents.length} อีเวนต์)
+          </h2>
+        </div>
+
+        {savedEvents.length === 0 ? (
+          <div className="p-12 bg-slate-900/40 border border-dashed border-slate-700 rounded-3xl text-center space-y-2">
+            <p className="text-xs font-bold text-slate-500">ยังไม่พบโครงการ{activeType ? 'ประเภทนี้' : ''}ที่เคยสร้างไว้ในประวัติระบบ</p>
+            <p className="text-[10px] text-slate-600">คลิกที่ปุ่มสร้างด้านบนเพื่อเริ่มปั้นโครงการเข้าสู่คลังระบบครับ</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {savedEvents.map((event) => (
+              /* 🌟 การ์ดกดได้ทั้งใบ (ชี้ URL ตามประเภทงาน) */
+              <Link 
+                href={activeType === 'official' || event.category === 'official' ? `/officialeventdashboard/hub?event_id=${event.id}` : `/events/event-dashboard/${event.id}`}
+                key={event.id}
+                className="bg-[#111827]/60 backdrop-blur-md border border-slate-700/50 rounded-2xl p-5 hover:border-teal-500/50 transition-all duration-300 flex flex-col justify-between group hover:bg-[#1e293b]/80 shadow-md hover:shadow-[0_10px_30px_rgba(45,212,191,0.1)] hover:-translate-y-1 relative"
+              >
+                <div className="space-y-3">
+                  <div className="flex justify-between items-start">
+                    <span className="bg-teal-950/60 text-teal-400 px-2 py-0.5 rounded-full text-[9px] font-black uppercase border border-teal-500/20">
+                      {getCategoryThaiName(event.category)}
+                    </span>
+                    <span className={`text-[9px] font-black px-2 py-0.5 rounded font-mono ${event.status === 'live' ? 'bg-amber-950 text-amber-400 border border-amber-500/20' : 'bg-slate-800 text-slate-400 border border-slate-700'}`}>
+                      {event.status === 'live' ? '🔴 LIVE MODE' : '📝 PRE-EVENT DRAFT'}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between items-center gap-2">
+                      <h3 className="text-sm md:text-base font-black text-white line-clamp-1 group-hover:text-teal-300 transition-colors">
+                        {event.title || 'ไม่ระบุชื่องาน'}
+                      </h3>
+                      <div className="w-8 h-8 rounded-full bg-slate-800 group-hover:bg-teal-600 flex items-center justify-center transition-colors shrink-0">
+                        <ChevronRight size={16} className="text-slate-400 group-hover:text-white" />
+                      </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-y-1.5 text-[10px] font-bold text-slate-400 border-t border-slate-700/50 pt-3 mt-2">
+                    <div className="flex items-center gap-1.5 truncate">
+                      <Calendar size={12} className="text-slate-500 shrink-0" />
+                      <span>{event.event_date ? new Date(event.event_date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' }) : 'ไม่ระบุวัน'}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 truncate">
+                      <MapPin size={12} className="text-slate-500 shrink-0" />
+                      <span className="truncate">{event.location_district || 'อ.เมือง'} , {event.location_province || 'สุรินทร์'}</span>
+                    </div>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default function SmartEventWelcomePage() {
+  return (
+    <div className="min-h-screen bg-[#0a1128] text-white p-6 select-none font-sans relative overflow-hidden">
+      {/* Background Effects (Navy/Teal/Blue style) */}
+      <div className="absolute top-0 right-1/4 w-[500px] h-[500px] bg-teal-600/10 rounded-full blur-[120px] pointer-events-none"></div>
+      <div className="absolute bottom-0 left-1/4 w-[400px] h-[400px] bg-blue-600/10 rounded-full blur-[120px] pointer-events-none"></div>
+
+      <Suspense fallback={<div className="text-center text-teal-400 mt-20 animate-pulse">กำลังโหลดข้อมูล...</div>}>
+        <DashboardContent />
+      </Suspense>
     </div>
   );
 }
