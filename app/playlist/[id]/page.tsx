@@ -1410,8 +1410,8 @@ export default function SmartKaraokePage({ params }: { params: any }) {
         )}
 
         {/* 2. MAIN LAYOUT */}
-        {/* <div className={`flex flex-1 gap-4 p-4 overflow-hidden ${isFullscreen ? 'flex-col' : ''}`}>*/}
-        <div className="flex flex-col md:flex-row gap-4 h-screen overflow-y-auto md:overflow-hidden p-2 md:p-4 ...">
+        {/* 2. MAIN LAYOUT (ปลดล็อคความสูงในมือถือ ให้ไถสกอร์ลลงไปดูคิวเพลงได้) */}
+        <div className="flex flex-col lg:flex-row gap-4 h-auto lg:h-[calc(100vh-50px)] p-2 lg:p-4 pb-20 lg:pb-4 overflow-x-hidden">
           {/* --- [LEFT SIDE: VIDEO & SEARCH] --- */}
           <section className={`flex flex-col gap-3 md:gap-4 transition-all duration-500 ${isFullscreen ? 'flex-1 h-screen w-full fixed inset-0 z-[9999] bg-black' : 'w-full lg:flex-[4] h-auto md:h-full'}`}>
 
@@ -1503,7 +1503,7 @@ export default function SmartKaraokePage({ params }: { params: any }) {
                   </button>
 
                   {/* 🎤 NEON MODE BUTTONS */}
-                  <div className="flex gap-3 shrink-0">
+                  <div className="hidden lg:flex gap-3 shrink-0">
                     {/* 🎛️ 2. ปุ่ม Toggle สลับโหมด (สีม่วง/ฟ้า - ปุ่มกลาง) */}
                     <button
                       onClick={() => {
@@ -1704,9 +1704,9 @@ export default function SmartKaraokePage({ params }: { params: any }) {
             )}
           </section>
 
-          {/* --- [RIGHT SIDE: ASIDE] --- */}
+          {/* --- [RIGHT SIDE: ASIDE] (ปรับให้สูงพอดีคิวเพลง ไม่โดนตัด) --- */}
           {!isFullscreen && (
-            <aside className="w-full lg:w-[380px] shrink-0 h-[60vh] lg:h-full flex flex-col overflow-hidden bg-[#000a12] border-t lg:border-t-0 lg:border-l border-white/5 relative shadow-[0_0_20px_rgba(34,211,238,0.05)] rounded-t-3xl lg:rounded-none mt-4 lg:mt-0">
+            <aside className="w-full lg:w-[380px] shrink-0 min-h-[500px] lg:h-full flex flex-col bg-[#000a12] border-t lg:border-t-0 lg:border-l border-white/5 relative shadow-[0_0_20px_rgba(34,211,238,0.05)] rounded-t-3xl lg:rounded-none mt-4 lg:mt-0">
               {/* 1. Banner & Neon Control Panel (ฉบับอัปเดตระบบ White-Label ติดแบรนด์หน่วยงาน) */}
               <div className={`bg-slate-900 rounded-2xl p-4 ... ${isCompact ? 'hidden' : 'block'}`}>
                 <div className="bg-[#000a1a] p-4 border-b border-white/5 shrink-0">

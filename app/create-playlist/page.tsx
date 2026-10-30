@@ -516,7 +516,7 @@ export default function CreatePlaylistPage() {
           </div>
 
           {/* 🌟 โครงสร้าง List แบบแถวที่เตี้ยลง 20% */}
-          <div className="bg-[#001122]/30 border border-[#006666]/20 rounded-[2rem] p-4 flex-1 h-[600px] overflow-hidden flex flex-col">
+          <div className="bg-[#001122]/30 border border-[#006666]/20 rounded-[2rem] p-4 w-full min-h-[500px] lg:h-[600px] overflow-hidden flex flex-col shrink-0">
             <div className="overflow-y-auto overflow-x-hidden flex-1 custom-scrollbar pr-2">
               <div className="flex flex-col gap-2.5 pb-10">
                 {filteredPlaylists.map((item) => (

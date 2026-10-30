@@ -244,6 +244,7 @@ export default function CreateExamPage() {
             const subjectLabel = config.subject || 'ทั่วไป';
             const educationLevelToSave = config.grade_level || categoryLabel; 
 
+            // 🌟 จุดที่มีการแก้ไข เพิ่ม `creator_id: user.id` ไปด้วยเพื่อป้องกัน RLS error
             const formatQuestionForDB = (q: Question, examId: string, index: number) => {
                 let optionsToSave = q.options || [];
                 let correctAnswerToSave = q.correct || '';
@@ -258,6 +259,7 @@ export default function CreateExamPage() {
 
                 return {
                     exam_id: examId,
+                    creator_id: user.id, // 🌟 ปรับปรุงตรงนี้: ส่ง ID ผู้ใช้แนบไปกับคำถาม
                     question_number: index + 1,
                     question_type: q.type || 'mcq',
                     question_text: q.text,
@@ -285,8 +287,12 @@ export default function CreateExamPage() {
                 }]).select().single();
                 if (errA) throw errA;
 
-                const formattedSetA = questionsSetA.map((q, idx) => formatQuestionForDB(q, examA, idx));
-                await supabase.from('exam_questions').insert(formattedSetA);
+                const formattedSetA = questionsSetA.map((q, idx) => formatQuestionForDB(q, examA.id, idx));
+                const { error: errorA } = await supabase.from('exam_questions').insert(formattedSetA);
+                 if (errorA) {
+                    console.error("Error inserting Set A:", errorA);
+                    throw new Error("บันทึกคำถามชุด A ไม่สำเร็จ: " + errorA.message);
+                }
 
                 const { data: examB, error: errB } = await supabase.from('exams').insert([{
                     creator_id: user.id, title: `${config.title.trim() || "แบบทดสอบไม่มีชื่อ"} (ชุด B)`,
@@ -297,7 +303,11 @@ export default function CreateExamPage() {
                 if (errB) throw errB;
 
                 const formattedSetB = questionsSetB.map((q, idx) => formatQuestionForDB(q, examB.id, idx));
-                await supabase.from('exam_questions').insert(formattedSetB);
+                const { error: errorB } = await supabase.from('exam_questions').insert(formattedSetB);
+                if (errorB) {
+                    console.error("Error inserting Set B:", errorB);
+                    throw new Error("บันทึกคำถามชุด B ไม่สำเร็จ: " + errorB.message);
+                }
 
                 alert(status === 'published' ? `เผยแพร่แบบทดสอบคู่ขนาน (2 ชุด) เรียบร้อย!` : `บันทึกแบบร่าง (2 ชุด) ลงคลังเรียบร้อยแล้วครับ`);
             } else {
@@ -311,7 +321,10 @@ export default function CreateExamPage() {
 
                 const formattedQuestions = questions.map((q, idx) => formatQuestionForDB(q, examData.id, idx));
                 const { error: questionsError } = await supabase.from('exam_questions').insert(formattedQuestions);
-                if (questionsError) throw questionsError;
+                if (questionsError) {
+                   console.error("Error inserting questions:", questionsError);
+                   throw new Error("บันทึกคำถามไม่สำเร็จ: " + questionsError.message);
+                }
 
                 alert(status === 'published' ? `เผยแพร่แบบทดสอบเรียบร้อย!` : `บันทึกแบบร่างลงคลังเรียบร้อยแล้วครับ`);
             }
