@@ -140,7 +140,34 @@ function WelcomeContent() {
 
   const executeSilentOnboarding = async () => {
     try {
-      // 1. โยนงานจัดเตรียมระบบทั้งหมด (STEP 1-4) ไปให้ Server ทำแบบทะลุ RLS
+      // 🌟 1. ดึงข้อมูล User ปัจจุบันจาก Session ก่อน
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("ไม่พบข้อมูลเซสชัน กรุณาเข้าสู่ระบบใหม่");
+
+      // 🌟 2. Smart Retry Logic: วนลูปเช็ค Profile สูงสุด 5 รอบ (รอบละ 1 วินาที)
+      let profileReady = false;
+      for (let i = 0; i < 5; i++) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (profile) {
+          profileReady = true;
+          break; // เจอ Profile แล้ว ทะลุออกจากลูปทันที
+        }
+        
+        // ถ้ายิงไปแล้วยังไม่เจอ ให้หยุดรอ 1 วินาทีแล้วค่อยถามฐานข้อมูลใหม่
+        console.log(`รอบที่ ${i + 1}: กำลังรอฐานข้อมูลสร้าง Profile...`);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+
+      if (!profileReady) {
+        throw new Error("ระบบเตรียมข้อมูลโปรไฟล์ล่าช้ากว่าปกติ (Timeout) กรุณากดปุ่มลองเชื่อมต่อใหม่อีกครั้ง");
+      }
+
+      // 🌟 3. เมื่อมั่นใจว่ามี Profile 100% แล้ว ค่อยโยนงานให้ Server ทำแบบทะลุ RLS
       const result = await executeSilentOnboardingServer(currentApp, planId);
 
       // 2. ถ้า Server แจ้งว่ามี Error ให้โยนเข้า catch
