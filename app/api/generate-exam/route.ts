@@ -1,8 +1,28 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-// 🌟 ตั้งค่า Gemini API (ตรวจสอบให้แน่ใจว่ามี GEMINI_API_KEY ในไฟล์ .env.local)
+// 🌟 ตั้งค่า Gemini API
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+
+// ==========================================
+// 🧹 ฟังก์ชันสำหรับทำความสะอาด JSON จาก AI โดยเฉพาะ
+// ==========================================
+function cleanAndParseJSON(rawText: string) {
+    try {
+        // 1. ตัด ```json และ ``` ออกให้หมด
+        let cleanedText = rawText.replace(/```json\n?/gi, '').replace(/```\n?/g, '').trim();
+        
+        // 2. ลบ Trailing Comma (คอมมาที่เกินมาตรงท้าย Array หรือ Object) 
+        // เช่น [1, 2, 3,] ให้เหลือ [1, 2, 3] หรือ {"a": 1,} ให้เหลือ {"a": 1}
+        cleanedText = cleanedText.replace(/,(?=\s*[\]}])/g, '');
+        
+        // 3. แปลงเป็น JSON Object
+        return JSON.parse(cleanedText);
+    } catch (error) {
+        console.error("🔥 JSON Parse Error, Raw Text was:", rawText);
+        throw new Error("AI ส่งรูปแบบข้อมูลมาไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง");
+    }
+}
 
 export async function POST(req: Request) {
   try {
@@ -13,7 +33,7 @@ export async function POST(req: Request) {
         generateParallelSets, questionType 
     } = body;
 
-    // ใช้ Gemini 2.5 Flash เพราะทำงานกับรูปภาพได้เร็วและฉลาด (หรือเปลี่ยนเป็น gemini-1.5-pro ถ้ารูปซับซ้อนมาก)
+    // ใช้ Gemini 2.5 Flash
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
     let promptContext = '';
@@ -24,7 +44,6 @@ export async function POST(req: Request) {
     // 🟢 กรณี 1: สร้างจากรูปภาพ (Image)
     // ==========================================
     if (sourceType === 'image' && imageBase64) {
-      // 1. ถอดรหัส Base64 (แยกระหว่าง Header และ Data)
       const matches = imageBase64.match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/);
       if (!matches || matches.length !== 3) {
         return NextResponse.json({ success: false, error: 'รูปแบบไฟล์รูปภาพไม่ถูกต้อง' }, { status: 400 });
@@ -33,7 +52,6 @@ export async function POST(req: Request) {
       const mimeType = matches[1];
       const base64Data = matches[2];
 
-      // 2. แพ็กข้อมูลภาพส่งให้ Gemini
       imageParts.push({
         inlineData: {
           data: base64Data,
@@ -41,7 +59,6 @@ export async function POST(req: Request) {
         }
       });
 
-      // 🌟 3. คำสั่ง (Prompt) ที่เด็ดขาด ควบคุมไม่ให้ AI มโน
       promptContext = `
         ฉันได้แนบ "ภาพถ่ายข้อสอบวิชา ${subject} ระดับชั้น ${level}" มาให้คุณ 
         หน้าที่ของคุณคือ "แปลงข้อสอบจากในภาพนี้ให้อยู่ในรูปแบบดิจิทัล (Digitize)"
@@ -82,7 +99,9 @@ export async function POST(req: Request) {
     // 📦 โครงสร้าง JSON ที่บังคับให้ AI ตอบกลับมา
     // ==========================================
     promptInstruction = `
-      คุณต้องตอบกลับเป็นโค้ด JSON เท่านั้น ห้ามมีข้อความอื่นปน (ไม่ต้องมีเครื่องหมาย \`\`\`json นำหน้า)
+      คุณต้องตอบกลับเป็นข้อมูล JSON เท่านั้น ห้ามมีข้อความอื่นปน (ไม่ต้องมีเครื่องหมาย \`\`\`json นำหน้า)
+      และห้ามมีเครื่องหมาย Comma (,) เกินมาในส่วนท้ายของ Array หรือ Object เด็ดขาด
+      
       โครงสร้าง JSON ที่ต้องการ:
       ${generateParallelSets ? `
       {
@@ -113,13 +132,10 @@ export async function POST(req: Request) {
 
     // 🚀 ส่งคำสั่งและรูปภาพ (ถ้ามี) ไปให้ Gemini AI
     const result = await model.generateContent([promptContext + "\n\n" + promptInstruction, ...imageParts]);
-    let responseText = result.response.text();
+    const responseText = result.response.text();
 
-    // 🧹 ทำความสะอาดข้อความ (ลบ Markdown Code Block ที่ AI ชอบแถมมา)
-    responseText = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-
-    // แปลง String เป็น JSON Object
-    const jsonData = JSON.parse(responseText);
+    // 🌟 ใช้ฟังก์ชันที่เราสร้างขึ้นเพื่อทำความสะอาดและแปลง JSON
+    const jsonData = cleanAndParseJSON(responseText);
 
     return NextResponse.json({ success: true, data: jsonData });
 

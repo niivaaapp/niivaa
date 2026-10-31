@@ -9,7 +9,7 @@ import {
   Globe, MoreVertical, Link as LinkIcon, BarChart3,
   GraduationCap, FileText, CheckCircle2, Printer, Loader2,
   Copy, Check, UploadCloud, ImageIcon, X, ChevronDown,
-  Eye, Share2, MessageCircle, QrCode, Filter
+  Eye, Share2, MessageCircle, QrCode, Filter, Trash2
 } from 'lucide-react';
 
 interface Exam {
@@ -22,7 +22,7 @@ interface Exam {
   status: string;
   date: string;
   format?: string; 
-  is_public?: boolean; // 🌟 เพิ่มบรรทัดนี้
+  is_public?: boolean; 
 }
 
 const getSubjectIcon = (subjectName: string) => {
@@ -48,7 +48,7 @@ export default function SmartExamDashboard() {
 
   // 🌟 States สำหรับ Share Modal
   const [shareExam, setShareExam] = useState<Exam | null>(null);
-  const [isUpdatingPublic, setIsUpdatingPublic] = useState(false); // 🌟 เพิ่ม State นี้
+  const [isUpdatingPublic, setIsUpdatingPublic] = useState(false); 
 
   // States สำหรับ Slide-Over Drawer คู่มือ
   const [isManualOpen, setIsManualOpen] = useState(false);
@@ -62,7 +62,7 @@ export default function SmartExamDashboard() {
     try {
       let query = supabase
         .from('exams')
-        .select(`id, title, subject_category, education_level, total_score, status, created_at, exam_format, exam_questions (count)`)
+        .select(`id, title, subject_category, education_level, total_score, status, created_at, exam_format, is_public, exam_questions (count)`)
         .order('created_at', { ascending: false });
 
       const { data, error } = await query;
@@ -78,7 +78,7 @@ export default function SmartExamDashboard() {
           score: ex.total_score || 0,
           status: ex.status || 'draft',
           format: ex.exam_format || 'standard',
-          is_public: ex.is_public || false, // 🌟 เพิ่มบรรทัดนี้
+          is_public: ex.is_public || false, 
           date: new Date(ex.created_at).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' })
         }));
         setExams(formattedExams);
@@ -101,7 +101,7 @@ export default function SmartExamDashboard() {
         setExams(prev => prev.map(ex => ex.id === examId ? { ...ex, status: currentStatus } : ex));
     }
   };
-  // 🌟 เพิ่มฟังก์ชันนี้ลงไป (ต่อจาก handleToggleStatus ก็ได้ครับ)
+  
   const handleTogglePublic = async (examId: string, currentPublicState: boolean) => {
     setIsUpdatingPublic(true);
     try {
@@ -118,14 +118,58 @@ export default function SmartExamDashboard() {
     }
   };
 
+  // 🌟 ฟังก์ชันลบชุดข้อสอบ
+  const handleDeleteExam = async (e: React.MouseEvent, examId: string, examTitle: string) => {
+    e.preventDefault(); 
+    e.stopPropagation();
+
+    if (!window.confirm(`⚠️ คุณแน่ใจหรือไม่ว่าต้องการลบชุดข้อสอบ "${examTitle}" ?\n(ข้อสอบทั้งหมดที่อยู่ในชุดนี้จะถูกลบทิ้งอย่างถาวร)`)) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('exams')
+        .delete()
+        .eq('id', examId);
+
+      if (error) throw error;
+
+      // อัปเดต State หน้าจอให้รายการหายไปทันทีโดยไม่ต้องโหลดหน้าใหม่
+      setExams(prev => prev.filter(exam => exam.id !== examId));
+      
+    } catch (error: any) {
+      console.error("Error deleting exam:", error.message);
+      alert("ลบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    }
+  };
+
+  // 🌟 1. กำหนดรายการมาตรฐานสำหรับ "ระดับชั้น" และ "กลุ่มวิชา"
+  const PREDEFINED_LEVELS = [
+    'ป.1', 'ป.2', 'ป.3', 'ป.4', 'ป.5', 'ป.6', 
+    'ม.1', 'ม.2', 'ม.3', 'ม.4', 'ม.5', 'ม.6', 
+    'ปวช.1', 'ปวช.2', 'ปวช.3', 'ปวส.1', 'ปวส.2', 
+    'สอบเข้า ม.1', 'สอบเข้า ม.4', 'สอบเข้าสถาบัน', 
+    'แนวข้อสอบ ก.พ.', 'แนวข้อสอบ ครูผู้ช่วย', 'แนวข้อสอบ พนักงานท้องถิ่น', 'แนวข้อสอบตำรวจ', 'แนวข้อสอบทหาร'
+  ];
+
+  const PREDEFINED_SUBJECTS = [
+    'ภาษาไทย', 'คณิตศาสตร์', 'วิทยาศาสตร์', 'เทคโนโลยี', 'สังคมศึกษา', 
+    'ภาษาอังกฤษ', 'สุขศึกษา', 'พลศึกษา', 'ศิลปศึกษา', 'การงานอาชีพ', 
+    'ฟิสิกส์', 'เคมี', 'ชีววิทยา'
+  ];
+
+  // 🌟 2. รวมรายการมาตรฐาน เข้ากับ รายการที่มีคนพิมพ์เพิ่มเข้ามา (ลบตัวซ้ำออกอัตโนมัติ)
   const uniqueSubjects = useMemo(() => {
-    const subjects = Array.from(new Set(exams.map(e => e.subject)));
-    return ['all', ...subjects];
+    const dynamicSubjects = exams.map(e => e.subject).filter(Boolean);
+    const combinedSubjects = new Set([...PREDEFINED_SUBJECTS, ...dynamicSubjects]);
+    return ['all', ...Array.from(combinedSubjects)];
   }, [exams]);
 
   const uniqueLevels = useMemo(() => {
-    const levels = Array.from(new Set(exams.map(e => e.level)));
-    return ['all', ...levels];
+    const dynamicLevels = exams.map(e => e.level).filter(Boolean);
+    const combinedLevels = new Set([...PREDEFINED_LEVELS, ...dynamicLevels]);
+    return ['all', ...Array.from(combinedLevels)];
   }, [exams]);
 
   // 🌟 Logic การกรองข้อมูลที่อัปเดตใหม่
@@ -313,19 +357,31 @@ export default function SmartExamDashboard() {
                   {filteredExams.length > 0 ? (
                     filteredExams.map((exam) => (
                       <tr key={exam.id} className="hover:bg-white/5 transition-colors group">
-                        <td className="p-4">
-                          <div className="flex items-center gap-2">
-                            {exam.format === 'pdf' ? (
-                              <span className="bg-purple-500/20 text-purple-400 border border-purple-500/30 px-1.5 py-0.5 rounded text-[9px] font-black uppercase whitespace-nowrap">PDF</span>
-                            ) : exam.format === 'image' || exam.format === 'multi_image' ? (
-                              <span className="bg-blue-500/20 text-blue-400 border border-blue-500/30 px-1.5 py-0.5 rounded text-[9px] font-black uppercase whitespace-nowrap">รูปภาพ</span>
-                            ) : (
-                              <span className="bg-amber-500/20 text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded text-[9px] font-black uppercase whitespace-nowrap">AI</span>
-                            )}
-                            <div className="font-bold text-white text-sm md:text-base group-hover:text-amber-400 transition-colors line-clamp-2">
-                              {exam.title}
+                        <td className="p-4 flex flex-col items-start gap-1">
+                          <div className="flex justify-between w-full items-start">
+                            <div className="flex items-center gap-2">
+                                {exam.format === 'pdf' ? (
+                                <span className="bg-purple-500/20 text-purple-400 border border-purple-500/30 px-1.5 py-0.5 rounded text-[9px] font-black uppercase whitespace-nowrap">PDF</span>
+                                ) : exam.format === 'image' || exam.format === 'multi_image' ? (
+                                <span className="bg-blue-500/20 text-blue-400 border border-blue-500/30 px-1.5 py-0.5 rounded text-[9px] font-black uppercase whitespace-nowrap">รูปภาพ</span>
+                                ) : (
+                                <span className="bg-amber-500/20 text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded text-[9px] font-black uppercase whitespace-nowrap">AI</span>
+                                )}
+                                <div className="font-bold text-white text-sm md:text-base group-hover:text-amber-400 transition-colors line-clamp-2">
+                                {exam.title}
+                                </div>
                             </div>
+                            
+                            {/* 🌟 ปุ่มลบข้อสอบ (ย้ายมาไว้ข้างๆ ชื่องานเพื่อให้กดง่ายขึ้น) */}
+                            <button 
+                              onClick={(e) => handleDeleteExam(e, exam.id, exam.title)}
+                              className="w-7 h-7 rounded-full bg-slate-800/50 hover:bg-red-500/20 flex items-center justify-center text-slate-500 hover:text-red-400 transition-colors border border-transparent hover:border-red-500/30 shrink-0 ml-2"
+                              title="ลบชุดข้อสอบนี้"
+                            >
+                              <Trash2 size={12} />
+                            </button>
                           </div>
+                          
                           <div className="text-[10px] font-mono text-slate-500 mt-1">อัปเดต: {exam.date}</div>
                         </td>
                         <td className="p-4 hidden md:table-cell">
