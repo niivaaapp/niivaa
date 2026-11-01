@@ -1363,22 +1363,38 @@ export default function SmartKaraokePage({ params }: { params: any }) {
     <main className="flex h-screen overflow-hidden bg-[var(--user-bg)] font-prompt">
       {/* ⚡ [เพิ่มใหม่]: แผงฝังตัวแปรสไตล์ CSS Variables เพื่อลอนช์ค่าสีและ Slide bar วิ่งกระจายไปทั่วทั้งหน้าจอ */}
       <style>{`
-          :root {
-            --user-bg: ${theme.bg};
-            --user-border: ${theme.border};
-            --user-neon: ${theme.text};
-            --user-glow: 0 0 ${theme.glow}px ${theme.text};
-            --user-pulse-speed: ${theme.pulse}s;
-          }
-          /* คลาสแอนิเมชันกระพริบวูบวาบอัจฉริยะแบบไดนามิก ปรับความเร็วตามสไลด์บาร์ */
-          .premium-pulse {
-            animation: premium-pulse-anim var(--user-pulse-speed) cubic-bezier(0.4, 0, 0.6, 1) infinite;
-          }
-          @keyframes premium-pulse-anim {
-            0%, 100% { opacity: 1; filter: drop-shadow(0 0 ${theme.glow}px ${theme.text}); }
-            50% { opacity: .5; filter: drop-shadow(0 0 ${theme.glow / 3}px ${theme.text}); }
-          }
-        `}</style>
+        :root {
+          --user-bg: ${theme.bg};
+          --user-border: ${theme.border};
+          --user-neon: ${theme.text};
+          --user-glow: 0 0 ${theme.glow}px ${theme.text};
+          --user-pulse-speed: ${theme.pulse}s;
+        }
+        /* คลาสแอนิเมชันกระพริบวูบวาบอัจฉริยะแบบไดนามิก ปรับความเร็วตามสไลด์บาร์ */
+        .premium-pulse {
+          animation: premium-pulse-anim var(--user-pulse-speed) cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes premium-pulse-anim {
+          0%, 100% { opacity: 1; filter: drop-shadow(0 0 ${theme.glow}px ${theme.text}); }
+          50% { opacity: .5; filter: drop-shadow(0 0 ${theme.glow / 3}px ${theme.text}); }
+        }
+        @keyframes marquee { 0% { transform: translateX(100vw); } 100% { transform: translateX(-100%); } }
+        @keyframes marquee-once { 0% { transform: translateX(100vw); } 100% { transform: translateX(-100%); } }
+        .animate-marquee { animation: marquee 25s linear infinite; }
+        .animate-marquee-once { animation: marquee-once 25s linear forwards; }
+        .shadow-neon { box-shadow: 0 0 15px rgba(34,211,238,0.4); }
+        .drop-shadow-neon { filter: drop-shadow(0 0 8px rgba(34,211,238,0.8)); }
+        
+        /* Custom Scrollbar */
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(34,211,238,0.3); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(34,211,238,0.6); }
+        
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #000a12; }
+        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; border: 2px solid #000a12; }
+      `}</style>
+
       <div className={`flex-1 bg-[#000a12] text-white flex flex-col overflow-hidden relative ${isFullscreen ? 'p-0' : 'p-2'}`}>
 
         {/* 1. MARQUEE SECTION - ควบคุมโดย Announce & Loop */}
@@ -1386,13 +1402,11 @@ export default function SmartKaraokePage({ params }: { params: any }) {
         {showAnnouncement && displayMarqueeText && (
           <div className={`absolute left-0 right-0 z-[10002] transition-all duration-700 ${isFullscreen ? 'top-4 bg-black/40 backdrop-blur-sm py-2' : 'top-0 bg-black/20 py-1'}`}>
             <div className="overflow-hidden flex items-center">
-
               {/* 🌟 เพิ่ม style แทรกลงไป เพื่อบอกเบราว์เซอร์ว่า: ถ้าเป็นคิวเพลง (isMarqueeAmber) ให้ใช้เวลาวิ่ง 40 วินาที ความเร็วจะได้นุ่มนวลเท่าข้อความปกติ */}
               <div
                 className={`whitespace-nowrap flex gap-10 ${isLooping ? 'animate-marquee' : 'animate-marquee-once'}`}
                 style={{ animationDuration: isMarqueeAmber ? '50s' : '15s' }}
               >
-
                 {/* 🌟 เปลี่ยนคลาสจาก text-amber-400 เป็น text-yellow-100 (สีเหลืองนวลเกือบขาว) */}
                 <span className={`${isMarqueeAmber ? 'text-yellow-100' : 'text-cyan-400'} font-bold uppercase tracking-widest flex items-center gap-4 text-lg`}>
                   <Music size={20} /> {displayMarqueeText}
@@ -1403,15 +1417,14 @@ export default function SmartKaraokePage({ params }: { params: any }) {
                     <Music size={20} /> {displayMarqueeText}
                   </span>
                 )}
-
               </div>
             </div>
           </div>
         )}
 
-        {/* 2. MAIN LAYOUT */}
         {/* 2. MAIN LAYOUT (ปลดล็อคความสูงในมือถือ ให้ไถสกอร์ลลงไปดูคิวเพลงได้) */}
         <div className="flex flex-col lg:flex-row gap-4 h-auto lg:h-[calc(100vh-50px)] p-2 lg:p-4 pb-20 lg:pb-4 overflow-x-hidden">
+
           {/* --- [LEFT SIDE: VIDEO & SEARCH] --- */}
           <section className={`flex flex-col gap-3 md:gap-4 transition-all duration-500 ${isFullscreen ? 'flex-1 h-screen w-full fixed inset-0 z-[9999] bg-black' : 'w-full lg:flex-[4] h-auto md:h-full'}`}>
 
@@ -1447,18 +1460,15 @@ export default function SmartKaraokePage({ params }: { params: any }) {
               {showNextQueue && isAppStarted && tracks.length > 0 && (
                 <div className="absolute top-16 left-1/2 -translate-x-1/2 z-[85] w-auto max-w-[80%] animate-in fade-in zoom-in slide-in-from-top-4 duration-500">
                   <div className="bg-blue-900/80 backdrop-blur-xl border border-blue-400/30 px-6 py-2.5 rounded-full shadow-[0_10px_30px_rgba(0,0,0,0.5)] flex items-center gap-6 text-white">
-
                     {/* 🌟 ปรับเน้นคำ NEXT TRACKS เป็นตัวหนาและเอียง (font-black italic) */}
                     <span className="text-[11px] font-black italic text-cyan-400 uppercase tracking-widest shrink-0 border-r border-white/10 pr-4">
                       NEXT TRACKS
                     </span>
-
                     <div className="flex gap-6 overflow-hidden">
                       {tracks.slice(tracks.findIndex(t => t.video_id === currentVideoId) + 1, tracks.findIndex(t => t.video_id === currentVideoId) + 3).map((t, idx) => (
                         <div key={t.id} className="flex items-center gap-3 whitespace-nowrap">
                           {/* ปรับขนาดวงกลมตัวเลขให้ใหญ่ขึ้นนิดหน่อยเพื่อให้สมดุลกับข้อความ 2 บรรทัด */}
                           <span className="text-[10px] font-black bg-white/10 w-6 h-6 flex items-center justify-center rounded-full shrink-0">{idx + 1}</span>
-
                           {/* 🌟 จัดกลุ่มข้อความแบบแนวตั้ง (flex-col) */}
                           <div className="flex flex-col justify-center">
                             {/* ดึงข้อมูล singer_name มาแสดงเป็นสีเหลืองอำพัน (text-amber-400) ด้านบนชื่อเพลง */}
@@ -1483,230 +1493,228 @@ export default function SmartKaraokePage({ params }: { params: any }) {
               </button>
             </div>
 
-    {/* [SEARCH & MODE SECTION] */}
-        {!isFullscreen && (
-          <div className="bg-[#001a33]/40 p-4 md:p-6 rounded-[2rem] border border-white/5 shadow-2xl shrink-0">
-            
-            <div className="flex flex-col gap-4">
-              
-              {/* 🎛️ แถวบนสุด (เฉพาะจอคอม): ปุ่ม AutoDJ และปุ่มหน้าต่างลอย */}
-              <div className="hidden lg:flex gap-4 items-center mb-2">
-                {/* 🤖 ปุ่ม Auto DJ (จอคอม) */}
-                <button
-                  onClick={() => {
-                    setIsAutoDJ(!isAutoDJ);
-                    speakResponse(isAutoDJ ? "ปิดระบบออโต้ดีเจ" : "เปิดระบบออโต้ดีเจ เตรียมสนุกต่อเนื่องครับ");
-                  }}
-                  className={`w-[52px] h-[52px] flex flex-col items-center justify-center rounded-xl border-2 transition-all duration-300 shrink-0 ${isAutoDJ
-                    ? 'border-amber-500 text-amber-400 shadow-[0_0_15px_#f59e0b] scale-105'
-                    : 'border-white/10 text-white/20'
-                    }`}
-                >
-                  <Zap size={22} className="mb-0.5" />
-                  <span className="text-[7.5px] font-black uppercase leading-none">Auto DJ</span>
-                </button>
+            {/* [SEARCH & MODE SECTION] */}
+            {!isFullscreen && (
+              <div className="bg-[#001a33]/40 p-4 md:p-6 rounded-[2rem] border border-white/5 shadow-2xl shrink-0">
+                <div className="flex flex-col gap-4">
+                  {/* 🎛️ แถวบนสุด (เฉพาะจอคอม): ปุ่ม AutoDJ และปุ่มหน้าต่างลอย */}
+                  <div className="hidden lg:flex gap-4 items-center mb-2">
+                    {/* 🤖 ปุ่ม Auto DJ (จอคอม) */}
+                    <button
+                      onClick={() => {
+                        setIsAutoDJ(!isAutoDJ);
+                        speakResponse(isAutoDJ ? "ปิดระบบออโต้ดีเจ" : "เปิดระบบออโต้ดีเจ เตรียมสนุกต่อเนื่องครับ");
+                      }}
+                      className={`w-[52px] h-[52px] flex flex-col items-center justify-center rounded-xl border-2 transition-all duration-300 shrink-0 ${isAutoDJ
+                        ? 'border-amber-500 text-amber-400 shadow-[0_0_15px_#f59e0b] scale-105'
+                        : 'border-white/10 text-white/20'
+                        }`}
+                    >
+                      <Zap size={22} className="mb-0.5" />
+                      <span className="text-[7.5px] font-black uppercase leading-none">Auto DJ</span>
+                    </button>
 
-                <div className="flex gap-3 shrink-0">
-                  {/* 🎛️ ปุ่ม Toggle สลับโหมด */}
-                  <button
-                    onClick={() => {
-                      if (isKaraokeMode) {
-                        setKaraokeMode(false);
-                        setListeningMode(true);
-                      } else {
-                        setKaraokeMode(true);
-                        setListeningMode(false);
-                      }
-                    }}
-                    className={`w-[52px] h-[52px] flex items-center justify-center rounded-xl border-2 transition-all duration-300 shrink-0 ${isKaraokeMode
-                      ? 'border-purple-500 text-purple-400 shadow-[0_0_15px_#a855f7] scale-105'
-                      : 'border-blue-500 text-blue-400 shadow-[0_0_15px_#3b82f6] scale-105'
-                      }`}
-                    title={isKaraokeMode ? "โหมดคาราโอเกะ (สีม่วง) - คลิกเพื่อสลับเป็นฟังเพลง" : "โหมดฟังเพลง (สีฟ้า) - คลิกเพื่อสลับเป็นร้องเพลง"}
-                  >
-                    {isKaraokeMode ? (
-                      <Mic2 size={26} strokeWidth={2.5} />
-                    ) : (
-                      <Headphones size={26} strokeWidth={2.5} />
-                    )}
-                  </button>
-                  {/* 📺 ปุ่มหน้าต่างลอย PiP */}
-                  <button
-                    type="button"
-                    onClick={togglePiP}
-                    className="w-[52px] h-[52px] flex items-center justify-center rounded-xl border-2 border-fuchsia-500 text-fuchsia-400 bg-fuchsia-950/40 shadow-[0_0_15px_#d946ef] hover:bg-fuchsia-900/60 hover:border-fuchsia-400 transition-all duration-300 shrink-0"
-                    title="เปิดโหมดหน้าต่างลอย (Picture-in-Picture)"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="drop-shadow-[0_0_8px_#d946ef]">
-                      <path d="M8 4.5H4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V14" />
-                      <rect width="10" height="7" x="12" y="3.5" rx="1" fill="currentColor" className="opacity-30" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-
-              {/* 🔍 แถวกลาง: กล่องค้นหา และปุ่มเพิ่มลิงก์สำรอง (จอคอม) */}
-              <div className="flex items-center gap-3 w-full animate-in fade-in duration-500">
-                {/* ปุ่มเพิ่มลิงก์สำรอง (เฉพาะจอคอม) */}
-                <button
-                  onClick={() => setIsManualModalOpen(true)}
-                  className="hidden lg:flex p-3 bg-white/5 hover:bg-cyan-500/20 border border-white/10 hover:border-cyan-400 rounded-2xl text-cyan-400 transition-all items-center justify-center gap-2 shrink-0 h-[60px]"
-                  title="เพิ่มลิงก์ YouTube สำรอง"
-                >
-                  <span className="text-xs font-bold uppercase tracking-wider">➕ เพิ่มลิงก์สำรอง</span>
-                  <span className="text-sm">🔗</span>
-                </button>
-
-                {/* 🔍 กล่องค้นหา */}
-                <div className="w-full relative group">
-                  <Search className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${isListening || isSmartListening || isInstantListening ? 'text-cyan-400 animate-pulse' : 'text-white/40'}`} size={20} />
-                  <input
-                    value={query}
-                    onChange={(e) => handleSearch(e.target.value)}
-                    placeholder="ค้นหาชื่อเพลง หรือ ศิลปิน..."
-                    className="w-full bg-black/40 p-4 pl-12 pr-4 rounded-xl outline-none focus:border-cyan-400/50 border border-cyan-500/40 lg:border-white/10 shadow-[0_0_15px_rgba(34,211,238,0.15)] lg:shadow-inner transition-all font-bold text-sm md:text-lg text-white"
-                  />
-                </div>
-
-                {/* 💻 ปุ่มกลุ่มไมค์ (เฉพาะจอคอม) */}
-                <div className="hidden lg:flex items-center gap-2 shrink-0">
-                  <button onClick={startSpeechRecognition} className={`p-3 rounded-xl border-2 transition-all flex items-center justify-center shrink-0 ${isListening ? 'border-red-500 text-white bg-red-500 animate-bounce shadow-[0_0_15px_#ef4444]' : 'border-red-500/70 text-red-400 bg-red-950/20 hover:bg-red-900/50 shadow-[0_0_10px_rgba(239,68,68,0.3)]'}`} style={{ height: '60px', minWidth: '60px' }} title="ค้นหาปกติ">
-                    <Mic size={24} strokeWidth={2.5} />
-                  </button>
-                  <button onClick={startSmartVoiceSearch} className={`p-3 rounded-xl border-2 transition-all flex items-center justify-center shrink-0 ${isSmartListening ? 'border-orange-500 text-white bg-orange-500 shadow-[0_0_20px_#f97316] scale-110' : 'border-orange-500/70 text-orange-400 bg-orange-950/20 hover:bg-orange-900/50 shadow-[0_0_10px_rgba(249,115,22,0.3)]'}`} style={{ height: '60px', minWidth: '60px' }} title="สั่งเข้าคิวหรือเล่นเลย">
-                    <Mic size={24} strokeWidth={2.5} className={isSmartListening ? 'animate-pulse' : ''} />
-                  </button>
-                  <button onClick={async () => {
-                    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-                    if (!SpeechRecognition) { alert("ไม่รองรับการสั่งงานด้วยเสียง"); return; }
-                    const recognition = new SpeechRecognition();
-                    recognition.lang = 'th-TH'; recognition.interimResults = false;
-                    recognition.onstart = () => setIsInstantListening(true);
-                    recognition.onresult = async (event: any) => {
-                      setIsInstantListening(false);
-                      const voiceText = event.results[0][0].transcript.trim();
-                      if (typeof processSmartCommand === 'function') processSmartCommand(voiceText + " เล่นเลย");
-                    };
-                    recognition.onerror = () => setIsInstantListening(false);
-                    recognition.onend = () => setIsInstantListening(false);
-                    recognition.start();
-                  }} className={`p-3 rounded-xl border-2 transition-all flex items-center justify-center shrink-0 ${isInstantListening ? 'border-green-500 text-white bg-green-500 shadow-[0_0_20px_#22c55e] scale-110' : 'border-green-500/70 text-green-400 bg-green-950/20 hover:bg-green-900/50 shadow-[0_0_10px_rgba(34,197,94,0.3)]'}`} style={{ height: '60px', minWidth: '60px' }} title="พูดชื่อเพลงแล้วเล่นทันที">
-                    <Mic size={24} strokeWidth={2.5} className={isInstantListening ? 'animate-pulse' : ''} />
-                  </button>
-                </div>
-              </div>
-
-              {/* 📱 แถวล่าง: ปุ่มเครื่องมือสำหรับมือถือ (เลื่อนซ้าย-ขวาได้) */}
-              <div className="flex lg:hidden items-center justify-start gap-2 w-full overflow-x-auto pb-2 custom-scrollbar">
-                
-                {/* ปุ่มเพิ่มลิงก์สำรอง (จอมือถือ) */}
-                <button
-                  onClick={() => setIsManualModalOpen(true)}
-                  className="p-3 rounded-xl border-2 border-cyan-500/50 text-cyan-400 bg-cyan-950/40 hover:bg-cyan-900/60 shadow-sm flex items-center justify-center shrink-0 transition-all"
-                  style={{ height: '48px' }}
-                >
-                  <span className="text-[10px] font-black uppercase whitespace-nowrap">➕ เพิ่มลิงก์</span>
-                </button>
-
-                <button onClick={togglePiP} className="p-3 rounded-xl border-2 border-fuchsia-500 text-fuchsia-400 bg-fuchsia-950/40 hover:bg-fuchsia-900/60 shadow-[0_0_10px_#d946ef] flex items-center justify-center shrink-0 transition-all" style={{ height: '48px', minWidth: '48px' }}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="14" x="3" y="8" rx="2" ry="2" /><line x1="15" x2="21" y1="2" y2="8" /><line x1="21" x2="21" y1="2" y2="8" /><line x1="15" x2="15" y1="2" y2="2" /></svg>
-                </button>
-
-                <button 
-                  onClick={() => {
-                    setIsAutoDJ(!isAutoDJ);
-                    speakResponse(isAutoDJ ? "ปิดระบบออโต้ดีเจ" : "เปิดระบบออโต้ดีเจ เตรียมสนุกต่อเนื่องครับ");
-                  }}
-                  className={`p-3 rounded-xl border-2 transition-all flex items-center justify-center shrink-0 ${isAutoDJ ? 'border-amber-500 text-amber-400 bg-amber-950/50 shadow-[0_0_15px_#f59e0b]' : 'border-amber-500/50 text-amber-400/50 bg-amber-950/30'}`} style={{ height: '48px', minWidth: '48px' }}>
-                  <span className="text-[8px] font-black leading-tight text-center">AUTO<br />DJ</span>
-                </button>
-
-                <button
-                  onClick={() => { isKaraokeMode ? (setKaraokeMode(false), setListeningMode(true)) : (setKaraokeMode(true), setListeningMode(false)) }}
-                  className={`relative p-3 rounded-xl border-2 transition-all flex items-center justify-center shrink-0 ${isKaraokeMode ? 'border-cyan-400 text-cyan-300 shadow-[0_0_15px_#22d3ee] bg-cyan-950/30' : 'border-blue-500 text-blue-400 shadow-[0_0_15px_#3b82f6] bg-blue-950/30'}`}
-                  style={{ height: '48px', minWidth: '48px' }}
-                >
-                  {isKaraokeMode ? <Mic2 size={20} strokeWidth={2.5} /> : <Headphones size={20} strokeWidth={2.5} />}
-                  <RefreshCw size={8} className="absolute top-1 right-1 opacity-60" />
-                </button>
-
-                <button onClick={startSpeechRecognition} className={`p-3 rounded-xl border-2 transition-all flex items-center justify-center shrink-0 ${isListening ? 'border-red-500 text-white bg-red-500 animate-bounce shadow-[0_0_15px_#ef4444]' : 'border-red-500/70 text-red-400 bg-red-950/20 hover:bg-red-900/50'}`} style={{ height: '48px', minWidth: '48px' }}>
-                  <Mic size={20} strokeWidth={2.5} />
-                </button>
-
-                <button onClick={startSmartVoiceSearch} className={`p-3 rounded-xl border-2 transition-all flex items-center justify-center shrink-0 ${isSmartListening ? 'border-orange-500 text-white bg-orange-500 shadow-[0_0_20px_#f97316] scale-110' : 'border-orange-500/70 text-orange-400 bg-orange-950/20 hover:bg-orange-900/50'}`} style={{ height: '48px', minWidth: '48px' }}>
-                  <Mic size={20} strokeWidth={2.5} className={isSmartListening ? 'animate-pulse' : ''} />
-                </button>
-
-                <button onClick={async () => {
-                  const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-                  if (!SpeechRecognition) { alert("ไม่รองรับการสั่งงานด้วยเสียง"); return; }
-                  const recognition = new SpeechRecognition();
-                  recognition.lang = 'th-TH'; recognition.interimResults = false;
-                  recognition.onstart = () => setIsInstantListening(true);
-                  recognition.onresult = async (event: any) => {
-                    setIsInstantListening(false);
-                    const voiceText = event.results[0][0].transcript.trim();
-                    if (typeof processSmartCommand === 'function') processSmartCommand(voiceText + " เล่นเลย");
-                  };
-                  recognition.onerror = () => setIsInstantListening(false);
-                  recognition.onend = () => setIsInstantListening(false);
-                  recognition.start();
-                }} className={`p-3 rounded-xl border-2 transition-all flex items-center justify-center shrink-0 ${isInstantListening ? 'border-green-500 text-white bg-green-500 shadow-[0_0_20px_#22c55e] scale-110' : 'border-green-500/70 text-green-400 bg-green-950/20 hover:bg-green-900/50'}`} style={{ height: '48px', minWidth: '48px' }}>
-                  <Mic size={20} strokeWidth={2.5} className={isInstantListening ? 'animate-pulse' : ''} />
-                </button>
-              </div>
-
-              {/* [BULK ACTIONS] - ย้ายออกมาไว้อิสระนอกแถว เพื่อไม่ให้ถูกบีบ */}
-              {selectedResults.length > 0 && (
-                <div className="flex gap-2 w-full animate-in slide-in-from-top-2 duration-300">
-                  <button
-                    type="button"
-                    onClick={() => handleBulkAction(false)}
-                    className="flex-1 bg-teal-600 hover:bg-teal-500 py-3 rounded-xl font-bold text-[11px] sm:text-xs text-white"
-                  >
-                    เพิ่มเข้าคิว ({selectedResults.length})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleBulkAction(true)}
-                    className="flex-1 bg-blue-600 hover:bg-blue-500 py-3 rounded-xl font-bold text-[11px] sm:text-xs text-white"
-                  >
-                    แทรกเล่นทันที
-                  </button>
-                  <button type="button" onClick={() => setSelectedResults([])} className="bg-red-600 hover:bg-red-500 px-4 py-3 rounded-xl text-white shrink-0">
-                    <X size={18} />
-                  </button>
-                </div>
-              )}
-
-              {/* SEARCH RESULTS GRID */}
-              {results.length > 0 && (
-                <div className="grid grid-cols-2 gap-2 max-h-[250px] overflow-y-auto custom-scrollbar p-2 bg-black/20 rounded-2xl w-full">
-                  {results.map((s) => {
-                    const isSelected = selectedResults.some(r => r.video_id === s.video_id);
-                    return (
-                      <div
-                        key={s.video_id}
-                        onClick={() => isSelected ? setSelectedResults(selectedResults.filter(r => r.video_id !== s.video_id)) : setSelectedResults([...selectedResults, s])}
-                        className={`flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-xl sm:rounded-2xl border transition-all cursor-pointer ${isSelected ? 'bg-blue-600/30 border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.4)]' : 'bg-white/5 border-transparent hover:bg-white/10'}`}
+                    <div className="flex gap-3 shrink-0">
+                      {/* 🎛️ ปุ่ม Toggle สลับโหมด */}
+                      <button
+                        onClick={() => {
+                          if (isKaraokeMode) {
+                            setKaraokeMode(false);
+                            setListeningMode(true);
+                          } else {
+                            setKaraokeMode(true);
+                            setListeningMode(false);
+                          }
+                        }}
+                        className={`w-[52px] h-[52px] flex items-center justify-center rounded-xl border-2 transition-all duration-300 shrink-0 ${isKaraokeMode
+                          ? 'border-purple-500 text-purple-400 shadow-[0_0_15px_#a855f7] scale-105'
+                          : 'border-blue-500 text-blue-400 shadow-[0_0_15px_#3b82f6] scale-105'
+                          }`}
+                        title={isKaraokeMode ? "โหมดคาราโอเกะ (สีม่วง) - คลิกเพื่อสลับเป็นฟังเพลง" : "โหมดฟังเพลง (สีฟ้า) - คลิกเพื่อสลับเป็นร้องเพลง"}
                       >
-                        <div className="relative shrink-0">
-                          <img src={s.thumbnail_url} className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl object-cover" alt="" />
-                          <span className={`absolute -top-1.5 -right-1.5 px-1 rounded text-[7px] sm:text-[8px] font-black shadow-sm ${s.source === 'stock' ? 'bg-orange-500 text-black' : 'bg-red-600 text-white'}`}>
-                            {s.source === 'stock' ? 'STK' : 'YT'}
-                          </span>
-                        </div>
-                        <div className="flex-1 overflow-hidden text-[10px] sm:text-[11px] font-bold text-white line-clamp-2 leading-tight">{s.title}</div>
-                        {isSelected && <CheckCircle2 size={16} className="text-blue-400 shrink-0" />}
-                      </div>
-                    );
-                  })}
+                        {isKaraokeMode ? (
+                          <Mic2 size={26} strokeWidth={2.5} />
+                        ) : (
+                          <Headphones size={26} strokeWidth={2.5} />
+                        )}
+                      </button>
+                      {/* 📺 ปุ่มหน้าต่างลอย PiP */}
+                      <button
+                        type="button"
+                        onClick={togglePiP}
+                        className="w-[52px] h-[52px] flex items-center justify-center rounded-xl border-2 border-fuchsia-500 text-fuchsia-400 bg-fuchsia-950/40 shadow-[0_0_15px_#d946ef] hover:bg-fuchsia-900/60 hover:border-fuchsia-400 transition-all duration-300 shrink-0"
+                        title="เปิดโหมดหน้าต่างลอย (Picture-in-Picture)"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="drop-shadow-[0_0_8px_#d946ef]">
+                          <path d="M8 4.5H4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V14" />
+                          <rect width="10" height="7" x="12" y="3.5" rx="1" fill="currentColor" className="opacity-30" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 🔍 แถวกลาง: กล่องค้นหา และปุ่มเพิ่มลิงก์สำรอง (จอคอม) */}
+                  <div className="flex items-center gap-3 w-full animate-in fade-in duration-500">
+                    {/* ปุ่มเพิ่มลิงก์สำรอง (เฉพาะจอคอม) */}
+                    <button
+                      onClick={() => setIsManualModalOpen(true)}
+                      className="hidden lg:flex p-3 bg-white/5 hover:bg-cyan-500/20 border border-white/10 hover:border-cyan-400 rounded-2xl text-cyan-400 transition-all items-center justify-center gap-2 shrink-0 h-[60px]"
+                      title="เพิ่มลิงก์ YouTube สำรอง"
+                    >
+                      <span className="text-xs font-bold uppercase tracking-wider">➕ เพิ่มลิงก์สำรอง</span>
+                      <span className="text-sm">🔗</span>
+                    </button>
+
+                    {/* 🔍 กล่องค้นหา */}
+                    <div className="w-full relative group">
+                      <Search className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${isListening || isSmartListening || isInstantListening ? 'text-cyan-400 animate-pulse' : 'text-white/40'}`} size={20} />
+                      <input
+                        value={query}
+                        onChange={(e) => handleSearch(e.target.value)}
+                        placeholder="ค้นหาชื่อเพลง หรือ ศิลปิน..."
+                        className="w-full bg-black/40 p-4 pl-12 pr-4 rounded-xl outline-none focus:border-cyan-400/50 border border-cyan-500/40 lg:border-white/10 shadow-[0_0_15px_rgba(34,211,238,0.15)] lg:shadow-inner transition-all font-bold text-sm md:text-lg text-white"
+                      />
+                    </div>
+
+                    {/* 💻 ปุ่มกลุ่มไมค์ (เฉพาะจอคอม) */}
+                    <div className="hidden lg:flex items-center gap-2 shrink-0">
+                      <button onClick={startSpeechRecognition} className={`p-3 rounded-xl border-2 transition-all flex items-center justify-center shrink-0 ${isListening ? 'border-red-500 text-white bg-red-500 animate-bounce shadow-[0_0_15px_#ef4444]' : 'border-red-500/70 text-red-400 bg-red-950/20 hover:bg-red-900/50 shadow-[0_0_10px_rgba(239,68,68,0.3)]'}`} style={{ height: '60px', minWidth: '60px' }} title="ค้นหาปกติ">
+                        <Mic size={24} strokeWidth={2.5} />
+                      </button>
+                      <button onClick={startSmartVoiceSearch} className={`p-3 rounded-xl border-2 transition-all flex items-center justify-center shrink-0 ${isSmartListening ? 'border-orange-500 text-white bg-orange-500 shadow-[0_0_20px_#f97316] scale-110' : 'border-orange-500/70 text-orange-400 bg-orange-950/20 hover:bg-orange-900/50 shadow-[0_0_10px_rgba(249,115,22,0.3)]'}`} style={{ height: '60px', minWidth: '60px' }} title="สั่งเข้าคิวหรือเล่นเลย">
+                        <Mic size={24} strokeWidth={2.5} className={isSmartListening ? 'animate-pulse' : ''} />
+                      </button>
+                      <button onClick={async () => {
+                        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+                        if (!SpeechRecognition) { alert("ไม่รองรับการสั่งงานด้วยเสียง"); return; }
+                        const recognition = new SpeechRecognition();
+                        recognition.lang = 'th-TH'; recognition.interimResults = false;
+                        recognition.onstart = () => setIsInstantListening(true);
+                        recognition.onresult = async (event: any) => {
+                          setIsInstantListening(false);
+                          const voiceText = event.results[0][0].transcript.trim();
+                          if (typeof processSmartCommand === 'function') processSmartCommand(voiceText + " เล่นเลย");
+                        };
+                        recognition.onerror = () => setIsInstantListening(false);
+                        recognition.onend = () => setIsInstantListening(false);
+                        recognition.start();
+                      }} className={`p-3 rounded-xl border-2 transition-all flex items-center justify-center shrink-0 ${isInstantListening ? 'border-green-500 text-white bg-green-500 shadow-[0_0_20px_#22c55e] scale-110' : 'border-green-500/70 text-green-400 bg-green-950/20 hover:bg-green-900/50 shadow-[0_0_10px_rgba(34,197,94,0.3)]'}`} style={{ height: '60px', minWidth: '60px' }} title="พูดชื่อเพลงแล้วเล่นทันที">
+                        <Mic size={24} strokeWidth={2.5} className={isInstantListening ? 'animate-pulse' : ''} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 📱 แถวล่าง: ปุ่มเครื่องมือสำหรับมือถือ (เลื่อนซ้าย-ขวาได้) */}
+                  <div className="flex lg:hidden items-center justify-start gap-2 w-full overflow-x-auto pb-2 custom-scrollbar">
+                    {/* ปุ่มเพิ่มลิงก์สำรอง (จอมือถือ) */}
+                    <button
+                      onClick={() => setIsManualModalOpen(true)}
+                      className="p-3 rounded-xl border-2 border-cyan-500/50 text-cyan-400 bg-cyan-950/40 hover:bg-cyan-900/60 shadow-sm flex items-center justify-center shrink-0 transition-all"
+                      style={{ height: '48px' }}
+                    >
+                      <span className="text-[10px] font-black uppercase whitespace-nowrap">➕ เพิ่มลิงก์</span>
+                    </button>
+
+                    <button onClick={togglePiP} className="p-3 rounded-xl border-2 border-fuchsia-500 text-fuchsia-400 bg-fuchsia-950/40 hover:bg-fuchsia-900/60 shadow-[0_0_10px_#d946ef] flex items-center justify-center shrink-0 transition-all" style={{ height: '48px', minWidth: '48px' }}>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="14" x="3" y="8" rx="2" ry="2" /><line x1="15" x2="21" y1="2" y2="8" /><line x1="21" x2="21" y1="2" y2="8" /><line x1="15" x2="15" y1="2" y2="2" /></svg>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setIsAutoDJ(!isAutoDJ);
+                        speakResponse(isAutoDJ ? "ปิดระบบออโต้ดีเจ" : "เปิดระบบออโต้ดีเจ เตรียมสนุกต่อเนื่องครับ");
+                      }}
+                      className={`p-3 rounded-xl border-2 transition-all flex items-center justify-center shrink-0 ${isAutoDJ ? 'border-amber-500 text-amber-400 bg-amber-950/50 shadow-[0_0_15px_#f59e0b]' : 'border-amber-500/50 text-amber-400/50 bg-amber-950/30'}`} style={{ height: '48px', minWidth: '48px' }}>
+                      <span className="text-[8px] font-black leading-tight text-center">AUTO<br />DJ</span>
+                    </button>
+
+                    <button
+                      onClick={() => { isKaraokeMode ? (setKaraokeMode(false), setListeningMode(true)) : (setKaraokeMode(true), setListeningMode(false)) }}
+                      className={`relative p-3 rounded-xl border-2 transition-all flex items-center justify-center shrink-0 ${isKaraokeMode ? 'border-cyan-400 text-cyan-300 shadow-[0_0_15px_#22d3ee] bg-cyan-950/30' : 'border-blue-500 text-blue-400 shadow-[0_0_15px_#3b82f6] bg-blue-950/30'}`}
+                      style={{ height: '48px', minWidth: '48px' }}
+                    >
+                      {isKaraokeMode ? <Mic2 size={20} strokeWidth={2.5} /> : <Headphones size={20} strokeWidth={2.5} />}
+                      <RefreshCw size={8} className="absolute top-1 right-1 opacity-60" />
+                    </button>
+
+                    <button onClick={startSpeechRecognition} className={`p-3 rounded-xl border-2 transition-all flex items-center justify-center shrink-0 ${isListening ? 'border-red-500 text-white bg-red-500 animate-bounce shadow-[0_0_15px_#ef4444]' : 'border-red-500/70 text-red-400 bg-red-950/20 hover:bg-red-900/50'}`} style={{ height: '48px', minWidth: '48px' }}>
+                      <Mic size={20} strokeWidth={2.5} />
+                    </button>
+
+                    <button onClick={startSmartVoiceSearch} className={`p-3 rounded-xl border-2 transition-all flex items-center justify-center shrink-0 ${isSmartListening ? 'border-orange-500 text-white bg-orange-500 shadow-[0_0_20px_#f97316] scale-110' : 'border-orange-500/70 text-orange-400 bg-orange-950/20 hover:bg-orange-900/50'}`} style={{ height: '48px', minWidth: '48px' }}>
+                      <Mic size={20} strokeWidth={2.5} className={isSmartListening ? 'animate-pulse' : ''} />
+                    </button>
+
+                    <button onClick={async () => {
+                      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+                      if (!SpeechRecognition) { alert("ไม่รองรับการสั่งงานด้วยเสียง"); return; }
+                      const recognition = new SpeechRecognition();
+                      recognition.lang = 'th-TH'; recognition.interimResults = false;
+                      recognition.onstart = () => setIsInstantListening(true);
+                      recognition.onresult = async (event: any) => {
+                        setIsInstantListening(false);
+                        const voiceText = event.results[0][0].transcript.trim();
+                        if (typeof processSmartCommand === 'function') processSmartCommand(voiceText + " เล่นเลย");
+                      };
+                      recognition.onerror = () => setIsInstantListening(false);
+                      recognition.onend = () => setIsInstantListening(false);
+                      recognition.start();
+                    }} className={`p-3 rounded-xl border-2 transition-all flex items-center justify-center shrink-0 ${isInstantListening ? 'border-green-500 text-white bg-green-500 shadow-[0_0_20px_#22c55e] scale-110' : 'border-green-500/70 text-green-400 bg-green-950/20 hover:bg-green-900/50'}`} style={{ height: '48px', minWidth: '48px' }}>
+                      <Mic size={20} strokeWidth={2.5} className={isInstantListening ? 'animate-pulse' : ''} />
+                    </button>
+                  </div>
+
+                  {/* [BULK ACTIONS] - ย้ายออกมาไว้อิสระนอกแถว เพื่อไม่ให้ถูกบีบ */}
+                  {selectedResults.length > 0 && (
+                    <div className="flex gap-2 w-full animate-in slide-in-from-top-2 duration-300">
+                      <button
+                        type="button"
+                        onClick={() => handleBulkAction(false)}
+                        className="flex-1 bg-teal-600 hover:bg-teal-500 py-3 rounded-xl font-bold text-[11px] sm:text-xs text-white"
+                      >
+                        เพิ่มเข้าคิว ({selectedResults.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleBulkAction(true)}
+                        className="flex-1 bg-blue-600 hover:bg-blue-500 py-3 rounded-xl font-bold text-[11px] sm:text-xs text-white"
+                      >
+                        แทรกเล่นทันที
+                      </button>
+                      <button type="button" onClick={() => setSelectedResults([])} className="bg-red-600 hover:bg-red-500 px-4 py-3 rounded-xl text-white shrink-0">
+                        <X size={18} />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* SEARCH RESULTS GRID */}
+                  {results.length > 0 && (
+                    <div className="grid grid-cols-2 gap-2 max-h-[250px] overflow-y-auto custom-scrollbar p-2 bg-black/20 rounded-2xl w-full">
+                      {results.map((s) => {
+                        const isSelected = selectedResults.some(r => r.video_id === s.video_id);
+                        return (
+                          <div
+                            key={s.video_id}
+                            onClick={() => isSelected ? setSelectedResults(selectedResults.filter(r => r.video_id !== s.video_id)) : setSelectedResults([...selectedResults, s])}
+                            className={`flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-xl sm:rounded-2xl border transition-all cursor-pointer ${isSelected ? 'bg-blue-600/30 border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.4)]' : 'bg-white/5 border-transparent hover:bg-white/10'}`}
+                          >
+                            <div className="relative shrink-0">
+                              <img src={s.thumbnail_url} className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl object-cover" alt="" />
+                              <span className={`absolute -top-1.5 -right-1.5 px-1 rounded text-[7px] sm:text-[8px] font-black shadow-sm ${s.source === 'stock' ? 'bg-orange-500 text-black' : 'bg-red-600 text-white'}`}>
+                                {s.source === 'stock' ? 'STK' : 'YT'}
+                              </span>
+                            </div>
+                            <div className="flex-1 overflow-hidden text-[10px] sm:text-[11px] font-bold text-white line-clamp-2 leading-tight">{s.title}</div>
+                            {isSelected && <CheckCircle2 size={16} className="text-blue-400 shrink-0" />}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          </div>
-        )}
+              </div>
+            )}
+          </section>
 
           {/* --- [RIGHT SIDE: ASIDE] (ปรับให้สูงพอดีคิวเพลง ไม่โดนตัด) --- */}
           {!isFullscreen && (
@@ -1715,8 +1723,6 @@ export default function SmartKaraokePage({ params }: { params: any }) {
               <div className={`bg-slate-900 rounded-2xl p-4 ... ${isCompact ? 'hidden' : 'block'}`}>
                 <div className="bg-[#000a1a] p-4 border-b border-white/5 shrink-0">
                   <div className="flex items-center justify-center gap-3 mb-5">
-
-
                     {/* 🏢 [ส่วนที่ 1 - โลโก้]: แสดงรูปโลโก้หน่วยงานจริง หรือแสดงตัวอักษรแบรนด์ NIIVAA ทันสมัยหากไม่มีรูป */}
                     {playlistInfo?.logo_url ? (
                       <img
@@ -1725,19 +1731,15 @@ export default function SmartKaraokePage({ params }: { params: any }) {
                         className="w-8 h-8 rounded-lg object-contain drop-shadow-[0_0_8px_rgba(34,211,238,0.4)]"
                       />
                     ) : (
-
                       <div className="text-sm font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-[#CCFFFF] to-[#3333FF] drop-shadow-[0_0_5px_rgba(51,51,255,0.4)] italic">
                         NIIVAA
                       </div>
-
                     )}
-
                     <div className="flex flex-col items-start">
                       {/* 📝 [ส่วนที่ 2 - ป้ายชื่อ]: แสดงชื่อหน่วยงานที่ผู้ใช้พิมพ์กำหนดเอง หรือใช้ชื่อระบบมาตรฐานหากเว้นว่าง */}
                       <h1 className="text-white font-black tracking-wider italic text-xs uppercase">
                         {playlistInfo?.custom_banner || "SMARTKARAOKE"}
                       </h1>
-
                       {/* 🏷️ [ส่วนที่ 3 - สวิตช์ป้ายเล็ก]: ตรวจเช็คสวิตช์ ON/OFF ถ้าเปิดอยู่ให้เรืองแสงสแตนบายไว้เบาๆ */}
                       {playlistInfo?.show_niivaa_badge !== false && (
                         <span className="text-[7px] bg-cyan-500/20 text-cyan-300 px-1.5 py-0.5 rounded border border-cyan-500/30 uppercase tracking-widest font-bold mt-0.5 animate-pulse">
@@ -1752,7 +1754,6 @@ export default function SmartKaraokePage({ params }: { params: any }) {
                       <Info size={18} />
                       <span className="text-xs font-bold uppercase tracking-wider hidden md:block">คู่มือการใช้งาน</span>
                     </button>
-
                   </div>
 
                   {/* 🟢 NEON BUTTONS: Announce & Loop */}
@@ -1786,8 +1787,9 @@ export default function SmartKaraokePage({ params }: { params: any }) {
                   )}
                 </div>
               </div>
+
               {/* 💿 Playlist Selection Section */}
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-2 gap-2">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-2 gap-2 mt-4 px-4">
                 <label className="text-[9px] font-black text-cyan-400/40 uppercase tracking-widest leading-none">
                   Select Playlist
                 </label>
@@ -1800,13 +1802,12 @@ export default function SmartKaraokePage({ params }: { params: any }) {
                 <Link href="/create-playlist">
                   <button className="flex items-center gap-1.5 text-[10px] font-bold text-cyan-400 hover:text-white transition-all bg-white/5 hover:bg-cyan-500/20 px-3 py-1.5 rounded-lg border border-white/10 hover:border-cyan-500/50 shadow-lg whitespace-nowrap">
                     <Plus size={14} strokeWidth={3} />
-                    {/* 💡 ตัดคลาสซ่อนข้อความออก ให้โชว์คำเต็มๆ ตลอดเวลา */}
                     <span>CREATE PLAYLIST</span>
                   </button>
                 </Link>
               </div>
 
-              <div className="relative mb-4">
+              <div className="relative mb-4 px-4">
                 <select
                   value={playlistId}
                   onChange={(e) => router.push(`/playlist/${e.target.value}`)}
@@ -1818,11 +1819,11 @@ export default function SmartKaraokePage({ params }: { params: any }) {
                     </option>
                   ))}
                 </select>
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-cyan-400 pointer-events-none" size={16} />
+                <ChevronDown className="absolute right-7 top-1/2 -translate-y-1/2 text-cyan-400 pointer-events-none" size={16} />
               </div>
 
-             {/* 3. QUEUE LIST (ปรับปรุงรองรับมือถือ Double Tap + เพิ่ม Alias Name + Inline Delete) */}
-              <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 pb-24 space-y-2">
+              {/* 3. QUEUE LIST (ปรับปรุงรองรับมือถือ Double Tap + เพิ่ม Alias Name + Inline Delete) */}
+              <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 pb-24 space-y-2 px-4">
                 {tracks
                   .filter(t => {
                     const isK = t.master_songs?.title.toLowerCase().includes('karaoke') || t.master_songs?.title.includes('คาราโอเกะ');
@@ -1834,7 +1835,6 @@ export default function SmartKaraokePage({ params }: { params: any }) {
                       <div
                         key={track.id}
                         draggable
-                        
                         // 🌟 รองรับ Double Click บนคอม
                         onDoubleClick={async () => {
                           startApp(track.video_id, true);
@@ -1847,25 +1847,28 @@ export default function SmartKaraokePage({ params }: { params: any }) {
                           } catch (err) { console.error(err); }
                         }}
 
-                        // 🌟 รองรับ Touch Double Tap บนมือถือ
-                        onClick={(e) => {
+                        // 🌟 รองรับ Touch Double Tap บนมือถือ (แก้เป็น async)
+                        onClick={async (e) => {
                           const currentTime = new Date().getTime();
-                          // ดึงเวลาล่าสุดที่เคยแตะ (ซ่อนไว้ใน data-attribute ของ DOM)
                           const lastTap = Number(e.currentTarget.getAttribute('data-last-tap') || 0);
                           const tapLength = currentTime - lastTap;
-                          
+
                           if (tapLength > 0 && tapLength < 500) {
-                            // เป็น Double Tap! สั่งเล่นเพลง
                             startApp(track.video_id, true);
-                            supabase.from('current_playing').update({
-                              video_id: track.video_id,
-                              title: track.master_songs?.title || 'Unknown Title',
-                              updated_at: new Date().toISOString()
-                            }).eq('id', 1).then().catch(console.error);
-                            
-                            e.currentTarget.setAttribute('data-last-tap', '0'); // รีเซ็ต
+
+                            // 🌟 เปลี่ยนมาใช้ try/catch และ await เพื่อแก้ปัญหา Type error ของ TypeScript
+                            try {
+                              await supabase.from('current_playing').update({
+                                video_id: track.video_id,
+                                title: track.master_songs?.title || 'Unknown Title',
+                                updated_at: new Date().toISOString()
+                              }).eq('id', 1);
+                            } catch (err) {
+                              console.error(err);
+                            }
+
+                            e.currentTarget.setAttribute('data-last-tap', '0');
                           } else {
-                            // Single Tap ปกติ ให้จำเวลาล่าสุดไว้
                             e.currentTarget.setAttribute('data-last-tap', currentTime.toString());
                           }
                         }}
@@ -1899,10 +1902,7 @@ export default function SmartKaraokePage({ params }: { params: any }) {
                               key={`queue-input-${track.id}-${i}`}
                               title="พิมพ์เลขใหม่แล้วกด Enter เพื่อย้ายคิว"
                               className="w-7 sm:w-9 bg-black/40 border border-white/10 hover:border-cyan-500/50 focus:border-cyan-400 focus:bg-cyan-950/40 text-center font-black text-[10px] sm:text-[11px] text-cyan-400 rounded-md outline-none transition-all py-1 custom-number-input"
-                              
-                              // ป้องกัน input trigger onClick ของการ์ดพ่อ 
-                              onClick={(e) => e.stopPropagation()} 
-
+                              onClick={(e) => e.stopPropagation()}
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter') {
                                   e.currentTarget.blur();
@@ -1991,10 +1991,9 @@ export default function SmartKaraokePage({ params }: { params: any }) {
                   })}
               </div>
 
-              {/* 4. TRASH ZONE (ปุ่มถังขยะลอยทรงกลมเล็ก สีแดงนีออน ถาวรทุกอุปกรณ์) */}
-
             </aside>
           )}
+
         </div>
 
         {/* 🎛️ [เพิ่มใหม่]: หน้าต่าง Pop-up คุมสไลด์บาร์ปรับแต่งสีกระพริบนีออนอิสระเฉพาะสมาชิกพรีเมียม */}
@@ -2079,6 +2078,7 @@ export default function SmartKaraokePage({ params }: { params: any }) {
             </div>
           </div>
         )}
+
         {/* ORIGINAL SME TRACK SETTING MODAL */}
         {/* --- 3. MODAL POPUP SETTINGS SME (ดีไซน์ใหม่: คืนความสุขให้แอดมิน) --- */}
         {editingTrack && (
@@ -2235,24 +2235,6 @@ export default function SmartKaraokePage({ params }: { params: any }) {
           </div>
         )}
 
-        {/* --- 4. GLOBAL NEON STYLES & ANIMATIONS --- */}
-        <style jsx global>{`
-          @keyframes marquee { 0% { transform: translateX(100vw); } 100% { transform: translateX(-100%); } }
-          @keyframes marquee-once { 0% { transform: translateX(100vw); } 100% { transform: translateX(-100%); } }
-          .animate-marquee { animation: marquee 25s linear infinite; }
-          .animate-marquee-once { animation: marquee-once 25s linear forwards; }
-          .shadow-neon { box-shadow: 0 0 15px rgba(34,211,238,0.4); }
-          .drop-shadow-neon { filter: drop-shadow(0 0 8px rgba(34,211,238,0.8)); }
-          
-          /* Custom Scrollbar */
-          .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-          .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(34,211,238,0.3); border-radius: 10px; }
-          .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(34,211,238,0.6); }
-          
-          ::-webkit-scrollbar { width: 8px; }
-          ::-webkit-scrollbar-track { background: #000a12; }
-          ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; border: 2px solid #000a12; }
-        `}</style>
         {/* --- MANUAL IMPORT MODAL (โปร่งแสง และชิดล่างเพื่อรองรับมือถือ) --- */}
         {isManualModalOpen && (
           <div
@@ -2263,7 +2245,6 @@ export default function SmartKaraokePage({ params }: { params: any }) {
               className="bg-[#121212]/90 backdrop-blur-xl border border-cyan-500/40 w-full max-w-lg rounded-t-[2.5rem] rounded-b-2xl p-6 shadow-[0_-10px_30px_rgba(0,0,0,0.8)] space-y-4 animate-in slide-in-from-bottom duration-300 mb-2"
               onClick={e => e.stopPropagation()}
             >
-
               {/* Header */}
               <div className="flex justify-between items-center border-b border-white/10 pb-3">
                 <h3 className="text-cyan-400 font-black text-xs uppercase tracking-wider">
@@ -2324,16 +2305,16 @@ export default function SmartKaraokePage({ params }: { params: any }) {
                   ยกเลิก
                 </button>
               </div>
-
             </div>
           </div>
         )}
+
         {/* Drawer คู่มือการใช้งาน */}
         <ManualDrawer
           isOpen={isManualOpen}
           onClose={() => setIsManualOpen(false)}
         />
       </div>
-    </main >
+    </main>
   );
 }
