@@ -3,22 +3,23 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { CalendarPlus, Calendar, MapPin, ChevronRight, LayoutGrid, Sparkles } from 'lucide-react';
 
-// 🌟 เพิ่ม searchParams เพื่อรับค่า ?type=farewell_welcome จาก URL
 export default async function EventDashboardPage({
   searchParams,
 }: {
-  searchParams: { type?: string };
+  searchParams: { category?: string; type?: string };
 }) {
   const supabase = await createClient();
-  const eventType = searchParams.type || 'seminar'; // ค่าเริ่มต้นถ้าไม่ระบุ
+  
+  const eventType = searchParams.category || searchParams.type || 'seminar'; 
 
-  // 1. ตรวจสอบการล็อกอิน
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
+  // 🛡️ 1. ยามด่านแรก: ตรวจสอบการล็อกอิน
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
     redirect('/login');
   }
 
-  // 2. ดึงข้อมูล Workspace
+  // 🛡️ 2. ยามด่านสอง: ตรวจสอบ Workspace (หลักฐานการผ่านหน้า Welcome ชัวร์ที่สุด)
+  // ❌ ลบการเช็ค profiles.package_tier ออก เพื่อแก้ปัญหาลูปเด้งกลับหน้า Pricing
   const { data: workspace } = await supabase
     .from('workspaces')
     .select('id, workspace_name')
@@ -38,27 +39,29 @@ export default async function EventDashboardPage({
     .limit(1)
     .maybeSingle();
 
-  // 🌟 4. ดึงข้อมูล Events โดย "กรองตามประเภท (category)"
+  // 🌟 4. ดึงข้อมูล Events
   let query = supabase
     .from('events') 
     .select('id, title, event_date, location_hotel, location_province, status') 
     .eq('org_id', member?.org_id)
     .order('created_at', { ascending: false });
 
-  // ถ้ามีการส่ง ?type= มา ให้กรองตามนั้น
-  if (searchParams.type) {
-    query = query.eq('category', searchParams.type);
+  if (eventType !== 'all' && eventType !== 'seminar' && eventType !== 'official' && eventType !== 'farewell_welcome') {
+      // ป้องกัน Query แปลกๆ 
+  } else if (eventType && eventType !== 'all') {
+      query = query.eq('category', eventType);
   }
 
   const { data: events } = await query;
   const eventList = events || [];
 
-  // แปลงชื่อประเภทงานสำหรับแสดงผลที่ Header
   const getEventTypeName = (type: string) => {
     switch (type) {
       case 'farewell_welcome': return 'งานแสดงความยินดี / พิธีการ';
       case 'official': return 'งานรัฐพิธี';
       case 'seminar': return 'งานประชุมสัมมนา';
+      case 'ordination': return 'งานอุปสมบท';
+      case 'wedding': return 'งานมงคลสมรส';
       default: return 'งานอีเวนต์ทั้งหมด';
     }
   };
@@ -79,18 +82,24 @@ export default async function EventDashboardPage({
                 {workspace.workspace_name || 'NiiVaa SmartEvent'}
               </h1>
             </div>
-            {/* 🌟 แสดงชื่อประเภทงานที่กำลังดูอยู่ */}
             <p className="text-slate-400 ml-14">จัดการข้อมูล {getEventTypeName(eventType)}</p>
           </div>
 
-          {/* 🌟 แนบ ?category= เข้าไปใน URL ของปุ่มสร้างงานใหม่ */}
-          <Link 
-            href={`/events/event-dashboard/create?category=${eventType}`} 
-            className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white px-6 py-3.5 rounded-xl font-bold shadow-[0_0_20px_rgba(147,51,234,0.3)] hover:shadow-[0_0_30px_rgba(147,51,234,0.5)] transition-all hover:-translate-y-1"
-          >
-            <CalendarPlus size={20} />
-            สร้างอีเวนต์ใหม่
-          </Link>
+          <div className="flex gap-2 w-full md:w-auto">
+             <Link 
+                href={`/eventhub`} 
+                className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 hover:border-slate-500 px-5 py-3.5 rounded-xl font-bold transition-all"
+              >
+                ย้อนกลับ
+              </Link>
+            <Link 
+              href={`/events/event-dashboard/create?category=${eventType}`} 
+              className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white px-6 py-3.5 rounded-xl font-bold shadow-[0_0_20px_rgba(147,51,234,0.3)] hover:shadow-[0_0_30px_rgba(147,51,234,0.5)] transition-all hover:-translate-y-1"
+            >
+              <CalendarPlus size={20} />
+              สร้างอีเวนต์ใหม่
+            </Link>
+          </div>
         </div>
 
         {eventList.length === 0 ? (

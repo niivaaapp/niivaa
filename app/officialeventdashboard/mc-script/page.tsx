@@ -910,8 +910,7 @@ function EmceeShowtimeScriptContent() {
 export default function McScriptPage() {
   return (
     <Suspense fallback={<div className="h-screen bg-[#020617] text-white flex items-center justify-center">Loading...</div>}>
-       // 🌟 หุ้มด้วย RouteGuard และอนุญาตให้ admin และ mc (พิธีกร) เข้าใช้งานได้
-      <RouteGuard allowedRoles={['admin', 'mc']}>
+       <RouteGuard allowedRoles={['admin', 'mc']}>
         <EmceeShowtimeScriptContent />
       </RouteGuard>
     </Suspense>

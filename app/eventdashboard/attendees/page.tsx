@@ -594,7 +594,7 @@ function AttendeesReportContent() {
               phone_number: row.phone_number?.toString() || '',
               district: row.guest_district || '',
               province: row.guest_province || '',
-              honors_info: row.bio_note || '',
+              bio_note: row.bio_note || '',
               person_type: 'layperson'
             }])
             .select('id')
@@ -905,7 +905,7 @@ function AttendeesReportContent() {
               position: formData.position,
               organization: formData.organization,
               phone_number: formData.phoneNumber,
-              honors_info: formData.honorsInfo,
+              bio_note: formData.honorsInfo,
               district: formData.guestDistrict,
               province: formData.guestProvince,
               profile_image_url: uploadedProfileImageUrl // 👈 แทรกฟิลด์นี้เข้าไป
@@ -1252,7 +1252,7 @@ function AttendeesReportContent() {
             position: editForm.position,
             organization: editForm.organization,
             phone_number: editForm.contact_info,
-            honors_info: editForm.bio_note,
+            bio_note: editForm.bio_note,
             district: editForm.guest_district,
             province: editForm.guest_province,
             profile_image_url: uploadedProfileImageUrl || editImagePreview
@@ -3498,8 +3498,8 @@ function AttendeesReportContent() {
                     rows={3}
                     className="w-full bg-zinc-900 border border-white/10 rounded-xl px-4 py-3 text-sm text-amber-200 outline-none focus:border-amber-500 resize-none custom-scrollbar"
                     placeholder="ข้อมูลแนะนำตัว หรือผลงานที่พิธีกรต้องใช้อ่าน..."
-                    value={editForm.honors_info || ''}
-                    onChange={e => setEditForm({ ...editForm, honors_info: e.target.value })}
+                    value={editForm.bio_note || ''}
+                    onChange={e => setEditForm({ ...editForm, bio_note: e.target.value })}
                   />
                 </div>
 

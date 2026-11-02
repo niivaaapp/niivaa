@@ -24,7 +24,7 @@ const APP_CONFIGS = {
     serviceCode: 'SMART_EVENT',
     workspaceName: 'SmartEvent Manager',
     title: 'NiiVaa SmartEvent',
-    dashboardUrl: '/events/event-dashboard/[eventid]',
+    dashboardUrl: '/events/event-dashboard',
     themeColor: 'from-blue-600 to-indigo-600',
   },
   exam: {

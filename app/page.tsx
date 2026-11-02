@@ -22,15 +22,10 @@ export default function LaunchpadPage() {
           <img
             src="/niivaalogo.png"
             alt="NIIVAA Logo"
-            className="h-8 md:h-10 object-contain drop-shadow-[0_0_10px_rgba(34,211,238,0.3)]"
+            className="h-8 md:h-10 w-auto object-contain drop-shadow-[0_0_10px_rgba(34,211,238,0.3)]"
           />
         </div>
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-red-500/10 text-gray-400 hover:text-red-400 rounded-xl text-xs font-bold border border-white/5 hover:border-red-500/20 transition-all"
-        >
-          <LogOut size={12} /> ออกจากระบบ
-        </button>
+    
       </div>
 
       {/* ส่วนกลาง: ศูนย์รวมการเข้าถึงบริการหลัก */}

@@ -434,7 +434,7 @@ function McShowtimeContent() {
       }
 
       const { data: profile } = await supabase.from('global_profiles').insert([{
-        first_name: quickName, position: quickPosition, organization: quickOrg, honors_info: quickBio, profile_image_url: imageUrl, person_type: 'layperson'
+        first_name: quickName, position: quickPosition, organization: quickOrg, bio_note: quickBio, profile_image_url: imageUrl, person_type: 'layperson'
       }]).select('id').single();
 
       if (profile) profileId = profile.id;

@@ -23,7 +23,7 @@ interface PreviewData {
   province: string;
   phone_number: string;
   contact_channels: any;
-  honors_info: string;
+  bio_note: string;
   break_drink_pref: string;
   isDuplicate?: boolean;
 }
@@ -97,7 +97,7 @@ function AttendeeImportContent() {
             province: row.province || '',
             phone_number: row.phone_number?.toString() || '',
             contact_channels: parsedContact,
-            honors_info: row.honors_info || '',
+            bio_note: row.bio_note || '',
             break_drink_pref: row.break_drink_pref || '',
             isDuplicate: false
           };
@@ -201,7 +201,7 @@ function AttendeeImportContent() {
           position: manualForm.position,
           organization: manualForm.organization,
           phone_number: manualForm.phoneNumber,
-          honors_info: manualForm.honorsInfo,
+          bio_note_info: manualForm.honorsInfo,
           profile_image_url: profileImageUrl,
         }])
         .select('id, niivaa_code')
