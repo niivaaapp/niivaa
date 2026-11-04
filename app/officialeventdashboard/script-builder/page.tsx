@@ -1,14 +1,16 @@
 "use client";
+
 import RouteGuard from '@/components/RouteGuard';
 import React, { useState, useEffect, Suspense, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
 import {
+  Copy, Download, Loader2, X, Calendar,
   ArrowLeft, Printer, Save, Plus, Trash2, CheckCircle,
   Mic, AlignLeft, Clock, MonitorPlay, AlertTriangle, Crown,
   Settings2, Users, ExternalLink, Video, LayoutGrid, HelpCircle,
-  ChevronUp, ChevronDown
+  ChevronUp, ChevronDown, Building2, MapPin, Sparkles, LayoutTemplate
 } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import ScriptBuilderManualDrawer from '@/components/ScriptBuilderManualDrawer';
@@ -66,8 +68,6 @@ function CueSortOrder({
   return (
     <div className="flex items-center gap-2 bg-gray-950 px-3 py-1.5 rounded-lg border border-gray-800">
       <span className="text-xs text-gray-500 font-bold uppercase">ลำดับที่</span>
-
-      {/* 🌟 ซ่อนลูกศรขึ้นลงแบบ Native ของเบราว์เซอร์ ด้วย Tailwind คลาส */}
       <input
         type="number"
         value={val}
@@ -81,7 +81,6 @@ function CueSortOrder({
         }}
         className="w-10 bg-transparent text-purple-400 font-black text-center outline-none text-lg [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
       />
-
       <div className="flex flex-col ml-1 border-l border-gray-800 pl-2">
         <button
           onClick={() => onMove(index, -1)}
@@ -110,6 +109,8 @@ function CueSortOrder({
 function ScriptBuilderContent() {
   const supabase = createClient();
   const searchParams = useSearchParams();
+  const eventId = searchParams.get('event_id');
+  const source = searchParams.get('source');
   const urlEventId = searchParams.get('event_id') || 'current';
 
   const [activeEventId, setActiveEventId] = useState<string>('');
@@ -124,7 +125,39 @@ function ScriptBuilderContent() {
   const [showProAlert, setShowProAlert] = useState(false);
   const [isManualOpen, setIsManualOpen] = useState(false);
 
-  const eventIdFromUrl = searchParams.get('event_id');
+  // 🌟 State สำหรับเก็บข้อมูล Event เต็มรูปแบบเพื่อแสดงบน Header
+  const [eventCategory, setEventCategory] = useState<string>('');
+  const [eventFullData, setEventFullData] = useState<any>(null);
+
+  // 🌟 State สำหรับระบบนำเข้าสคริปต์งานเก่า
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [previousEvents, setPreviousEvents] = useState<any[]>([]);
+  const [selectedImportEventId, setSelectedImportEventId] = useState<string>('');
+  const [isImporting, setIsImporting] = useState(false);
+
+  // 🌟 State สำหรับระบบ Platform Templates (เทมเพลตกลาง)
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [platformTemplates, setPlatformTemplates] = useState<any[]>([]);
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
+
+  useEffect(() => {
+    if (!eventId) return;
+
+    const fetchEventData = async () => {
+      const { data, error } = await supabase
+        .from('events')
+        .select('*')
+        .eq('id', eventId)
+        .single();
+
+      if (data) {
+        setEventCategory(data.category);
+        setEventFullData(data); // 🌟 เก็บข้อมูลทั้งหมดไว้ทำ Sticky Header
+      }
+    };
+
+    fetchEventData();
+  }, [eventId]);
 
   // --- 1. Fetch ข้อมูลจริง ---
   useEffect(() => {
@@ -171,7 +204,7 @@ function ScriptBuilderContent() {
     fetchScripts();
   }, [urlEventId]);
 
-  // --- 🌟 Engine: คำนวณเวลาอย่างเดียว (แยกเรื่องจัดลำดับออกไป) ---
+  // --- 🌟 Engine: คำนวณเวลาอย่างเดียว ---
   useEffect(() => {
     if (cues.length === 0) return;
 
@@ -186,7 +219,6 @@ function ScriptBuilderContent() {
       return { ...cue, start_time: timeString };
     });
 
-    // อัปเดตเฉพาะเมื่อเวลาเปลี่ยน เพื่อป้องกัน Infinite Loop
     const isDifferent = JSON.stringify(updatedCues.map(c => c.start_time)) !== JSON.stringify(cues.map(c => c.start_time));
     if (isDifferent) {
       setCues(updatedCues);
@@ -206,7 +238,9 @@ function ScriptBuilderContent() {
       const payload = cues.map(cue => ({ ...cue, event_id: activeEventId }));
       const { error } = await supabase.from('event_agenda_items').upsert(payload, { onConflict: 'id' });
       if (error) throw error;
+      
       setIsSaved(true);
+      setIsPreviewMode(false); // 🌟 ปิดแถบ Preview เมื่อบันทึกสำเร็จ
       setTimeout(() => setIsSaved(false), 3000);
     } catch (error) {
       console.error('Error saving:', error);
@@ -219,36 +253,26 @@ function ScriptBuilderContent() {
     setCues(prev => prev.map(cue => cue.id === id ? { ...cue, [field]: value } : cue));
   };
 
-  // 🌟 [ระบบสลับลำดับ] กดปุ่มขึ้น/ลง
   const moveCueSequence = useCallback((index: number, direction: -1 | 1) => {
     setCues(prevCues => {
       const newCues = [...prevCues];
       const targetIndex = index + direction;
-
       if (targetIndex < 0 || targetIndex >= newCues.length) return prevCues;
-
-      // สลับของใน Array ตรงๆ
       const temp = newCues[index];
       newCues[index] = newCues[targetIndex];
       newCues[targetIndex] = temp;
-
-      // จัดเรียงเลข sort_order ใหม่ให้ถูกต้อง
       return newCues.map((c, i) => ({ ...c, sort_order: i + 1 }));
     });
   }, []);
 
-  // 🌟 [ระบบข้ามลำดับ] พิมพ์เลขแล้วกด Enter
   const jumpCueSequence = useCallback((id: string, newOrder: number) => {
     setCues(prevCues => {
       const currentIndex = prevCues.findIndex(c => c.id === id);
       if (currentIndex === -1) return prevCues;
-
       const targetIndex = Math.max(0, Math.min(newOrder - 1, prevCues.length - 1));
-
       const newCues = [...prevCues];
-      const [movedItem] = newCues.splice(currentIndex, 1); // ดึงตัวที่ต้องการย้ายออก
-      newCues.splice(targetIndex, 0, movedItem); // แทรกกลับเข้าไปในตำแหน่งใหม่
-
+      const [movedItem] = newCues.splice(currentIndex, 1);
+      newCues.splice(targetIndex, 0, movedItem);
       return newCues.map((c, i) => ({ ...c, sort_order: i + 1 }));
     });
   }, []);
@@ -268,60 +292,193 @@ function ScriptBuilderContent() {
     }
   };
 
+  // 🌟 ฟังก์ชันดึงรายชื่องานเก่า
+  const fetchPreviousEvents = async () => {
+    if (!eventCategory) return;
+    const { data, error } = await supabase
+      .from('events')
+      .select('id, title, event_date')
+      .eq('category', eventCategory)
+      .neq('id', eventId)
+      .order('created_at', { ascending: false })
+      .limit(10);
+    if (!error && data) setPreviousEvents(data);
+  };
+
+  const handleImportScript = async () => {
+    if (!selectedImportEventId) return alert('กรุณาเลือกงานที่ต้องการนำเข้าสคริปต์');
+    if (!window.confirm('คำเตือน: การนำเข้าจะเขียนทับสคริปต์ที่คุณกำลังร่างอยู่ปัจจุบัน คุณแน่ใจหรือไม่?')) return;
+
+    setIsImporting(true);
+    try {
+      // ดึงสคริปต์จาก event_agenda_items ของงานเก่า
+      const { data: oldCues, error: fetchErr } = await supabase
+        .from('event_agenda_items')
+        .select('*')
+        .eq('event_id', selectedImportEventId)
+        .order('sort_order', { ascending: true });
+
+      if (fetchErr || !oldCues || oldCues.length === 0) {
+        throw new Error('ไม่พบข้อมูลสคริปต์ในงานที่เลือก หรือสคริปต์ว่างเปล่า');
+      }
+
+      // ลบของเก่าในงานนี้ก่อน แล้ว Insert ชุดใหม่เข้าไป
+      await supabase.from('event_agenda_items').delete().eq('event_id', eventId);
+      
+      const newPayload = oldCues.map((c) => {
+        const { id, event_id, created_at, ...rest } = c;
+        return { ...rest, event_id: eventId };
+      });
+      await supabase.from('event_agenda_items').insert(newPayload);
+
+      alert('✅ นำเข้าสคริปต์สำเร็จ!');
+      setShowImportModal(false);
+      window.location.reload();
+
+    } catch (error: any) {
+      alert(`❌ ไม่สามารถนำเข้าได้: ${error.message}`);
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  // 🌟 3. ฟังก์ชันดึงเทมเพลตแพลตฟอร์ม
+  const fetchPlatformTemplates = async () => {
+    if (!eventCategory) return;
+    const { data, error } = await supabase
+      .from('script_templates')
+      .select('id, title, category, content_chunks')
+      .eq('category', eventCategory)
+      .eq('is_active', true)
+      .order('created_at', { ascending: false });
+
+    if (!error && data) {
+      setPlatformTemplates(data);
+    }
+  };
+
+  // 🌟 4. ฟังก์ชันพรีวิวเทมเพลตขึ้นจอ (ยังไม่เซฟ)
+  const handlePreviewTemplate = (templateChunks: any[]) => {
+    if (cues.length > 0 && cues[0].main_script !== '' && !window.confirm('สคริปต์เดิมบนหน้าจอจะถูกแทนที่ชั่วคราว ต้องการดูตัวอย่างเทมเพลตนี้หรือไม่?')) {
+      return;
+    }
+    
+    if (templateChunks && Array.isArray(templateChunks)) {
+      // สร้าง id ใหม่จำลองให้คิวที่ดึงมา
+      const previewCues = templateChunks.map((c: any, index: number) => ({
+        ...c,
+        id: crypto.randomUUID(),
+        sort_order: index + 1
+      }));
+      setCues(previewCues);
+      setIsPreviewMode(true);
+      setShowTemplateModal(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-950 text-gray-200 font-sans print:bg-white print:text-black relative">
 
       <ScriptBuilderManualDrawer isOpen={isManualOpen} onClose={() => setIsManualOpen(false)} />
 
-      <header className="bg-gray-900 border-b border-purple-900/50 sticky top-0 z-40 shadow-md print:hidden">
-        <div className="max-w-[1400px] mx-auto px-4 md:px-6 h-20 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <Link href={`/events/event-dashboard/${eventIdFromUrl}`} className="group flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-teal-500/10 text-slate-400 hover:text-teal-400 rounded-xl transition-all duration-300 border border-slate-700 hover:border-teal-500/50 shrink-0">
-              <LayoutGrid className="w-5 h-5 group-hover:scale-110 transition-transform" />
-              <span className="text-sm font-bold">กลับหน้าศูนย์กลาง</span>
-            </Link>
-            <Link href="/officialeventdashboard/hub" className="p-2 bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-purple-400 rounded-lg transition-colors border border-gray-700">
-              <ArrowLeft className="w-5 h-5" />
-            </Link>
-            <div className="h-8 w-px bg-gray-800 mx-1"></div>
-            <h1 className="text-lg md:text-xl font-bold text-white flex items-center gap-2">
-              <AlignLeft className="w-5 h-5 text-purple-500" /> สร้างสคริปต์ (Script Builder)
-            </h1>
+      {/* 🌟 ปรับปรุง Header ให้แสดงข้อมูล Event */}
+      <header className="bg-gray-900 border-b border-purple-900/50 sticky top-0 z-40 shadow-md print:hidden flex flex-col justify-center min-h-[5rem] py-3">
+        <div className="max-w-[1400px] w-full mx-auto px-4 md:px-6 flex flex-col gap-2">
+          
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              {source === 'dashboard' && (
+                <Link
+                  href={`/events/event-dashboard/${eventId}`}
+                  className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors border border-slate-700 font-bold text-sm"
+                >
+                  <LayoutGrid className="w-4 h-4" />
+                  กลับหน้าศูนย์กลาง
+                </Link>
+              )}
+              {source !== 'dashboard' && (
+                <Link
+                  href={`/officialeventdashboard/hub?event_id=${eventId}`}
+                  className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-lg transition-colors border border-slate-700"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                </Link>
+              )}
+              <div className="h-8 w-px bg-gray-800 mx-1"></div>
+              <h1 className="text-lg md:text-xl font-bold text-white flex items-center gap-2">
+                <AlignLeft className="w-5 h-5 text-purple-500" /> สร้างสคริปต์ (Script Builder)
+              </h1>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button onClick={() => setIsManualOpen(true)} className="flex items-center gap-2 px-3 h-10 bg-gray-800 hover:bg-purple-950/40 text-gray-300 hover:text-purple-400 rounded-xl transition-all border border-gray-700 hover:border-purple-500/50 shadow-sm">
+                <HelpCircle className="w-4 h-4" />
+                <span className="text-sm font-bold hidden sm:inline">คู่มือ</span>
+              </button>
+              <div className="h-6 w-px bg-gray-800 mx-1 hidden sm:block"></div>
+              <Link href={`/officialeventdashboard/mc-script${activeEventId !== 'current' ? `?event_id=${activeEventId}` : ''}`} target='_blank' className="hidden sm:flex items-center px-4 h-10 bg-fuchsia-950/40 hover:bg-fuchsia-900 text-fuchsia-400 border border-fuchsia-800 rounded-xl text-sm font-bold transition-all shadow-sm">
+                <MonitorPlay className="w-4 h-4 mr-2" /> พิธีกรหน้างาน
+              </Link>
+              <div className="h-6 w-px bg-gray-800 mx-1 hidden sm:block"></div>
+              <div className="h-10 w-auto hidden lg:block mr-2">
+                <Image src="/niivaasmartevent_logo.png" alt="NiiVaa" width={140} height={35} className="h-full object-contain opacity-90 drop-shadow-[0_0_8px_rgba(217,70,239,0.3)]" priority />
+              </div>
+              <button onClick={handleSaveToDatabase} disabled={isSaving} className="flex items-center px-4 h-10 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-bold transition-all shadow-[0_0_10px_rgba(16,185,129,0.3)] disabled:opacity-50">
+                {isSaved ? <CheckCircle className="w-4 h-4 mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                <span className="hidden sm:inline">{isSaving ? 'กำลังบันทึก...' : isSaved ? 'บันทึกเรียบร้อย' : 'บันทึกข้อมูล'}</span>
+              </button>
+            </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <button onClick={() => setIsManualOpen(true)} className="flex items-center gap-2 px-3 h-10 bg-gray-800 hover:bg-purple-950/40 text-gray-300 hover:text-purple-400 rounded-xl transition-all border border-gray-700 hover:border-purple-500/50 shadow-sm">
-              <HelpCircle className="w-4 h-4" />
-              <span className="text-sm font-bold hidden sm:inline">คู่มือ</span>
-            </button>
-            <div className="h-6 w-px bg-gray-800 mx-1 hidden sm:block"></div>
-            <Link href={`/officialeventdashboard/mc-script${activeEventId !== 'current' ? `?event_id=${activeEventId}` : ''}`} target='_blank' className="hidden sm:flex items-center px-4 h-10 bg-fuchsia-950/40 hover:bg-fuchsia-900 text-fuchsia-400 border border-fuchsia-800 rounded-xl text-sm font-bold transition-all shadow-sm">
-              <MonitorPlay className="w-4 h-4 mr-2" /> พิธีกรหน้างาน
-            </Link>
-            <div className="h-6 w-px bg-gray-800 mx-1 hidden sm:block"></div>
-            <div className="h-10 w-auto hidden lg:block mr-2">
-              <Image src="/niivaasmartevent_logo.png" alt="NiiVaa" width={140} height={35} className="h-full object-contain opacity-90 drop-shadow-[0_0_8px_rgba(217,70,239,0.3)]" priority />
+          {/* 🌟 แสดงข้อมูล Event แถวล่างของ Header */}
+          {eventFullData && (
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mt-1 sm:pl-[4.5rem] text-xs text-gray-400">
+              <span className="font-bold text-purple-300 text-sm flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5" /> {eventFullData.title}</span>
+              {eventFullData.event_date && (
+                <span className="flex items-center gap-1.5 bg-gray-800/50 px-2 py-0.5 rounded-md"><Calendar className="w-3.5 h-3.5 text-blue-400"/> {new Date(eventFullData.event_date).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+              )}
+              {eventFullData.brand_name && (
+                <span className="flex items-center gap-1.5 bg-gray-800/50 px-2 py-0.5 rounded-md"><Building2 className="w-3.5 h-3.5 text-yellow-400"/> {eventFullData.brand_name}</span>
+              )}
+              {eventFullData.location_hotel && (
+                <span className="flex items-center gap-1.5 bg-gray-800/50 px-2 py-0.5 rounded-md"><MapPin className="w-3.5 h-3.5 text-amber-500"/> {eventFullData.location_hotel}</span>
+              )}
             </div>
-            <button onClick={handleSaveToDatabase} disabled={isSaving} className="flex items-center px-4 h-10 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-bold transition-all shadow-[0_0_10px_rgba(16,185,129,0.3)] disabled:opacity-50">
-              {isSaved ? <CheckCircle className="w-4 h-4 mr-2" /> : <Save className="w-4 h-4 mr-2" />}
-              <span className="hidden sm:inline">{isSaving ? 'กำลังบันทึก...' : isSaved ? 'บันทึกเรียบร้อย' : 'บันทึกข้อมูล'}</span>
-            </button>
-          </div>
+          )}
+
         </div>
       </header>
 
       <main className="max-w-[1400px] mx-auto px-4 md:px-6 py-6 print:p-0 print:m-0 z-10 relative">
         <div className="mb-6 flex flex-col md:flex-row gap-4 items-center justify-between print:hidden">
-          <div className="flex bg-black p-1 rounded-xl border border-gray-800 w-full md:w-auto">
+          <div className="flex flex-wrap bg-black p-1 rounded-xl border border-gray-800 w-full md:w-auto gap-1">
             <button onClick={() => setViewMode('editor')} className={`flex-1 md:flex-none px-6 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center justify-center ${viewMode === 'editor' ? 'bg-purple-900 text-white shadow-md' : 'text-gray-500 hover:text-white'}`}>
               <Settings2 className="w-4 h-4 mr-2" /> โหมดแก้ไขสคริปต์
             </button>
             <button onClick={() => setViewMode('preview')} className={`flex-1 md:flex-none px-6 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center justify-center ${viewMode === 'preview' ? 'bg-gray-200 text-black shadow-md' : 'text-gray-500 hover:text-white'}`}>
               <Printer className="w-4 h-4 mr-2" /> ตัวอย่างก่อนพิมพ์
             </button>
-            <Link href={`/eventdashboard/showtime/vip${activeEventId !== 'current' ? `?event_id=${activeEventId}` : ''}`} target='_blank' className="hidden sm:flex items-center px-4 h-10 bg-indigo-950/40 hover:bg-indigo-900 text-indigo-400 border border-indigo-800 rounded-xl text-sm font-bold transition-all shadow-sm">
-              <Mic className="w-4 h-4 mr-2" /> พิธีกรแนะนำVIP
-            </Link>
+            
+            {/* 🌟 ปุ่มเลือก Template กลางระบบ */}
+            <button
+              onClick={() => {
+                fetchPlatformTemplates();
+                setShowTemplateModal(true);
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-amber-600/20 hover:bg-amber-600/40 text-amber-400 hover:text-amber-300 border border-amber-500/30 rounded-lg transition-colors text-sm font-bold shadow-lg"
+            >
+              <LayoutTemplate size={16} /> เลือกเทมเพลตระบบ
+            </button>
+
+            <button
+              onClick={() => {
+                fetchPreviousEvents();
+                setShowImportModal(true);
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 hover:text-blue-300 border border-blue-500/30 rounded-lg transition-colors text-sm font-bold shadow-lg"
+            >
+              <Copy size={16} /> นำเข้าจากงานเก่า
+            </button>
           </div>
 
           {viewMode === 'editor' && (
@@ -347,22 +504,32 @@ function ScriptBuilderContent() {
           )}
         </div>
 
+        {/* 🌟 แถบแจ้งเตือน Preview Mode */}
+        {isPreviewMode && viewMode === 'editor' && (
+          <div className="bg-amber-500/20 border border-amber-500 text-amber-400 px-4 py-3 rounded-xl mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-lg animate-in fade-in slide-in-from-top-2">
+            <div className="flex items-start sm:items-center gap-2">
+              <Sparkles className="w-5 h-5 animate-pulse shrink-0 mt-0.5 sm:mt-0" />
+              <div>
+                <span className="font-bold text-sm block sm:inline">โหมดดูตัวอย่างเทมเพลต (Preview Mode)</span>
+                <span className="text-xs text-amber-200/80 sm:ml-2 block sm:inline mt-1 sm:mt-0">ข้อมูลยังไม่ถูกบันทึก คุณสามารถปรับแก้และกดปุ่ม "บันทึกข้อมูล" ด้านบนเพื่อยืนยันการใช้งานจริง</span>
+              </div>
+            </div>
+            <button 
+              onClick={() => window.location.reload()}
+              className="text-xs font-bold bg-black/40 hover:bg-black/60 px-4 py-2 rounded-lg border border-amber-500/50 transition-colors shrink-0"
+            >
+              ยกเลิก / ใช้ข้อมูลเดิม
+            </button>
+          </div>
+        )}
+
         {viewMode === 'editor' && (
           <div className="space-y-6 animate-in fade-in pb-12 print:hidden">
             {cues.map((cue, index) => (
               <div key={cue.id} className="bg-gray-900 border border-gray-800 rounded-2xl p-5 shadow-lg relative group">
                 <div className="flex items-center justify-between mb-4 border-b border-gray-800 pb-3">
                   <div className="flex items-center gap-4">
-
-                    {/* 🌟 ดึง Component ย่อยมาแสดงตรงนี้ */}
-                    <CueSortOrder
-                      cue={cue}
-                      index={index}
-                      totalCues={cues.length}
-                      onMove={moveCueSequence}
-                      onJump={jumpCueSequence}
-                    />
-
+                    <CueSortOrder cue={cue} index={index} totalCues={cues.length} onMove={moveCueSequence} onJump={jumpCueSequence} />
                     <div className="text-gray-300 text-sm font-bold flex items-center gap-2 bg-gray-800/50 px-3 py-1.5 rounded-lg">
                       <Clock className="w-4 h-4 text-purple-400" /> เริ่ม {cue.start_time}
                     </div>
@@ -547,6 +714,134 @@ function ScriptBuilderContent() {
         </div>
       )}
 
+      {/* ================= MODAL นำเข้าสคริปต์จากระบบ (Platform Templates) ================= */}
+      {showTemplateModal && (
+        <div className="fixed inset-0 z-[1000] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-[#0A1326] border border-amber-500/30 rounded-3xl p-6 w-full max-w-lg shadow-[0_0_40px_rgba(245,158,11,0.15)] flex flex-col gap-5">
+            <div className="flex justify-between items-center border-b border-white/10 pb-4">
+              <h3 className="font-black text-xl text-white flex items-center gap-2">
+                <LayoutTemplate className="text-amber-400" /> เลือกเทมเพลตระบบ
+              </h3>
+              <button
+                onClick={() => setShowTemplateModal(false)}
+                className="p-2 bg-zinc-900 hover:bg-red-900/50 text-zinc-400 hover:text-red-400 rounded-lg transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <p className="text-sm text-zinc-400 leading-relaxed">
+                เลือกโครงสร้างสคริปต์สำเร็จรูปในหมวด <span className="text-amber-400 font-bold">"{eventCategory}"</span> เพื่อนำมาเป็นโครงตั้งต้นในการเขียน (ข้อมูลจะโหลดเข้าหน้าจอเพื่อให้ดูตัวอย่างก่อน)
+              </p>
+              {platformTemplates.length === 0 ? (
+                <div className="text-center py-8 text-zinc-500 bg-black/30 rounded-xl border border-white/5">
+                  ระบบยังไม่มีเทมเพลตสำหรับงานหมวดหมู่นี้
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-[40vh] overflow-y-auto custom-scrollbar pr-2">
+                  {platformTemplates.map((tpl) => (
+                    <div
+                      key={tpl.id}
+                      onClick={() => handlePreviewTemplate(tpl.content_chunks)}
+                      className="p-4 rounded-xl border border-white/10 cursor-pointer bg-zinc-900 hover:border-amber-500/50 hover:bg-zinc-800 transition-all flex items-start gap-3"
+                    >
+                      <div className="p-2 rounded-full bg-amber-500/10 text-amber-400">
+                        <Sparkles size={14} />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-sm text-amber-300 line-clamp-1">{tpl.title || 'เทมเพลตสคริปต์'}</h4>
+                        <p className="text-xs text-zinc-500 mt-1">กดเพื่อดูตัวอย่างบนหน้าจอ</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="pt-2 border-t border-white/10 mt-2">
+              <button
+                onClick={() => setShowTemplateModal(false)}
+                className="w-full py-2.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl font-bold transition-colors text-sm"
+              >
+                ยกเลิกปิดหน้าต่าง
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL นำเข้าสคริปต์เก่าจากงานอื่น ================= */}
+      {showImportModal && (
+        <div className="fixed inset-0 z-[1000] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-[#0A1326] border border-blue-500/30 rounded-3xl p-6 w-full max-w-lg shadow-[0_0_40px_rgba(59,130,246,0.15)] flex flex-col gap-5">
+            <div className="flex justify-between items-center border-b border-white/10 pb-4">
+              <h3 className="font-black text-xl text-white flex items-center gap-2">
+                <Download className="text-blue-400" /> นำเข้าสคริปต์จากงานเก่า
+              </h3>
+              <button
+                onClick={() => setShowImportModal(false)}
+                className="p-2 bg-zinc-900 hover:bg-red-900/50 text-zinc-400 hover:text-red-400 rounded-lg transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <p className="text-sm text-zinc-400 leading-relaxed">
+                เลือกร่างสคริปต์จากงาน <span className="text-blue-400 font-bold">"{eventCategory}"</span> ที่คุณเคยสร้างไว้ เพื่อเขียนทับโครงสร้างเดิมทั้งหมด
+              </p>
+              {previousEvents.length === 0 ? (
+                <div className="text-center py-8 text-zinc-500 bg-black/30 rounded-xl border border-white/5">
+                  ไม่พบประวัติงานเก่าในหมวดหมู่นี้
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-[40vh] overflow-y-auto custom-scrollbar pr-2">
+                  {previousEvents.map((evt) => (
+                    <div
+                      key={evt.id}
+                      onClick={() => setSelectedImportEventId(evt.id)}
+                      className={`p-4 rounded-xl border cursor-pointer transition-all flex items-start gap-3 ${selectedImportEventId === evt.id
+                          ? 'bg-blue-900/30 border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.2)]'
+                          : 'bg-zinc-900 border-white/10 hover:border-blue-500/50 hover:bg-zinc-800'
+                        }`}
+                    >
+                      <div className={`p-2 rounded-full ${selectedImportEventId === evt.id ? 'bg-blue-500 text-black' : 'bg-zinc-800 text-zinc-400'}`}>
+                        <Copy size={14} />
+                      </div>
+                      <div>
+                        <h4 className={`font-bold text-sm ${selectedImportEventId === evt.id ? 'text-blue-300' : 'text-white'} line-clamp-1`}>
+                          {evt.title || 'ไม่ระบุชื่องาน'}
+                        </h4>
+                        <p className="text-xs text-zinc-500 mt-1 flex items-center gap-1">
+                          <Calendar size={12} />
+                          {evt.event_date ? new Date(evt.event_date).toLocaleDateString('th-TH') : 'ไม่มีวันที่'}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3 pt-4 border-t border-white/10 mt-2">
+              <button
+                onClick={() => setShowImportModal(false)}
+                className="flex-1 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl font-bold transition-colors text-sm"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={handleImportScript}
+                disabled={!selectedImportEventId || isImporting}
+                className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+              >
+                {isImporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+                ยืนยันการนำเข้า
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Styles */}
       <style dangerouslySetInnerHTML={{
         __html: `
@@ -561,7 +856,6 @@ function ScriptBuilderContent() {
 
 export default function ScriptBuilderPage() {
   return (
-    // 🌟 หุ้มด้วย RouteGuard และอนุญาตให้ admin และ mc (พิธีกร) เข้าใช้งานได้
     <Suspense fallback={<div className="min-h-screen bg-gray-950 text-cyan-500 flex items-center justify-center font-bold">กำลังโหลดตัวสร้างสคริปต์...</div>}>
       <RouteGuard allowedRoles={['admin', 'mc']}>
         <ScriptBuilderContent />

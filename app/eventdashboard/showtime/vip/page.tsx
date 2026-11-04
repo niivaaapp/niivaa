@@ -37,6 +37,7 @@ interface Attendee {
 function McShowtimeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const source = searchParams.get('source');
   const eventId = searchParams.get('event_id') || 'current';
 
   // ==========================================
@@ -589,13 +590,27 @@ function McShowtimeContent() {
               <UserPlus className="w-5 h-5 shrink-0" />
               <span className="whitespace-nowrap">ลงทะเบียนผู้ร่วมงาน</span>
             </a>
-            <Link
-              href={`/events/event-dashboard/${eventId}`} 
-              className="group flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-teal-500/10 text-slate-400 hover:text-teal-400 rounded-xl transition-all duration-300 border border-slate-700 hover:border-teal-500/50 shrink-0"
-            >
-              <LayoutGrid className="w-5 h-5 group-hover:scale-110 transition-transform" />
-              <span className="text-sm font-bold">กลับหน้าศูนย์กลาง</span>
-            </Link>
+            {/* 🌟 กรณีที่ 1: เข้ามาจากหน้า Hub (Official) -> แสดงปุ่ม "กลับหน้าหลัก" */}
+            {source === 'hub' && (
+              <Link
+                href={`/officialeventdashboard/hub?event_id=${eventId}`}
+                className="group flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-bold text-sm px-4 py-2.5 rounded-xl transition-all border border-slate-700 w-max cursor-pointer shrink-0"
+              >
+                <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+                <span className="whitespace-nowrap">กลับหน้าหลัก</span>
+              </Link>
+            )}
+
+            {/* 🌟 กรณีที่ 2: เข้ามาจากหน้าอื่นๆ หรือ Dashboard -> แสดงปุ่ม "กลับหน้าศูนย์กลาง" */}
+            {source !== 'hub' && (
+              <Link
+                href={`/events/event-dashboard/${eventId}`} 
+                className="group flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-teal-500/10 text-slate-400 hover:text-teal-400 rounded-xl transition-all duration-300 border border-slate-700 hover:border-teal-500/50 shrink-0"
+              >
+                <LayoutGrid className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                <span className="text-sm font-bold">กลับหน้าศูนย์กลาง</span>
+              </Link>
+            )}
 
             {/* 🌟 ปุ่มเปิดคู่มือ */}
             <button 

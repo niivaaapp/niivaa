@@ -5,12 +5,12 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 
-import {
-  BookOpen, LayoutGrid, Search, MessageSquare,
-  Library, FileEdit, LayoutTemplate, Palette,
-  ArrowLeft, Music, ArrowRight, Settings, Users, FileText, MonitorPlay,
-  Mic2, MonitorSpeaker, ListChecks, Radio, Tv, LayoutDashboard, Activity,
-  MessageSquareShare, LogOut, Edit3, Save, Loader2 // 🌟 รวม Import ให้ครบ
+import { 
+  BookOpen, LayoutGrid, Search, MessageSquare, 
+  Library, FileEdit, LayoutTemplate, Palette, 
+  ArrowLeft, Music, ArrowRight, Settings, Users, FileText, MonitorPlay, 
+  Mic2, MonitorSpeaker, ListChecks, Radio, Tv, LayoutDashboard, Activity, 
+  MessageSquareShare, LogOut, Edit3, Save, Loader2, Key // 🌟 นำเข้า Key สำหรับปุ่ม PIN
 } from 'lucide-react';
 
 export default function EventDashboardHub() {
@@ -118,7 +118,7 @@ export default function EventDashboardHub() {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10 bg-[#1e293b]/50 p-6 rounded-3xl border border-slate-700/50 relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-teal-500 via-cyan-500 to-blue-500"></div>
 
-          <div className="flex items-start gap-5 w-full md:w-auto">
+          <div className="flex items-start gap-5 w-full md:w-auto flex-1">
             <Link href="/eventhub" className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-lg transition-colors border border-slate-700 mt-1 shrink-0">
               <ArrowLeft className="w-5 h-5" />
             </Link>
@@ -185,25 +185,43 @@ export default function EventDashboardHub() {
             </div>
           </div>
 
-          {/* ส่วนขวาบน: โลโก้ + ปุ่ม Logout */}
-          <div className="flex items-center gap-3 shrink-0 w-full md:w-auto justify-between md:justify-end border-t border-slate-700/50 md:border-none pt-4 md:pt-0 mt-2 md:mt-0">
-            <div className="hidden md:block bg-white/5 p-3 rounded-xl border border-white/10">
-              <img src="/niivaasmartevent_logo.png" alt="NiiVaa" className="h-8 w-auto object-contain opacity-80" />
-            </div>
+          {/* 🌟 ส่วนขวาบน: ปุ่ม Action ต่างๆ (แก้ไขโครงสร้างตรงนี้) */}
+          <div className="flex flex-wrap items-center gap-2 shrink-0 w-full md:w-auto justify-start md:justify-end border-t border-slate-700/50 md:border-none pt-4 md:pt-0 mt-2 md:mt-0">
+            
+            {/* ปุ่ม 1: แก้ไขข้อมูลพื้นฐานงานอีเวนต์ */}
+            <Link
+              href={`/events/event-dashboard/edit?event_id=${eventId}&source=dashboard`} 
+              className="flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 hover:text-blue-300 border border-blue-500/20 hover:border-blue-500/40 rounded-xl transition-all font-bold text-xs sm:text-sm"
+              title="แก้ไขข้อมูลพื้นฐาน"
+            >
+              <FileEdit className="w-4 h-4" />
+              <span className="hidden xl:inline">แก้ไขข้อมูลงาน</span>
+            </Link>
 
+            {/* ปุ่ม 2: จัดการสิทธิ์ของทีมงาน (PIN Code) */}
+            <Link
+              href={`/events/event-dashboard/staff?event_id=${eventId}`}
+              className="flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 hover:text-amber-300 border border-amber-500/20 hover:border-amber-500/40 rounded-xl transition-all font-bold text-xs sm:text-sm"
+              title="จัดการสิทธิ์ PIN Code"
+            >
+              <Key className="w-4 h-4" />
+              <span className="hidden xl:inline">จัดการสิทธิ์ทีมงาน</span>
+            </Link>
+
+            {/* ปุ่ม Logout */}
             <button
               onClick={handleLogout}
-              className="flex items-center gap-2 px-4 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 border border-red-500/20 hover:border-red-500/40 rounded-xl transition-all font-bold text-sm"
+              className="flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 border border-red-500/20 hover:border-red-500/40 rounded-xl transition-all font-bold text-xs sm:text-sm"
+              title="ออกจากระบบ"
             >
               <LogOut className="w-4 h-4" />
-              ออกจากระบบ
+              <span className="hidden lg:inline">ออกจากระบบ</span>
             </button>
           </div>
         </div>
 
         {/* 🌟 Menu Grid Sections (ส่วนล่างคงเดิม) */}
         <div className="space-y-10">
-
           <section>
             <div className="flex items-center gap-3 mb-5 border-b border-slate-700/50 pb-2">
               <Settings className="w-5 h-5 text-amber-400" />
@@ -211,20 +229,18 @@ export default function EventDashboardHub() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <MenuCard
-                href={`/eventdashboard/attendees?event_id=${eventId}`}
+                href={`/eventdashboard/attendees?event_id=${eventId}&source=dashboard`}
                 icon={Users} title="ลงทะเบียน & จัดการแขก" colorClass="bg-amber-400"
                 desc="ระบบจุดลงทะเบียนต้อนรับ และจัดการข้อมูลรายชื่อผู้เข้าร่วมงาน"
               />
               <MenuCard
-                href={`/officialeventdashboard/script-builder?event_id=${eventId}`}
+                href={`/officialeventdashboard/script-builder?event_id=${eventId}&source=dashboard`}
                 icon={FileText} title="เตรียมสคริปต์พิธีกร" colorClass="bg-amber-400"
                 desc="สร้างและจัดเรียงลำดับสคริปต์ ลำดับการเชิญแขกขึ้นเวที"
               />
               <MenuCard
                 href={`/eventdashboard/media?event_id=${eventId}&source=smartevent`}
-                icon={MonitorPlay}
-                title="อัปโหลดคลังสื่อ"
-                colorClass="bg-amber-400"
+                icon={MonitorPlay} title="อัปโหลดคลังสื่อ" colorClass="bg-amber-400"
                 desc="อัปโหลดภาพ พื้นหลัง วิดีโอ หรือสไลด์โชว์ที่ใช้ในงาน"
               />
             </div>

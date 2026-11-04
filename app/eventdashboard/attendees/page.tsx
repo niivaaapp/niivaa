@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import imageCompression from 'browser-image-compression';
-import { AlertTriangle, Bell, BellOff, Camera, CheckCircle, Utensils, LayoutTemplate, CheckCircle2, Clock, Download, Edit, FileSpreadsheet, Filter, Gift, Image as ImageIcon, ImagePlus, Link, Loader2, Megaphone, MessageSquare, Mic, Mic2, MonitorPlay, PlusCircle, Printer, QrCode, Radio, RotateCcw, Save, ScrollText, Search, Send, Trash2, Upload, LayoutGrid, UserCheck, UserPlus, Users, X, Info, Armchair } from 'lucide-react';
+import { AlertTriangle,ArrowLeft, Bell, BellOff,Calendar,MapPin, Camera, CheckCircle, Utensils, LayoutTemplate, CheckCircle2, Clock, Download, Edit, FileSpreadsheet, Filter, Gift, Image as ImageIcon, ImagePlus, Link, Loader2, Megaphone, MessageSquare, Mic, Mic2, MonitorPlay, PlusCircle, Printer, QrCode, Radio, RotateCcw, Save, ScrollText, Search, Send, Trash2, Upload, LayoutGrid, UserCheck, UserPlus, Users, X, Info, Armchair } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { checkAttendeeQuota } from '@/app/(event)/events/event-dashboard/actions/quota-checker';
 interface Attendee {
@@ -37,6 +37,8 @@ function AttendeesReportContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const eventId = searchParams.get('event_id') || 'current';
+  // 🌟 เพิ่มบรรทัดนี้ เพื่อรับค่าว่ามาจากหน้าไหน
+  const source = searchParams.get('source');
   // 🌟 นำ State สำหรับเปิด/ปิดคู่มือ มาวางแทรกตรงนี้เลยครับ
   const [isManualOpen, setIsManualOpen] = useState(false);
 
@@ -668,7 +670,97 @@ function AttendeesReportContent() {
       e.target.value = '';
     }
   };
+  // ==========================================
+  // 🌟 State & Logic สำหรับระบบนำเข้ารายชื่อจากงานเก่า
+  // ==========================================
+  const [showImportOldEventModal, setShowImportOldEventModal] = useState(false);
+  const [previousEventsList, setPreviousEventsList] = useState<any[]>([]);
+  const [selectedImportOldEventId, setSelectedImportOldEventId] = useState<string>('');
+  const [isImportingOld, setIsImportingOld] = useState(false);
 
+  // 1. ฟังก์ชันดึงรายชื่องานเก่า 10 งานล่าสุด (ไม่เอางานปัจจุบัน)
+  const fetchOldEventsForImport = async () => {
+    const { data, error } = await supabase
+      .from('events')
+      .select('id, title, event_date, location_hotel')
+      .neq('id', eventId) // ไม่เอางานปัจจุบัน
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    if (data && !error) setPreviousEventsList(data);
+  };
+
+  // 2. ฟังก์ชันยืนยันการนำเข้ารายชื่อ
+  const handleImportOldAttendees = async () => {
+    if (!selectedImportOldEventId) return alert('กรุณาเลือกงานที่ต้องการนำเข้ารายชื่อ');
+    if (!window.confirm('ระบบจะคัดลอกรายชื่อจากงานเก่ามาเพิ่มในงานนี้ (ข้ามรายชื่อที่ซ้ำกันให้) ดำเนินการต่อหรือไม่?')) return;
+
+    setIsImportingOld(true);
+    try {
+      // 2.1 ดึงรายชื่อทั้งหมดจากงานเก่า
+      const { data: oldAttendees, error: fetchErr } = await supabase
+        .from('event_attendees')
+        .select('*')
+        .eq('event_id', selectedImportOldEventId);
+
+      if (fetchErr || !oldAttendees || oldAttendees.length === 0) {
+        throw new Error('ไม่พบรายชื่อในงานที่เลือก');
+      }
+
+      // 2.2 ดึงรายชื่อปัจจุบันในงานนี้ เพื่อเช็คชื่อซ้ำ
+      const { data: currentAttendees } = await supabase
+        .from('event_attendees')
+        .select('fullname')
+        .eq('event_id', eventId !== 'current' ? eventId : null);
+
+      const currentNames = new Set(currentAttendees?.map(a => a.fullname.trim()) || []);
+
+      // 2.3 กรองเฉพาะคนที่ยังไม่มีในงานนี้ พร้อมเคลียร์ค่าที่ต้องรีเซ็ต
+      const attendeesToInsert = oldAttendees
+        .filter(a => !currentNames.has(a.fullname.trim()))
+        .map(a => {
+          const { id, event_id, created_at, check_in_time, ...rest } = a;
+          return {
+            ...rest, // คัดลอกฟิลด์อื่นๆ มาทั้งหมดตามโครงสร้างตาราง
+            event_id: eventId !== 'current' ? eventId : null,
+            status: 'pending', // 🌟 รีเซ็ตสถานะเป็น รอยืนยัน/ยังไม่มา
+            seat_number: null, // 🌟 ล้างเลขที่นั่ง
+            action_sequence: null, // 🌟 ล้างคิวการขึ้นเวที
+            gift_number: null // 🌟 ล้างเลขของที่ระลึก (ให้ระบบรันใหม่ทีหลัง)
+          };
+        });
+
+      if (attendeesToInsert.length === 0) {
+        alert('ไม่มีรายชื่อใหม่ให้เพิ่ม (รายชื่อทั้งหมดในงานเก่า มีอยู่ในงานนี้แล้วครับ)');
+        setIsImportingOld(false);
+        setShowImportOldEventModal(false);
+        return;
+      }
+
+      // 2.4 ด่าน Gatekeeper: เช็คโควตาก่อน Insert
+      const quota = await checkAttendeeQuota(eventId);
+      if (!quota.success) throw new Error(quota.error);
+
+      if (quota.maxAttendees !== -1 && attendeesToInsert.length > (quota.remaining ?? 0)) {
+        throw new Error(`❌ โควตาที่นั่งไม่พอ!\nรายชื่อที่จะนำเข้ามี ${attendeesToInsert.length} คน แต่แพ็กเกจของคุณรับเพิ่มได้อีกเพียง ${quota.remaining} คน`);
+      }
+
+      // 2.5 บันทึกลงฐานข้อมูล
+      const { error: insertErr } = await supabase.from('event_attendees').insert(attendeesToInsert);
+      if (insertErr) throw insertErr;
+
+      alert(`✅ นำเข้าสำเร็จ ${attendeesToInsert.length} รายชื่อ!\n(ข้ามรายชื่อที่ซ้ำ ${oldAttendees.length - attendeesToInsert.length} คน)`);
+      setShowImportOldEventModal(false);
+      setSelectedImportOldEventId('');
+      fetchAttendees(); // รีเฟรชตารางหน้าจอหลัก
+
+    } catch (err: any) {
+      console.error("Import Attendees Error:", err);
+      alert("❌ เกิดข้อผิดพลาด: " + err.message);
+    } finally {
+      setIsImportingOld(false);
+    }
+  };
   // 🆕 State สำหรับเก็บข้อมูล Event
   const [eventData, setEventData] = useState<any>(null);
 
@@ -1697,25 +1789,32 @@ function AttendeesReportContent() {
       </div>
 
       {/* ฝั่งขวา: เครื่องมือ (ห้ามหดเด็ดขาด) */}
-      <div className="flex items-center gap-4 justify-end shrink-0 flex-none">
+      
         {/* 🆕 ปุ่มลัดไปหน้า MC Prompter (สีน้ำเงิน) - ใช้ <a> tag ป้องกันปัญหาไม่ Active */}
-        <a
-          href={`/eventdashboard/showtime/mc-script?event_id=${eventId}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="hidden md:flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-blue-900/50 w-max cursor-pointer"
-        >
-          <Mic size={18} className="shrink-0" />
-          <span className="whitespace-nowrap">พิธีกรแนะนำVIP</span>
-        </a>
+        {/* ฝั่งขวา: เครื่องมือ (ห้ามหดเด็ดขาด) */}
+      <div className="flex items-center gap-4 justify-end shrink-0 flex-none">
+        
+        {/* 🌟 1. ปุ่มกลับหน้าหลัก (แสดงเมื่อไม่ได้มาจาก dashboard คือมาจาก hub) */}
+        {source !== 'dashboard' && (
+          <a
+            href={`/officialeventdashboard/hub?event_id=${eventId}`}
+            className="group flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-bold text-sm px-4 py-2.5 rounded-xl transition-all border border-slate-700 w-max cursor-pointer shrink-0"
+          >
+            <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+            <span className="whitespace-nowrap">กลับหน้าหลัก</span>
+          </a>
+        )}
 
-        <a
-          href={`/events/event-dashboard/${eventId}`} // ⚠️ แก้ไข Path ให้ตรงกับ URL หน้า Hub ของคุณ
-          className="group flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-teal-500/10 text-slate-400 hover:text-teal-400 rounded-xl transition-all duration-300 border border-slate-700 hover:border-teal-500/50 shrink-0"
-        >
-          <LayoutGrid className="w-5 h-5 group-hover:scale-110 transition-transform" />
-          <span className="text-sm font-bold">กลับหน้าศูนย์กลาง</span>
-        </a>
+        {/* 🌟 2. ปุ่มกลับหน้าศูนย์กลาง (แสดงเฉพาะเมื่อมาจาก dashboard) */}
+        {source === 'dashboard' && (
+          <a
+            href={`/events/event-dashboard/${eventId}`}
+            className="group flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-teal-500/10 text-slate-400 hover:text-teal-400 rounded-xl transition-all duration-300 border border-slate-700 hover:border-teal-500/50 shrink-0"
+          >
+            <LayoutGrid className="w-5 h-5 group-hover:scale-110 transition-transform" />
+            <span className="text-sm font-bold">กลับหน้าศูนย์กลาง</span>
+          </a>
+        )}
 
         {/* 🆕 ปุ่มลัดไปหน้า MC Prompter (สีน้ำเงิน) - ใช้ <a> tag ป้องกันปัญหาไม่ Active */}
         <a
@@ -1800,7 +1899,16 @@ function AttendeesReportContent() {
         >
           <AlertTriangle className="w-5 h-5 animate-pulse" /> ส่งข้อความด่วน (SOS)
         </button>
-
+        {/* 🆕 ปุ่มนำเข้าจากงานเก่า */}
+        <button
+          onClick={() => {
+            fetchOldEventsForImport();
+            setShowImportOldEventModal(true);
+          }}
+          className="flex items-center gap-2 bg-blue-950/40 hover:bg-blue-700/60 border border-blue-600/50 text-blue-400 hover:text-white px-5 py-3 rounded-xl text-sm font-bold transition-all shadow-[0_0_15px_rgba(37,99,235,0.2)] shrink-0"
+        >
+          <UserPlus className="w-5 h-5" /> นำเข้าจากงานเก่า
+        </button>
         <a
           href={`/eventdashboard/attendees/gift-report?event_id=${eventId}`}
           target="_blank"
@@ -3997,6 +4105,81 @@ function AttendeesReportContent() {
         isOpen={isManualOpen}
         onClose={() => setIsManualOpen(false)}
       />
+      {/* ================= MODAL นำเข้ารายชื่อจากงานเก่า ================= */}
+      {showImportOldEventModal && (
+        <div className="fixed inset-0 z-[1000] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-[#0A1326] border border-blue-500/30 rounded-3xl p-6 w-full max-w-lg shadow-[0_0_40px_rgba(59,130,246,0.15)] flex flex-col gap-5">
+            <div className="flex justify-between items-center border-b border-white/10 pb-4">
+              <h3 className="font-black text-xl text-white flex items-center gap-2">
+                <Download className="text-blue-400" /> นำเข้ารายชื่อจากงานเก่า
+              </h3>
+              <button
+                onClick={() => setShowImportOldEventModal(false)}
+                className="p-2 bg-zinc-900 hover:bg-red-900/50 text-zinc-400 hover:text-red-400 rounded-lg transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <p className="text-sm text-zinc-400 leading-relaxed">
+                เลือกงานอีเวนต์ที่เคยจัดไปแล้ว ระบบจะคัดลอกรายชื่อทั้งหมดมาเพิ่มในงานนี้ <br/>
+                <span className="text-emerald-400 text-xs">(ข้ามรายชื่อที่ซ้ำ, รีเซ็ตสถานะการเช็คอิน, คิว และที่นั่งให้โดยอัตโนมัติ)</span>
+              </p>
+
+              {previousEventsList.length === 0 ? (
+                <div className="text-center py-8 text-zinc-500 bg-black/30 rounded-xl border border-white/5">
+                  ไม่พบประวัติการสร้างงานเก่า
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-[40vh] overflow-y-auto custom-scrollbar pr-2">
+                  {previousEventsList.map((evt) => (
+                    <div
+                      key={evt.id}
+                      onClick={() => setSelectedImportOldEventId(evt.id)}
+                      className={`p-4 rounded-xl border cursor-pointer transition-all flex items-start gap-3 ${
+                        selectedImportOldEventId === evt.id
+                          ? 'bg-blue-900/30 border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.2)]'
+                          : 'bg-zinc-900 border-white/10 hover:border-blue-500/50 hover:bg-zinc-800'
+                      }`}
+                    >
+                      <div className={`p-2 rounded-full ${selectedImportOldEventId === evt.id ? 'bg-blue-500 text-black' : 'bg-zinc-800 text-zinc-400'}`}>
+                        <Users size={14} />
+                      </div>
+                      <div>
+                        <h4 className={`font-bold text-sm ${selectedImportOldEventId === evt.id ? 'text-blue-300' : 'text-white'} line-clamp-1`}>
+                          {evt.title || 'ไม่ระบุชื่องาน'}
+                        </h4>
+                        <p className="text-xs text-zinc-500 mt-1 flex items-center gap-2">
+                          <span className="flex items-center gap-1"><Calendar size={12} /> {evt.event_date ? new Date(evt.event_date).toLocaleDateString('th-TH') : '-'}</span>
+                          {evt.location_hotel && <span className="flex items-center gap-1 text-zinc-600">| <MapPin size={12} /> {evt.location_hotel}</span>}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3 pt-4 border-t border-white/10 mt-2">
+              <button
+                onClick={() => setShowImportOldEventModal(false)}
+                className="flex-1 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl font-bold transition-colors text-sm"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={handleImportOldAttendees}
+                disabled={!selectedImportOldEventId || isImportingOld}
+                className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+              >
+                {isImportingOld ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+                ยืนยันการนำเข้า
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div >
   );
 }
