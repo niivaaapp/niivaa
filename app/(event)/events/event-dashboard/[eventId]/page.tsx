@@ -49,7 +49,12 @@ export default function EventDashboardHub() {
   };
 
   useEffect(() => {
-    if (!eventId) return;
+    // 🌟 แก้ไขจุดนี้: ถ้าไม่มี eventId ให้ปิด Loading และพากลับหน้าหลัก
+    if (!eventId) {
+      setIsLoading(false);
+      router.push('/eventhub');
+      return; 
+    }
 
     const fetchEventData = async () => {
       try {
@@ -67,7 +72,7 @@ export default function EventDashboardHub() {
         alert("ไม่พบข้อมูลงาน หรือเกิดข้อผิดพลาด");
         router.push('/eventhub');
       } finally {
-        setIsLoading(false);
+        setIsLoading(false); // ✅ ถ้ามี eventId จะมาปิด Loading ตรงนี้เสมอ
       }
     };
 

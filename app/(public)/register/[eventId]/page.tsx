@@ -1,12 +1,13 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation'; // 🌟 1. นำเข้า useRouter
 import { createClient } from '@/utils/supabase/client';
-import { Send, CheckCircle2, Loader2, FileText } from 'lucide-react';
+import { Send, CheckCircle2, Loader2, FileText, X } from 'lucide-react'; // 🌟 2. นำเข้าไอคอน X
 
 export default function PublicRegistrationForm() {
   const params = useParams();
+  const router = useRouter(); // 🌟 เรียกใช้ router สำหรับเปลี่ยนหน้า
   const eventId = params.eventId as string;
   const supabase = createClient();
 
@@ -29,22 +30,16 @@ export default function PublicRegistrationForm() {
     setIsSubmitting(true);
 
     try {
-      // 1. ค้นหาชื่อหน่วยงานในตารางทำเนียบ (org_agency_rosters) 
-      // ใช้ .trim() เพื่อตัดช่องว่างหน้า-หลัง ป้องกันการจับคู่ผิดพลาด
       const agencyNameTrimmed = formData.agency_name.trim();
       
-      const { data: rosterData, error: rosterError } = await supabase
+      const { data: rosterData } = await supabase
         .from('org_agency_rosters')
         .select('default_sequence')
         .eq('agency_name', agencyNameTrimmed)
-        .single(); // ดึงมาแค่แถวเดียว
+        .single(); 
 
-      // 2. กำหนดลำดับคิว
-      // ถ้าระบบค้นเจอชื่อตรงกัน จะใช้ลำดับมาตรฐาน (default_sequence)
-      // ถ้าไม่เจอ (พิมพ์ผิด หรือไม่มีในทำเนียบ) ให้ใช้เลข 999 
       const finalSequence = rosterData ? rosterData.default_sequence : 999;
 
-      // 3. บันทึกข้อมูลลงตาราง event_ceremony_bearers
       const { error: insertError } = await supabase.from('event_ceremony_bearers').insert([{
         event_id: eventId,
         sequence_order: finalSequence,
@@ -55,12 +50,11 @@ export default function PublicRegistrationForm() {
         gold_bearer_position: formData.gold_bearer_position,
         silver_bearer_name: formData.silver_bearer_name,
         silver_bearer_position: formData.silver_bearer_position,
-        status: 'pending' // สถานะรอยืนยันหน้างาน
+        status: 'pending' 
       }]);
 
       if (insertError) throw insertError;
 
-      // บันทึกสำเร็จ
       setIsSuccess(true);
       
     } catch (error) {
@@ -71,20 +65,41 @@ export default function PublicRegistrationForm() {
     }
   };
 
+  // 🌟 ฟังก์ชันสำหรับปุ่มปิด / ยกเลิกการลงทะเบียน
+ const handleClose = () => {
+    // กลับไปยังหน้า Official Hub ของงานนี้
+    router.push(`/officialeventdashboard/hub?event_id=${eventId}`); 
+  };
+
   // หน้าจอเมื่อส่งข้อมูลสำเร็จ
   if (isSuccess) {
     return (
       <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center p-4">
-        <div className="bg-gray-900 border border-cyan-500/30 p-8 rounded-2xl w-full max-w-md text-center shadow-[0_0_30px_rgba(6,182,212,0.15)]">
+        <div className="bg-gray-900 border border-cyan-500/30 p-8 rounded-2xl w-full max-w-md text-center shadow-[0_0_30px_rgba(6,182,212,0.15)] relative">
+          {/* 🌟 ปุ่ม X ปิดหน้าต่าง */}
+          <button onClick={handleClose} className="absolute top-4 right-4 p-2 text-gray-500 hover:text-white bg-gray-800 rounded-full transition-colors">
+             <X className="w-5 h-5" />
+          </button>
+
           <CheckCircle2 className="w-20 h-20 text-cyan-400 mx-auto mb-6" />
           <h2 className="text-2xl font-bold text-gray-100 mb-2">ส่งข้อมูลสำเร็จ!</h2>
           <p className="text-gray-400 mb-6">ระบบได้รับข้อมูลรายชื่อของ "{formData.agency_name}" เรียบร้อยแล้ว</p>
-          <button 
-            onClick={() => window.location.reload()} 
-            className="px-6 py-2 bg-gray-800 text-cyan-400 rounded-lg hover:bg-gray-800/80 transition-colors"
-          >
-            ส่งข้อมูลหน่วยงานอื่นเพิ่มเติม
-          </button>
+          
+          <div className="flex flex-col gap-3">
+             <button 
+               onClick={() => window.location.reload()} 
+               className="w-full px-6 py-3 bg-gray-800 text-cyan-400 font-bold rounded-xl hover:bg-gray-700 transition-colors"
+             >
+               ส่งข้อมูลหน่วยงานอื่นเพิ่มเติม
+             </button>
+             {/* 🌟 ปุ่มกลับหน้าแรกเมื่อเสร็จสิ้น */}
+             <button 
+               onClick={handleClose} 
+               className="w-full px-6 py-3 bg-cyan-600 text-white font-bold rounded-xl hover:bg-cyan-500 transition-colors shadow-lg shadow-cyan-900/50"
+             >
+               เสร็จสิ้น / ปิดหน้าต่าง
+             </button>
+          </div>
         </div>
       </div>
     );
@@ -92,8 +107,18 @@ export default function PublicRegistrationForm() {
 
   // หน้าจอแบบฟอร์ม
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-200 py-10 px-4 font-sans">
-      <div className="max-w-2xl mx-auto">
+    <div className="min-h-screen bg-gray-950 text-gray-200 py-10 px-4 font-sans relative">
+      
+      {/* 🌟 ปุ่มปิดมุมขวาบน สำหรับกรณีเปลี่ยนใจ */}
+      <button 
+         onClick={handleClose}
+         className="absolute top-4 right-4 md:top-8 md:right-8 p-3 bg-gray-900 hover:bg-red-900/40 border border-gray-800 hover:border-red-500/50 text-gray-500 hover:text-red-400 rounded-xl transition-all shadow-md flex items-center gap-2 group"
+      >
+         <span className="text-sm font-bold hidden md:block group-hover:text-red-400">ยกเลิก</span>
+         <X className="w-5 h-5" />
+      </button>
+
+      <div className="max-w-2xl mx-auto pt-8 md:pt-0">
         
         <div className="text-center mb-8">
           <h1 className="text-2xl md:text-3xl font-bold text-cyan-400 mb-2 flex items-center justify-center">
@@ -102,7 +127,8 @@ export default function PublicRegistrationForm() {
           <p className="text-gray-400">ผู้แทนถวายเครื่องราชสักการะ (พานพุ่มทอง-พุ่มเงิน)</p>
         </div>
 
-        <div className="bg-gray-900 border border-gray-800 p-6 md:p-8 rounded-2xl shadow-xl">
+        <div className="bg-gray-900 border border-gray-800 p-6 md:p-8 rounded-2xl shadow-xl relative">
+          
           <form onSubmit={handleSubmit} className="space-y-6">
             
             {/* ชื่อหน่วยงาน (สำคัญที่สุดในการ Auto-match) */}
