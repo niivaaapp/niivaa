@@ -5,11 +5,11 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 
-import { 
-  BookOpen, LayoutGrid, Search, MessageSquare, 
-  Library, FileEdit, LayoutTemplate, Palette, 
-  ArrowLeft, Music, ArrowRight, Settings, Users, FileText, MonitorPlay, 
-  Mic2, MonitorSpeaker, ListChecks, Radio, Tv, LayoutDashboard, Activity, 
+import {
+  BookOpen, LayoutGrid, Search, MessageSquare,
+  Library, FileEdit, LayoutTemplate, Palette,
+  ArrowLeft, Music, ArrowRight, Settings, User, Users, FileText, MonitorPlay,
+  Mic2, MonitorSpeaker, ListChecks, Radio, Tv, LayoutDashboard, Activity,
   MessageSquareShare, LogOut, Edit3, Save, Loader2, Key // 🌟 นำเข้า Key สำหรับปุ่ม PIN
 } from 'lucide-react';
 
@@ -27,6 +27,18 @@ export default function EventDashboardHub() {
   const [tempTitle, setTempTitle] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserEmail(user.email || null);
+      }
+    };
+    fetchUser();
+  }, [supabase]);
+
   // ฟังก์ชันสำหรับการออกจากระบบ
   const handleLogout = async () => {
     if (window.confirm('คุณต้องการออกจากระบบใช่หรือไม่?')) {
@@ -34,7 +46,7 @@ export default function EventDashboardHub() {
       router.push('/');
       router.refresh();
     }
-  }; 
+  };
 
   useEffect(() => {
     if (!eventId) return;
@@ -81,7 +93,7 @@ export default function EventDashboardHub() {
       // อัปเดตข้อมูลบนหน้าจอให้เป็นชื่อใหม่
       setEventInfo({ ...eventInfo, title: tempTitle });
       setIsEditingTitle(false);
-      
+
     } catch (error: any) {
       console.error("Error updating title:", error.message);
       alert("ไม่สามารถอัปเดตชื่องานได้ กรุณาลองใหม่อีกครั้ง");
@@ -91,7 +103,7 @@ export default function EventDashboardHub() {
   };
 
   if (isLoading) {
-    return <div className="min-h-screen bg-[#0f172a] flex items-center justify-center text-teal-400 font-bold"><Loader2 className="w-8 h-8 animate-spin mr-2"/> กำลังโหลดศูนย์กลางงาน...</div>;
+    return <div className="min-h-screen bg-[#0f172a] flex items-center justify-center text-teal-400 font-bold"><Loader2 className="w-8 h-8 animate-spin mr-2" /> กำลังโหลดศูนย์กลางงาน...</div>;
   }
 
   // ฟังก์ชันช่วยสร้างการ์ดเมนู
@@ -122,10 +134,14 @@ export default function EventDashboardHub() {
             <Link href="/eventhub" className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-lg transition-colors border border-slate-700 mt-1 shrink-0">
               <ArrowLeft className="w-5 h-5" />
             </Link>
+            
             <div className="flex-1 w-full max-w-2xl">
               <div className="flex items-center gap-3 mb-2 flex-wrap">
                 <span className="bg-teal-500/20 text-teal-400 text-[10px] font-black px-2.5 py-1 rounded-md uppercase tracking-wider border border-teal-500/30">
                   {eventInfo?.category || 'Farewell / Welcome'}
+                </span>
+                <span className="flex items-center gap-1.5 bg-blue-900/40 text-blue-300 text-xs px-2.5 py-1 rounded-md border border-blue-800">
+                  <User size={12} /> {userEmail ? userEmail : 'กำลังโหลด...'}
                 </span>
                 <Link href="/eventdashboard/pricing" className="group flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-xs px-2.5 py-1 rounded-md border border-slate-700 transition-colors cursor-pointer">
                   <span className="text-slate-300 group-hover:text-white transition-colors">Free Plan</span>
@@ -135,7 +151,9 @@ export default function EventDashboardHub() {
                   <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div> Active
                 </span>
               </div>
+
               
+
               {/* 🌟 ส่วนแก้ไขชื่องาน (Inline Editing) */}
               {isEditingTitle ? (
                 <div className="flex items-center gap-2 mb-1 w-full mt-2">
@@ -146,19 +164,19 @@ export default function EventDashboardHub() {
                     onChange={(e) => setTempTitle(e.target.value)}
                     className="w-full bg-slate-900 border border-teal-500 text-white text-xl sm:text-2xl font-black rounded-lg px-4 py-2 focus:outline-none focus:shadow-[0_0_15px_rgba(45,212,191,0.3)]"
                   />
-                  <button 
-                    onClick={handleSaveTitle} 
+                  <button
+                    onClick={handleSaveTitle}
                     disabled={isSaving}
                     className="bg-teal-600 hover:bg-teal-500 text-white p-2.5 rounded-lg font-bold disabled:opacity-50 transition-colors shrink-0"
                     title="บันทึก"
                   >
                     {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
                   </button>
-                  <button 
+                  <button
                     onClick={() => {
-                        setIsEditingTitle(false);
-                        setTempTitle(eventInfo?.title || '');
-                    }} 
+                      setIsEditingTitle(false);
+                      setTempTitle(eventInfo?.title || '');
+                    }}
                     className="bg-slate-700 hover:bg-slate-600 text-white p-2.5 rounded-lg transition-colors shrink-0"
                     title="ยกเลิก"
                   >
@@ -168,8 +186,8 @@ export default function EventDashboardHub() {
               ) : (
                 <h1 className="text-2xl sm:text-3xl font-black text-white flex items-center gap-3 group">
                   {eventInfo?.title || 'ไม่ได้ระบุชื่องาน'}
-                  <button 
-                    onClick={() => setIsEditingTitle(true)} 
+                  <button
+                    onClick={() => setIsEditingTitle(true)}
                     className="text-slate-500 hover:text-teal-400 opacity-0 group-hover:opacity-100 transition-opacity p-1"
                     title="แก้ไขชื่องาน"
                   >
@@ -187,10 +205,10 @@ export default function EventDashboardHub() {
 
           {/* 🌟 ส่วนขวาบน: ปุ่ม Action ต่างๆ (แก้ไขโครงสร้างตรงนี้) */}
           <div className="flex flex-wrap items-center gap-2 shrink-0 w-full md:w-auto justify-start md:justify-end border-t border-slate-700/50 md:border-none pt-4 md:pt-0 mt-2 md:mt-0">
-            
+
             {/* ปุ่ม 1: แก้ไขข้อมูลพื้นฐานงานอีเวนต์ */}
             <Link
-              href={`/events/event-dashboard/edit?event_id=${eventId}&source=dashboard`} 
+              href={`/events/event-dashboard/edit?event_id=${eventId}&source=dashboard`}
               className="flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 hover:text-blue-300 border border-blue-500/20 hover:border-blue-500/40 rounded-xl transition-all font-bold text-xs sm:text-sm"
               title="แก้ไขข้อมูลพื้นฐาน"
             >
@@ -217,6 +235,7 @@ export default function EventDashboardHub() {
               <LogOut className="w-4 h-4" />
               <span className="hidden lg:inline">ออกจากระบบ</span>
             </button>
+            
           </div>
         </div>
 
@@ -362,7 +381,7 @@ export default function EventDashboardHub() {
               />
             </div>
           </section>
-          
+
           <section>
             <div className="flex items-center gap-3 mb-5 border-b border-slate-700/50 pb-2">
               <LayoutDashboard className="w-5 h-5 text-orange-400" />
