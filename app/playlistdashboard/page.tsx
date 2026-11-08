@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
-import { LayoutDashboard, BookOpen, Languages, Heart, Wrench, Music, Copy, LogOut, Plus, X, ArrowRight, Library, Eye } from 'lucide-react';
+import { LayoutDashboard,User,BookOpen, Languages, Heart, Wrench, Music, Copy, LogOut, Plus, X, ArrowRight, Library, Eye } from 'lucide-react';
 
 // ฟังก์ชันแมปไอคอนตามชื่อหมวดหมู่เพื่อความสวยงามล้ำสมัย
 const getCategoryIcon = (catName: string) => {
@@ -31,6 +31,20 @@ export default function WelcomePlaylistDashboard() {
     const [newTitle, setNewTitle] = useState('');
     const [newDesc, setNewDesc] = useState('');
     const [isCloning, setIsCloning] = useState(false);
+
+    // สร้าง State สำหรับเก็บอีเมล
+    const [userEmail, setUserEmail] = useState<string | null>(null);
+
+    // ดึงข้อมูล User เมื่อโหลดหน้า
+    useEffect(() => {
+        const fetchUser = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                setUserEmail(user.email || null);
+            }
+        };
+        fetchUser();
+    }, []);
 
     // 🔄 1. ดึงข้อมูลจริงจากตาราง playlists (เฉพาะของส่วนกลาง is_global = true)
     const fetchRealTemplates = async () => {
@@ -132,24 +146,38 @@ export default function WelcomePlaylistDashboard() {
         }
     };
 
+
     return (
         <div className="min-h-screen bg-gradient-to-b from-[#030914] via-[#091124] to-[#020712] text-white p-6 relative select-none">
-            {/* Header ส่วนบนคงเดิม */}
+            {/* Header ส่วนบน */}
             <div className="max-w-6xl mx-auto flex justify-between items-center border-b border-white/10 pb-4 mb-8">
                 <div className="flex items-center gap-3">
                     <div className="p-2 bg-cyan-500/10 border border-cyan-500/30 rounded-xl text-cyan-400 font-mono font-black text-xs tracking-wider">NIIVAA HUB</div>
                     <span className="text-sm font-bold text-gray-400">| คลังสื่อมัลติมีเดียและแม่แบบการสอนกลาง</span>
                 </div>
-                <Link
-                    href={`/smart-media-dashboard`}
-                    className="flex items-center justify-center gap-2 px-4 py-2 sm:px-5 sm:py-2.5 bg-[#003366]/40 hover:bg-[#003366]/80 text-[#CCFFFF] border border-[#006666]/50 rounded-xl text-[10px] sm:text-xs font-bold transition-all shadow-md"
-                >
-                    <LayoutDashboard size={14} className="sm:w-4 sm:h-4" />
-                    <span className="hidden sm:inline">กลับศูนย์กลาง</span>
-                </Link>
-                <button onClick={() => supabase.auth.signOut().then(() => router.push('/'))} className="flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl text-xs font-bold transition-all">
-                    ออกจากระบบ
-                </button>
+                
+                {/* กลุ่มเมนูด้านขวา */}
+                <div className="flex items-center gap-3">
+                    {/* แสดง Email ผู้ใช้งาน */}
+                    {userEmail && (
+                        <div className="hidden sm:flex items-center gap-2 px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-gray-300 text-xs font-medium">
+                            <User size={14} className="text-cyan-400" />
+                            <span>{userEmail}</span>
+                        </div>
+                    )}
+
+                    <Link
+                        href={`/smart-media-dashboard`}
+                        className="flex items-center justify-center gap-2 px-4 py-2 sm:px-5 sm:py-2.5 bg-[#003366]/40 hover:bg-[#003366]/80 text-[#CCFFFF] border border-[#006666]/50 rounded-xl text-[10px] sm:text-xs font-bold transition-all shadow-md"
+                    >
+                        <LayoutDashboard size={14} className="sm:w-4 sm:h-4" />
+                        <span className="hidden sm:inline">กลับศูนย์กลาง</span>
+                    </Link>
+                    
+                    <button onClick={() => supabase.auth.signOut().then(() => router.push('/'))} className="flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl text-xs font-bold transition-all">
+                        ออกจากระบบ
+                    </button>
+                </div>
             </div>
 
             <div className="max-w-4xl mx-auto text-center space-y-4 mb-12">

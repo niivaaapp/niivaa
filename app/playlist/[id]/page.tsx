@@ -131,7 +131,21 @@ export default function SmartKaraokePage({ params }: { params: any }) {
   const [cutTail, setCutTail] = useState(0);
   const [skipS, setSkipS] = useState(0);
   const [skipE, setSkipE] = useState(0);
-  // 🌟 [เพิ่มใหม่] คืนค่าข้อความวิ่งกลับเป็นปกติทุกครั้งที่เริ่มเพลงใหม่
+  
+  // 🌟 [เพิ่มใหม่] วางฟังก์ชันตัวช่วยกรองเพลงไว้ตรงนี้ครับ
+  const isValidMode = (title: string) => {
+    if (!title) return false;
+    const lowerTitle = title.toLowerCase();
+    const isK = lowerTitle.includes('karaoke') || lowerTitle.includes('คาราโอเกะ');
+
+    // ถ้าเปิดโหมดไมค์ (คาราโอเกะ) แต่ชื่อเพลง "ไม่มี" คำว่าคาราโอเกะ -> คัดทิ้ง
+    if (isKaraokeMode && !isK) return false;
+    
+    // ถ้าเปิดโหมดหูฟัง (ฟังเพลง) แต่ชื่อเพลง "มี" คำว่าคาราโอเกะ -> คัดทิ้ง
+    if (isListeningMode && isK) return false;
+
+    return true; // ถ้าผ่านเงื่อนไข (หรือไม่ได้เปิดโหมดไหนเลย) ให้เอาเพลงนี้
+  };
 
   // 🌟 รีเซ็ตแค่ตัวล็อค (ให้เพลงใหม่พร้อมจับเวลา 10 วิสุดท้ายได้) 
   // แต่ไม่ตัดข้อความวิ่งทิ้ง ปล่อยให้มันเล่นคร่อมเพลงใหม่ไปจนจบ 1 รอบ
@@ -183,12 +197,13 @@ export default function SmartKaraokePage({ params }: { params: any }) {
   const triggerLyrics = async (v_id: string) => {
     await supabase
       .from('current_playing')
-      .update({
+      .upsert({
+        playlist_id: playlistId, // 🌟 ใช้รหัส Playlist เป็นชื่อห้อง
         video_id: v_id,
         updated_at: new Date().toISOString()
-      })
-      .eq('id', 1);
+      }, { onConflict: 'playlist_id' }); // ถ้ามีห้องนี้แล้วให้อัปเดต
   };
+
 
   // ตอนที่พี่สั่งเล่นเพลง (ในปุ่ม Play หรือฟังก์ชันเปิดวิดีโอ)
   const handlePlay = (track: any) => {
@@ -214,12 +229,12 @@ export default function SmartKaraokePage({ params }: { params: any }) {
 
       const { error } = await supabase
         .from('current_playing')
-        .update({
+        .upsert({
+          playlist_id: playlistId, // 🌟 เปลี่ยนมาใช้รหัส Playlist แบ่งห้อง
           video_id: video_id,
           title: title,
           updated_at: new Date().toISOString()
-        })
-        .eq('id', 1); // บังคับอัปเดตที่ id 1 เสมอ
+        }, { onConflict: 'playlist_id' }); // 🌟 ถ้ามีห้องนี้แล้วให้อัปเดต ถ้ายังไม่มีให้สร้างใหม่
 
       if (error) throw error;
       console.log("✅ ส่งสัญญาณสำเร็จ!");
@@ -231,41 +246,54 @@ export default function SmartKaraokePage({ params }: { params: any }) {
   // --- [FETCH DATA - โหลดข้อมูลจาก Database] ---
   const fetchAllData = useCallback(async () => {
     try {
-      // 1. ดึง Playlist พร้อมให้นับจำนวน tracks ที่เชื่อมอยู่มาด้วย
-      // ใช้คำสั่ง '*, tracks(count)' เพื่อให้ Supabase ไปนับเพลงมาให้
+      // 🌟 1. ดึงข้อมูลผู้ใช้ที่ล็อกอินอยู่ปัจจุบัน
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+      if (authError || !user) {
+        console.error("ไม่มีสิทธิ์เข้าถึง หรือเซสชันหมดอายุ");
+        // ถ้าจำเป็น สามารถเพิ่ม router.push('/login') ตรงนี้ได้ครับ
+        return;
+      }
+
+      // 🌟 2. ดึง Playlist "เฉพาะที่เป็นของ User คนนี้เท่านั้น"
       const { data: allP, error: pError } = await supabase
         .from('playlists')
-        .select('*, tracks(count)');
+        .select('*, tracks(count)')
+        .eq('user_id', user.id); // 👈 ใช้ user_id ตามโครงสร้างตารางของคุณ
 
       if (pError) throw pError;
 
-      // 2. จัดรูปแบบข้อมูลใหม่ (Mapping) ให้มีฟิลด์ tracks_count เพื่อไปแสดงใน UI
       if (allP) {
         const formattedPlaylists = allP.map(p => ({
           ...p,
-          // Supabase จะส่งค่ากลับมาเป็น tracks: [{ count: 5 }]
-          // เราจึงดึงค่าออกมาใส่ใน tracks_count
           tracks_count: p.tracks?.[0]?.count || 0
         }));
         setAllPlaylists(formattedPlaylists);
 
-        // 🎯 [เพิ่มใหม่]: ค้นหาข้อมูลของเพลย์ลิสต์ปัจจุบัน เพื่อซิงค์ชื่อป้าย, สวิตช์บอร์ด และโลโก้หน่วยงานจริงมาใช้งาน
         const currentPlay = formattedPlaylists.find(p => p.id === playlistId);
+
+        // 🌟 3. ป้องกันการแอบเอา URL (id) ของคนอื่นมาเปิด
+        // ถ้าหา id นี้ไม่เจอในรายการของตัวเอง ให้ดีดกลับหน้า Dashboard ทันที
+        if (!currentPlay && allP.length > 0) {
+          alert("คุณไม่มีสิทธิ์เข้าถึงเพลย์ลิสต์นี้ หรือไม่มีข้อมูลในระบบ!");
+          window.location.href = '/smart-media-dashboard';
+          return;
+        }
+
         if (currentPlay) setPlaylistInfo(currentPlay);
       }
 
-      // 3. ดึงคลังเพลงทั้งหมด (Master Songs) เพื่อใช้กับระบบ Smart Search
+      // 4. ดึงคลังเพลงทั้งหมด (ส่วนกลาง)
       const { data: mData } = await supabase.from('master_songs').select('*');
       if (mData) setAllMasterSongs(mData);
 
-      // 4. ดึงคิวเพลงใน Playlist ปัจจุบัน
+      // 5. ดึงคิวเพลงใน Playlist (ปลอดภัยแล้ว เพราะดัก currentPlay ไว้ด้านบน)
       const { data: tData, error } = await supabase
         .from('tracks')
         .select(`*, master_songs(*)`)
         .eq('playlist_id', playlistId)
-        .order('order_index', { ascending: true }); // 👈 เปลี่ยนมาใช้ order_index
+        .order('order_index', { ascending: true });
       setTracks(tData || []);
-
 
       // ตั้งค่าเพลงโปรโมทตอนเริ่มต้น
       // 🎯 [ปรับใหม่]: ดึงวิดีโอโปรโมทจากคลังตารางส่วนกลางบน Supabase มาสุ่มเล่นแทนแบบ Dynamic
@@ -303,20 +331,25 @@ export default function SmartKaraokePage({ params }: { params: any }) {
 
   // ส่วนที่ 1: ทำงานแค่ "ครั้งเดียว" ตอนเปิดหน้าจอหรือกดรีเฟรช
   useEffect(() => {
+    if (!playlistId) return; // 🌟 ต้องมีรหัสห้องเสมอ
+
     if (!isPreview) {
-      // จอหลัก: ล้างความจำเมื่อเปิดหน้าใหม่ เพื่อให้กลับไปเริ่มที่ Promo Video เสมอ
+      // จอหลัก: ล้างความจำเฉพาะ "ห้องตัวเอง"
       supabase.from('current_playing')
-        .update({ video_id: null, title: 'Standby' })
-        .eq('id', 1)
+        .upsert({
+          playlist_id: playlistId, // 🌟
+          video_id: null,
+          title: 'Standby'
+        }, { onConflict: 'playlist_id' })
         .then();
     } else {
-      // จอจิ๋ว: เช็กว่ามีเพลงเล่นอยู่ไหม เผื่อว่าเปิดจอจิ๋วขึ้นมากลางคัน
+      // จอจิ๋ว: เช็กเพลงของ "ห้องตัวเอง"
       const checkCurrentPlaying = async () => {
         const { data, error } = await supabase
           .from('current_playing')
           .select('video_id')
-          .eq('id', 1)
-          .single();
+          .eq('playlist_id', playlistId) // 🌟 ดึงข้อมูลเฉพาะห้องนี้
+          .maybeSingle(); // ใช้ maybeSingle ป้องกัน Error ถ้าหาไม่เจอ
 
         if (!error && data?.video_id) {
           startApp(data.video_id, true);
@@ -324,31 +357,32 @@ export default function SmartKaraokePage({ params }: { params: any }) {
       };
       checkCurrentPlaying();
     }
-  }, [isPreview]); // 👈 ใส่แค่ isPreview (ทำงานแค่ครั้งเดียวตอนโหลด)
+  }, [isPreview, playlistId]); // 🌟 เพิ่ม playlistId
 
   // ส่วนที่ 2: ดักฟังคำสั่งสลับเพลงจาก Database (Realtime) แบบเพียวๆ
   useEffect(() => {
-    const syncChannel = supabase.channel('sync_playing_status')
+    if (!playlistId) return;
+
+    // 🌟 เปลี่ยนชื่อ Channel ไม่ให้ซ้ำกัน และเปลี่ยน Filter ให้ดักฟังเฉพาะห้องนี้
+    const syncChannel = supabase.channel(`sync_playing_status_${playlistId}`)
       .on('postgres_changes', {
-        event: 'UPDATE',
+        event: '*', // 🌟 เปลี่ยนเป็น * เพื่อรับทั้งการ Insert/Update ใหม่
         schema: 'public',
         table: 'current_playing',
-        filter: 'id=eq.1'
+        filter: `playlist_id=eq.${playlistId}` // 🌟 กรองเฉพาะห้องของตัวเอง
       }, (payload) => {
-        const newVid = payload.new.video_id;
+        const newVid = (payload.new as { video_id?: string })?.video_id;
 
         if (newVid) {
-          // ถ้ามีรหัสวิดีโอส่งมา (มีคนกดเลือกเพลง) ให้เริ่มเล่นเลย
           startApp(newVid, true);
         } else {
-          // ถ้าเป็น null (โดนสั่งล้างความจำจากส่วนที่ 1) ให้กลับหน้าปก
           setIsAppStarted(false);
           setCurrentVideoId(null);
         }
       }).subscribe();
 
     return () => { supabase.removeChannel(syncChannel); };
-  }, []); // 👈 วงเล็บว่างเปล่า (ทำงานเบื้องหลังตลอดเวลา ไม่โดนรีเซ็ต)
+  }, [playlistId]);
 
   // --- [AI VOICE RESPONSE - ระบบเสียงตอบรับ] ---
   const speakResponse = (message: string) => {
@@ -363,7 +397,6 @@ export default function SmartKaraokePage({ params }: { params: any }) {
     }
   };
 
-  // --- [LOGIC - ระบบการเล่นเพลง] ---
   // --- [LOGIC - ระบบการเล่นเพลง] ---
   const startApp = (videoId: string, isFast = false) => {
     setIsAppStarted(true);
@@ -399,7 +432,57 @@ export default function SmartKaraokePage({ params }: { params: any }) {
       }, 5000);
     }
   };
+  // 🌟 ฟังก์ชันตัวช่วย: อัปเดตเพลงแยกตามห้องแบบไม่ต้องพึ่งกฎ UNIQUE
+  // 🌟 ฟังก์ชันตัวช่วย: เวอร์ชันติดเรดาร์ตรวจสอบข้อผิดพลาด
+  const updateCurrentPlayingRoom = async (v_id: string, v_title: string) => {
+    console.log("=== 🔍 เริ่มกระบวนการส่งสัญญาณเปลี่ยนเพลง ===");
+    console.log("👉 1. รหัสห้อง (playlistId):", playlistId);
+    console.log("👉 2. รหัสเพลง (v_id):", v_id);
 
+    if (!playlistId) {
+      console.error("❌ ล้มเหลว: playlistId หายไป! (อาจจะดึงค่าจาก URL ไม่สำเร็จ)");
+      alert("ไม่สามารถเปลี่ยนเพลงได้: หาบรรทัด const { id: playlistId } ไม่เจอ หรือค่าว่าง");
+      return;
+    }
+    if (!v_id) {
+      console.error("❌ ล้มเหลว: ไม่มี video_id ส่งเข้ามา");
+      return;
+    }
+
+    try {
+      const payload = {
+        video_id: v_id,
+        title: v_title || 'Unknown Title',
+        updated_at: new Date().toISOString()
+      };
+
+      // ลองสั่ง Update
+      console.log("👉 3. กำลังส่งคำสั่ง Update ไปที่ Supabase...");
+      const { data, error } = await supabase
+        .from('current_playing')
+        .update(payload)
+        .eq('playlist_id', playlistId)
+        .select();
+
+      console.log("✅ ผลการ Update - Data:", data, " | Error:", error);
+
+      // ถ้า Update ไม่เจอข้อมูล (ห้องยังไม่ถูกสร้าง)
+      if (!error && (!data || data.length === 0)) {
+        console.log("👉 4. ไม่พบห้องนี้ในตาราง กำลังส่งคำสั่ง Insert เพื่อสร้างห้องใหม่...");
+        const { data: insData, error: insErr } = await supabase.from('current_playing').insert([{
+          playlist_id: playlistId,
+          ...payload
+        }]).select();
+        
+        console.log("✅ ผลการ Insert - Data:", insData, " | Error:", insErr);
+      }
+      
+      console.log("=== 🎉 จบกระบวนการส่งสัญญาณ ===");
+      
+    } catch (err) {
+      console.error("❌ เกิดข้อผิดพลาดร้ายแรงของระบบ:", err);
+    }
+  };
   // --- [เพิ่ม States ใหม่] ---
   const [isAutoDJ, setIsAutoDJ] = useState(false); // ระบบ Auto DJ
 
@@ -442,25 +525,85 @@ export default function SmartKaraokePage({ params }: { params: any }) {
     }
   }, [playlistInfo]);
 
-  // --- [2. ระบบ Auto DJ Logic] ---
+  // --- [2. ระบบ Auto DJ Logic (อัปเกรด กรองอารมณ์เพลง + YouTube Fallback)] ---
   const triggerAutoDJ = useCallback(async () => {
     if (!isAutoDJ || allMasterSongs.length === 0) return;
 
-    // สุ่มเพลงจากคลัง (กรองตามโหมดปัจจุบันถ้าต้องการ)
-    const pool = allMasterSongs.filter(s => {
-      const isK = s.title.toLowerCase().includes('karaoke') || s.title.includes('คาราโอเกะ');
-      if (isKaraokeMode) return isK;
-      if (isListeningMode) return !isK;
+    // 1. วิเคราะห์แนวเพลงปัจจุบันจากคิว (อิงจากเพลงสุดท้ายในคิวเป็นหลัก)
+    const referenceTrack = tracks.length > 0 ? tracks[tracks.length - 1] : null;
+    const targetCategory = referenceTrack?.master_songs?.category || referenceTrack?.category || '';
+
+    // 2. ค้นหาจากคลังส่วนกลาง (Local Database) ก่อน
+    let pool = allMasterSongs.filter(s => {
+      // 2.1 กรองตามโหมดร้อง/ฟัง (เรียกใช้ฟังก์ชันตัวช่วยที่เราเพิ่งสร้าง คลีนมาก!)
+      if (!isValidMode(s.title)) return false;
+
+      // 2.2 🌟 กรองตามอารมณ์เพลง (หมวดหมู่) 
+      // ถ้าคิวเพลงมีหมวดหมู่กำกับไว้ เพลงที่จะสุ่มมาต่อก็ต้องมีหมวดหมู่ตรงกันเป๊ะๆ
+      if (targetCategory && s.category && s.category !== targetCategory) return false;
+
       return true;
     });
 
+    // 3. 🚀 [YOUTUBE FALLBACK] ถ้าคลังในหมวดหมู่นี้แห้งสนิท ให้ดึงจาก YouTube ทันที
+    if (pool.length === 0 && targetCategory) {
+      console.log(`[AutoDJ] คลังเพลงแนว '${targetCategory}' หมดแล้ว กำลังค้นหาจาก YouTube...`);
+      const searchSuffix = isKaraokeMode ? "คาราโอเกะ" : isListeningMode ? "Official Audio" : "";
+      
+      // สร้างคำค้นหาอัจฉริยะ เช่น "เพลง ลูกทุ่งอีสาน คาราโอเกะ"
+      const query = `เพลง ${targetCategory} ${searchSuffix}`; 
+      
+      try {
+        const apiKey = "AIzaSyC3SFBRAazRzbkP1COhhkyQK2JTG6wHiTg"; // ⚠️ อย่าลืมใส่ API Key ของคุณที่นี่
+        
+        // ใช้ videoCategoryId=10 เพื่อเน้นหมวดหมู่ Music ใน YouTube
+        const res = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=5&q=${encodeURIComponent(query)}&type=video&videoCategoryId=10&key=${apiKey}`);
+        const ytData = await res.json();
+        
+        if (ytData.items && ytData.items.length > 0) {
+          // สุ่มเลือก 1 เพลงจากผลลัพธ์ที่ได้
+          const randomYt = ytData.items[Math.floor(Math.random() * ytData.items.length)];
+          
+          const newSong = {
+            video_id: randomYt.id.videoId,
+            title: randomYt.snippet.title,
+            thumbnail_url: randomYt.snippet.thumbnails.default.url,
+            category: targetCategory // 🌟 ประทับตราหมวดหมู่เดียวกันเข้าไปด้วยเลย
+          };
+          
+          // บันทึกลงคลัง Master_songs ก่อน
+          await supabase.from('master_songs').upsert(newSong, { onConflict: 'video_id' });
+          
+          // นำเข้าคิว (tracks)
+          handleAddToQueue(newSong);
+          speakResponse(`คิวหมดแล้ว ออโต้ดีเจจัดเพลงแนว ${targetCategory} จากยูทูปให้ต่อเลยครับ`);
+          return; // จบการทำงาน
+        }
+      } catch (err) {
+        console.error("Auto DJ YouTube Error:", err);
+      }
+    }
+
+    // 4. กรณีหาในคลัง Local เจอ (หรือคิวว่างเปล่าไม่มีหมวดหมู่) ให้สุ่มตามปกติ
     if (pool.length > 0) {
       const randomSong = pool[Math.floor(Math.random() * pool.length)];
-      // เพิ่มลงคิวและ AI แจ้งเตือน
       handleAddToQueue(randomSong);
-      speakResponse(`คิวหมดแล้วครับ ออโต้ดีเจจัดเพลง ${randomSong.title} ให้ต่อเลย`);
+      
+      if (targetCategory) {
+        speakResponse(`ออโต้ดีเจจัดเพลง ${randomSong.title} ให้ต่อเลยครับ`);
+      } else {
+        speakResponse(`ออโต้ดีเจสุ่มเพลง ${randomSong.title} ให้ฟังเพลินๆ ครับ`);
+      }
+    } else {
+      // แผนสำรองสุดท้าย: ถ้าไม่มีเพลงหมวดหมู่นั้นจริงๆ และหาจากเน็ตไม่เจอ ให้สุ่มเพลงอะไรก็ได้ที่ตรงโหมด
+      const backupPool = allMasterSongs.filter(s => isValidMode(s.title));
+      if (backupPool.length > 0) {
+         const fallbackSong = backupPool[Math.floor(Math.random() * backupPool.length)];
+         handleAddToQueue(fallbackSong);
+         speakResponse(`หาเพลงแนวเดิมไม่เจอ ออโต้ดีเจขอเปลี่ยนบรรยากาศเป็น ${fallbackSong.title} นะครับ`);
+      }
     }
-  }, [isAutoDJ, allMasterSongs, isKaraokeMode, isListeningMode]);
+  }, [isAutoDJ, allMasterSongs, isKaraokeMode, isListeningMode, tracks, isValidMode]);
 
   // --- [3. ปรับปรุง playNextSong ให้รองรับ Auto DJ และ Repeat Count] ---
   const playNextSong = useCallback(async () => {
@@ -535,13 +678,8 @@ export default function SmartKaraokePage({ params }: { params: any }) {
       // 2. กรองข้อมูลในคลังตามโหมด (Karaoke / Listening)
       let filteredStock = [];
       if (stockData) {
-        filteredStock = stockData.filter(s => {
-          const title = s.title.toLowerCase();
-          const isK = title.includes("คาราโอเกะ") || title.includes("karaoke");
-          if (isKaraokeMode) return isK;
-          if (isListeningMode) return !isK;
-          return true;
-        });
+        // 🌟 แก้ไข: เรียกใช้ฟังก์ชันตัวช่วยกรองเพลงแทนลอจิกเดิม
+        filteredStock = stockData.filter(s => isValidMode(s.title));
       }
 
       // 3. 🚩 ตัดสินใจ: ถ้าเจอในคลัง ให้แสดงผลจากคลัง แต่ถ้า "ไม่เจอ" ให้ไป YouTube
@@ -1141,15 +1279,15 @@ export default function SmartKaraokePage({ params }: { params: any }) {
 
   // ฟังก์ชันที่เรียกเมื่อกดเล่นเพลง
   const playSong = async (song: any) => {
-    // 1. อัปเดตตาราง current_playing ว่าตอนนี้เล่นเพลงนี้อยู่
+    // 1. อัปเดตตาราง current_playing ว่าตอนนี้เล่นเพลงนี้อยู่ (แยกตามห้อง)
     const { error } = await supabase
       .from('current_playing')
-      .update({
+      .upsert({
+        playlist_id: playlistId, // 🌟 ใส่ความเป็นเจ้าของห้อง
         video_id: song.video_id,
         title: song.title,
-        updated_at: new Date()
-      })
-      .eq('id', 1);
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'playlist_id' }); // 🌟 บังคับ Upsert
 
     if (!error) {
       // 2. สั่งเล่นเพลงในเครื่องนี้ตามปกติ (เช่นเปิด YouTube Embed)
@@ -1252,7 +1390,7 @@ export default function SmartKaraokePage({ params }: { params: any }) {
   // ⚡ ระบบรีโมทอัจฉริยะ: ส่งสัญญาณทุกครั้งที่ Video ID เปลี่ยน (ไม่ว่าจะกดเองหรือ Auto-Next)
   useEffect(() => {
     const syncLyricsSignal = async () => {
-      if (!currentVideoId) return;
+      if (!currentVideoId || !playlistId) return; // 🌟 เพิ่มเช็ค playlistId
 
       // ค้นหาข้อมูลเพลงจากรายการ tracks เพื่อเอา Title
       const currentTrack = tracks.find(t => t.video_id === currentVideoId);
@@ -1261,18 +1399,18 @@ export default function SmartKaraokePage({ params }: { params: any }) {
 
       const { error } = await supabase
         .from('current_playing')
-        .update({
+        .upsert({
+          playlist_id: playlistId, // 🌟 ใช้ playlist_id
           video_id: currentVideoId,
           title: currentTrack?.master_songs?.title || 'Unknown Title',
           updated_at: new Date().toISOString()
-        })
-        .eq('id', 1);
+        }, { onConflict: 'playlist_id' }); // 🌟 บังคับ Upsert ทับห้องเดิม
 
       if (error) console.error("❌ ส่งสัญญาณไม่สำเร็จ:", error.message);
     };
 
     syncLyricsSignal();
-  }, [currentVideoId]); // <--- ทำงานทุกครั้งที่ตัวแปรนี้เปลี่ยนค่า
+  }, [currentVideoId, playlistId]); // <--- เพิ่ม playlistId ในวงเล็บนี้ด้วย
 
   // 📺 ฟังก์ชันสั่งเปิดโหมดหน้าต่างลอย (Picture-in-Picture) สำหรับ YouTube Iframe
   const togglePiP = async () => {
@@ -1825,10 +1963,8 @@ export default function SmartKaraokePage({ params }: { params: any }) {
               {/* 3. QUEUE LIST (ปรับปรุงรองรับมือถือ Double Tap + เพิ่ม Alias Name + Inline Delete) */}
               <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 pb-24 space-y-2 px-4">
                 {tracks
-                  .filter(t => {
-                    const isK = t.master_songs?.title.toLowerCase().includes('karaoke') || t.master_songs?.title.includes('คาราโอเกะ');
-                    return (isKaraokeMode || isListeningMode) ? isK : true;
-                  })
+                  // 🌟 แก้ไข: ใช้ isValidMode แทนเงื่อนไขยาวๆ เดิม
+                  .filter(t => isValidMode(t.master_songs?.title || t.title || ''))
                   .map((track, i) => {
                     const isPlaying = track.video_id === currentVideoId;
                     return (
@@ -1838,38 +1974,30 @@ export default function SmartKaraokePage({ params }: { params: any }) {
                         // 🌟 รองรับ Double Click บนคอม
                         onDoubleClick={async () => {
                           startApp(track.video_id, true);
-                          try {
-                            await supabase.from('current_playing').update({
-                              video_id: track.video_id,
-                              title: track.master_songs?.title || 'Unknown Title',
-                              updated_at: new Date().toISOString()
-                            }).eq('id', 1);
-                          } catch (err) { console.error(err); }
+                          
+                          // 🌟 แก้ไข: เรียกฟังก์ชันตัวช่วยแทน upsert เดิม
+                          await updateCurrentPlayingRoom(track.video_id, track.master_songs?.title);
                         }}
 
-                        // 🌟 รองรับ Touch Double Tap บนมือถือ (แก้เป็น async)
+                        // 🌟 รองรับ Touch Double Tap บนมือถือ
                         onClick={async (e) => {
                           const currentTime = new Date().getTime();
-                          const lastTap = Number(e.currentTarget.getAttribute('data-last-tap') || 0);
+                          // 🌟 ดึงเป้าหมายมาเก็บไว้ก่อน ป้องกันการเป็น null หลัง await
+                          const targetElement = e.currentTarget; 
+                          const lastTap = Number(targetElement.getAttribute('data-last-tap') || 0);
                           const tapLength = currentTime - lastTap;
 
                           if (tapLength > 0 && tapLength < 500) {
                             startApp(track.video_id, true);
 
-                            // 🌟 เปลี่ยนมาใช้ try/catch และ await เพื่อแก้ปัญหา Type error ของ TypeScript
-                            try {
-                              await supabase.from('current_playing').update({
-                                video_id: track.video_id,
-                                title: track.master_songs?.title || 'Unknown Title',
-                                updated_at: new Date().toISOString()
-                              }).eq('id', 1);
-                            } catch (err) {
-                              console.error(err);
-                            }
+                            // รอส่งสัญญาณเข้าฐานข้อมูล
+                            await updateCurrentPlayingRoom(track.video_id, track.master_songs?.title);
 
-                            e.currentTarget.setAttribute('data-last-tap', '0');
+                            // 🌟 ใช้ตัวแปรที่เก็บไว้
+                            targetElement.setAttribute('data-last-tap', '0');
                           } else {
-                            e.currentTarget.setAttribute('data-last-tap', currentTime.toString());
+                            // 🌟 ใช้ตัวแปรที่เก็บไว้
+                            targetElement.setAttribute('data-last-tap', currentTime.toString());
                           }
                         }}
 

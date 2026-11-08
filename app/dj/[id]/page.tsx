@@ -19,7 +19,7 @@ export default function DJManagerPage() {
     const [editingTrack, setEditingTrack] = useState<any>(null); // สำหรับเปิด Modal SME
     const [allPlaylists, setAllPlaylists] = useState<any[]>([]);
     const [isManualOpen, setIsManualOpen] = useState(false); // State สำหรับเปิดคู่มือ
-
+    const [currentSelectId, setCurrentSelectId] = useState("");
     // States สำหรับฟอร์มเพิ่มเพลง
     const [requestUrl, setRequestUrl] = useState('');
     const [fetchedTitle, setFetchedTitle] = useState('=== ดึงชื่อเพลงแสดงที่นี่ ===');
@@ -28,15 +28,36 @@ export default function DJManagerPage() {
     const [requestSinger, setRequestSinger] = useState('');
 
     // --- [1. ดึงข้อมูลคิวเพลง] ---
+    // --- [1. ดึงข้อมูลคิวเพลง และจัดการ Auto-Redirect] ---
+    // --- [1. ดึงข้อมูลคิวเพลง และตั้งค่าการเลือกอัตโนมัติ] ---
     const fetchAllData = useCallback(async () => {
         if (!playlistId) return;
         try {
-            const { data: pData } = await supabase.from('playlists').select('name').eq('id', playlistId).single();
-            if (pData) setPlaylistName(pData.name);
-
+            // 1. โหลดรายชื่อ Playlist ทั้งหมดขึ้นมาก่อน
             const { data: allPData } = await supabase.from('playlists').select('id, name').order('name', { ascending: true });
-            if (allPData) setAllPlaylists(allPData);
+            
+            if (allPData && allPData.length > 0) {
+                setAllPlaylists(allPData);
+                
+                // 🌟 ตรวจสอบว่า ID จาก URL มีในฐานข้อมูลหรือไม่
+                const foundPlaylist = allPData.find(p => p.id === playlistId);
+                
+                if (foundPlaylist) {
+                    // ถ้าเจอ: ให้ล็อก State เป็น ID นี้ (ช่อง Select จะแสดงชื่อนี้ทันที)
+                    setCurrentSelectId(foundPlaylist.id);
+                    setPlaylistName(foundPlaylist.name);
+                } else {
+                    // 🌟 ถ้าไม่เจอ (หรือเข้าผ่าน /dj/selector): ให้ล็อกเป็น "รายการแรกสุด" แล้วเด้ง URL ไปหา
+                    setCurrentSelectId(allPData[0].id);
+                    setPlaylistName(allPData[0].name);
+                    router.replace(`/dj/${allPData[0].id}`);
+                    return; // หยุดทำงานเพื่อรอโหลดหน้าใหม่
+                }
+            } else {
+                setAllPlaylists([]);
+            }
 
+            // 2. ดึงข้อมูลคิวเพลง (Tracks) ตามปกติ
             const { data: tData, error } = await supabase
                 .from('tracks')
                 .select(`*, master_songs(*)`)
@@ -49,7 +70,7 @@ export default function DJManagerPage() {
         } catch (err) {
             console.error("Error fetching data:", err);
         }
-    }, [playlistId]);
+    }, [playlistId, router]);
 
     useEffect(() => {
         fetchAllData();
@@ -247,6 +268,9 @@ export default function DJManagerPage() {
             alert('เกิดข้อผิดพลาดในการเคลียร์เพลงซ้ำ: ' + err.message);
         }
     };
+    // 🌟 [เพิ่มตรงนี้] ท่าไม้ตายตามที่คุณแนะนำ: จับคู่ ID กับข้อมูลเพลย์ลิสต์ให้เสร็จสรรพก่อน
+    const activePlaylist = allPlaylists.find(p => String(p.id) === String(playlistId));
+    const isPlaylistsLoaded = allPlaylists.length > 0;
 
     return (
         <div className="min-h-screen bg-[#0a0a0a] text-white p-4 font-sans max-w-5xl mx-auto relative overflow-hidden">
@@ -284,19 +308,35 @@ export default function DJManagerPage() {
 
                 {/* --- ซ้าย: QUEUE LIST (8 ส่วน) --- */}
                 <div className="lg:col-span-8 flex flex-col h-full">
+                    {/* 🌟 [เพิ่มใหม่] ข้อความแจ้งเตือน */}
+                    <div className="mb-2">
+                        <span className="text-amber-400 text-[11px] sm:text-xs font-bold bg-amber-400/10 px-3 py-1.5 rounded-lg border border-amber-400/20 inline-flex items-center gap-2">
+                            💡 โปรดตรวจสอบ เลือกอัลบั้ม หรือชุดสื่อที่ต้องการปรับปรุงก่อนเสมอ
+                        </span>
+                    </div>
+                    
                     {/* ส่วนเลือก Playlist และค้นหา */}
                     <div className="flex flex-col sm:flex-row gap-2 mb-3">
+                        
+                        {/* 🌟 3. ผูกช่อง Select เข้ากับ State ตัวใหม่ของเรา */}
                         <select
-                            value={playlistId}
+                            value={currentSelectId}
                             onChange={(e) => {
-                                const selectedId = e.target.value;
-                                if (selectedId !== playlistId) router.push(`/dj/${selectedId}`);
+                                const newId = e.target.value;
+                                if (newId) {
+                                    setCurrentSelectId(newId); // เปลี่ยนชื่อที่หน้าจอทันที
+                                    router.push(`/dj/${newId}`); // สั่งเปลี่ยน URL
+                                }
                             }}
                             className="flex-1 bg-black/60 border border-cyan-500/50 p-3 rounded-xl text-cyan-300 font-bold outline-none text-sm cursor-pointer"
                         >
-                            {allPlaylists.map((p) => (
-                                <option key={p.id} value={p.id}>{p.name}</option>
-                            ))}
+                            {allPlaylists.length === 0 ? (
+                                <option value="">⏳ กำลังโหลดข้อมูลอัลบั้ม...</option>
+                            ) : (
+                                allPlaylists.map((p) => (
+                                    <option key={p.id} value={p.id}>{p.name}</option>
+                                ))
+                            )}
                         </select>
 
                         <div className="relative flex-1">

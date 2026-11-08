@@ -1,21 +1,21 @@
+// app/welcome/page.tsx
 "use client";
 
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
-import { CheckCircle, AlertTriangle, Loader2, Receipt, CalendarDays, PackageOpen } from 'lucide-react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { CheckCircle, AlertTriangle, Loader2, Receipt, CalendarDays, PackageOpen, Sparkles } from 'lucide-react';
 import { useEffect, useState, Suspense, useRef } from 'react';
 import Confetti from 'react-confetti';
 import { createBrowserClient } from '@supabase/ssr';
-// 🌟 1. อย่าลืม Import Action เข้ามาไว้ด้านบนสุด
 import { executeSilentOnboardingServer } from '@/app/actions/onboarding-actions';
 
-// 🌟 1. สร้าง Configuration สำหรับทุกแอปพลิเคชัน
+// 🌟 Configuration สำหรับทุกแอปพลิเคชันในระบบ NiiVaa
 const APP_CONFIGS = {
   media: {
     appId: 'a1111111-1111-1111-1111-111111111111',
     serviceCode: 'SMART_MEDIA',
     workspaceName: 'SmartMedia Studio',
-    title: 'NiiVaa SmartMedia',
+    title: 'NiiVaa SmartMedia&Karaoke',
     dashboardUrl: '/smart-media-dashboard',
     themeColor: 'from-cyan-600 to-blue-600',
   },
@@ -37,8 +37,12 @@ const APP_CONFIGS = {
   }
 };
 
+type AccessStatus = 'existing' | 'new_free' | 'error' | 'normal' | 'payment_success' | 'returning_user';
+
 function WelcomeContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
+
   const source = searchParams.get('source');
   const status = searchParams.get('status');
   const planId = searchParams.get('plan_id');
@@ -49,11 +53,11 @@ function WelcomeContent() {
 
   const [windowDimension, setWindowDimension] = useState({ width: 0, height: 0 });
   const [loading, setLoading] = useState(true);
-  const [accessStatus, setAccessStatus] = useState<'existing' | 'new_free' | 'error' | 'normal' | 'payment_success'>('normal');
+  const [accessStatus, setAccessStatus] = useState<AccessStatus>('normal');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [paymentInfo, setPaymentInfo] = useState<any>(null);
 
-  // 🌟 เพิ่ม State สำหรับเก็บรหัส Workspace/Event ที่เพิ่งสร้างสำเร็จ
+  // State สำหรับเก็บรหัส Workspace/Event ที่เพิ่งสร้างสำเร็จ
   const [workspaceId, setWorkspaceId] = useState<string>('');
 
   const hasRun = useRef(false);
@@ -66,6 +70,17 @@ function WelcomeContent() {
   useEffect(() => {
     setWindowDimension({ width: window.innerWidth, height: window.innerHeight });
 
+    // 🌟 กรณีผู้ใช้มีแพ็กเกจอยู่แล้ว (มาจากหน้า Pricing ที่โดน Redirect มา)
+    if (status === 'returning_user') {
+      setAccessStatus('returning_user');
+      setLoading(false);
+      // หน่วงเวลาให้เห็นข้อความต้อนรับ 2.5 วินาที แล้วเด้งเข้า Dashboard
+      setTimeout(() => {
+        router.push(getFinalDashboardUrl());
+      }, 2500);
+      return;
+    }
+
     if (status === 'payment_success') {
       if (hasRun.current) return;
       hasRun.current = true;
@@ -77,24 +92,21 @@ function WelcomeContent() {
     } else {
       setLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [source, status]);
 
-  // 🌟 ฟังก์ชันคำนวณ URL โดยใช้ ID ที่ดึงมาจากฐานข้อมูลสดๆ ร้อนๆ
+  // 🌟 ฟังก์ชันคำนวณ URL ให้แม่นยำที่สุด
   const getFinalDashboardUrl = () => {
     let finalUrl = currentApp.dashboardUrl;
 
     if (finalUrl.includes('[eventid]')) {
-      // 🎯 ลำดับความสำคัญ: 1. ID จาก URL -> 2. ID ของ Workspace ที่เพิ่งสร้าง 
       const targetId = eventIdFromUrl || workspaceId;
-
       if (targetId) {
         finalUrl = finalUrl.replace('[eventid]', targetId);
       } else {
-        // Fallback กันเหนียวเผื่อเกิดเหตุไม่คาดฝัน
         finalUrl = finalUrl.replace('/[eventid]', '');
       }
     }
-
     return finalUrl;
   };
 
@@ -103,7 +115,6 @@ function WelcomeContent() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("ไม่พบข้อมูลเซสชัน");
 
-      // ดึงข้อมูลบิล
       const { data, error } = await supabase
         .from('payments')
         .select(`amount, subscriptions (valid_until, plans (name))`)
@@ -114,7 +125,6 @@ function WelcomeContent() {
 
       if (error) throw error;
 
-      // 🌟 ดึงข้อมูล Workspace ID สำหรับกรณีจ่ายเงินสำเร็จ เพื่อเอาไปทำปุ่ม
       const { data: wsData } = await supabase
         .from('workspaces')
         .select('id')
@@ -140,11 +150,10 @@ function WelcomeContent() {
 
   const executeSilentOnboarding = async () => {
     try {
-      // 🌟 1. ดึงข้อมูล User ปัจจุบันจาก Session ก่อน
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("ไม่พบข้อมูลเซสชัน กรุณาเข้าสู่ระบบใหม่");
 
-      // 🌟 2. Smart Retry Logic: วนลูปเช็ค Profile สูงสุด 5 รอบ (รอบละ 1 วินาที)
+      // Smart Retry Logic รอ Profile Database Trigger ทำงาน
       let profileReady = false;
       for (let i = 0; i < 5; i++) {
         const { data: profile } = await supabase
@@ -155,11 +164,8 @@ function WelcomeContent() {
 
         if (profile) {
           profileReady = true;
-          break; // เจอ Profile แล้ว ทะลุออกจากลูปทันที
+          break;
         }
-        
-        // ถ้ายิงไปแล้วยังไม่เจอ ให้หยุดรอ 1 วินาทีแล้วค่อยถามฐานข้อมูลใหม่
-        console.log(`รอบที่ ${i + 1}: กำลังรอฐานข้อมูลสร้าง Profile...`);
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
 
@@ -167,31 +173,33 @@ function WelcomeContent() {
         throw new Error("ระบบเตรียมข้อมูลโปรไฟล์ล่าช้ากว่าปกติ (Timeout) กรุณากดปุ่มลองเชื่อมต่อใหม่อีกครั้ง");
       }
 
-      // 🌟 3. เมื่อมั่นใจว่ามี Profile 100% แล้ว ค่อยโยนงานให้ Server ทำแบบทะลุ RLS
       const result = await executeSilentOnboardingServer(currentApp, planId);
 
-      // 2. ถ้า Server แจ้งว่ามี Error ให้โยนเข้า catch
       if (!result.success) {
         throw new Error(result.error);
       }
 
-      // 3. นำผลลัพธ์ (ID) ที่ได้จาก Server มาจัดการแสดงผลปุ่ม
       if (result.workspaceId) {
         setWorkspaceId(result.workspaceId);
       }
       
-      setAccessStatus(result.status as 'new_free' | 'existing');
+      const resultingStatus = result.status as AccessStatus;
+      setAccessStatus(resultingStatus);
+
+      // 🌟 หากพบว่ามีบัญชี/สิทธิ์เดิมอยู่แล้ว ให้เข้าสู่โหมด "ผู้ใช้เดิม" และ Redirect อัตโนมัติ
+      if (resultingStatus === 'existing') {
+        setTimeout(() => {
+          router.push(getFinalDashboardUrl());
+        }, 2500);
+      }
 
     } catch (error: any) {
       console.error("Silent Onboarding Error Details:", error);
-      
-      // ถ้า Error เกิดจากการหมดอายุของ Session ให้เตะกลับไปหน้า Login
-      if (error.message.includes('กรุณาเข้าสู่ระบบ')) {
+      if (error.message?.includes('กรุณาเข้าสู่ระบบ')) {
         const currentUrl = window.location.pathname + window.location.search;
         window.location.href = `/login?next=${encodeURIComponent(currentUrl)}`;
         return;
       }
-      
       setErrorMessage(error.message || "เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ");
       setAccessStatus('error');
     } finally {
@@ -199,6 +207,11 @@ function WelcomeContent() {
     }
   };
 
+  // --------------------------------------------------------
+  // ส่วนแสดงผล UI (Rendering Views)
+  // --------------------------------------------------------
+
+  // 1. หน้าโหลดข้อมูล
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center h-full min-h-[60vh] z-20 relative">
@@ -208,6 +221,7 @@ function WelcomeContent() {
     );
   }
 
+  // 2. หน้าเกิดข้อผิดพลาด
   if (accessStatus === 'error') {
     return (
       <div className="flex flex-col items-center justify-center h-full min-h-[60vh] z-20 relative px-4">
@@ -219,7 +233,7 @@ function WelcomeContent() {
           </div>
           <button
             onClick={() => window.location.reload()}
-            className="w-full px-6 py-3.5 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl transition-all"
+            className="w-full px-6 py-3.5 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl transition-all shadow-[0_0_15px_rgba(239,68,68,0.4)]"
           >
             ลองเชื่อมต่อใหม่อีกครั้ง
           </button>
@@ -228,6 +242,24 @@ function WelcomeContent() {
     );
   }
 
+  // 3. หน้าต้อนรับผู้ใช้เก่า (Auto-redirect)
+  if (accessStatus === 'returning_user' || accessStatus === 'existing') {
+    return (
+      <div className="flex flex-col items-center justify-center h-full min-h-[60vh] z-20 relative px-4 text-center">
+        <Sparkles size={60} className="text-teal-400 mb-6 animate-pulse drop-shadow-[0_0_15px_rgba(45,212,191,0.6)]" />
+        <h1 className="text-3xl md:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-teal-300 to-blue-400 pb-2">
+          ยินดีต้อนรับกลับสู่
+        </h1>
+        <h2 className="text-2xl font-bold text-white mt-2">{currentApp.title}</h2>
+        <div className="mt-8 flex items-center justify-center gap-3 text-slate-400">
+          <Loader2 className="w-5 h-5 animate-spin text-cyan-400" />
+          <span className="font-medium tracking-wide">กำลังพาคุณเข้าสู่ระบบ...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // 4. หน้าสำเร็จ (ผู้ใช้ใหม่ หรือ ชำระเงินเสร็จ)
   return (
     <>
       {windowDimension.width > 0 && <Confetti width={windowDimension.width} height={windowDimension.height} recycle={false} numberOfPieces={300} />}
@@ -276,10 +308,9 @@ function WelcomeContent() {
           </div>
         )}
 
-        {/* 🌟 ลิงก์ปุ่มจะวิ่งไปที่ Dashboard พร้อม UUID ที่ถูกต้องแล้วครับ */}
         <Link
           href={getFinalDashboardUrl()}
-          className={`w-full py-4 bg-gradient-to-r ${currentApp.themeColor} hover:opacity-90 text-white text-lg font-black rounded-xl flex justify-center items-center gap-2 transition-all shadow-lg`}
+          className={`w-full py-4 bg-gradient-to-r ${currentApp.themeColor} hover:opacity-90 text-white text-lg font-black rounded-xl flex justify-center items-center gap-2 transition-all shadow-lg hover:shadow-[0_0_20px_rgba(34,211,238,0.4)]`}
         >
           เข้าสู่แผงควบคุม (Dashboard)
         </Link>

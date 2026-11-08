@@ -1,6 +1,7 @@
 'use client';
 
-import React, { Suspense } from 'react'; // 🌟 1. เพิ่ม Suspense เข้ามาที่นี่
+// 🌟 1. เพิ่ม useEffect เข้ามาที่นี่ด้วย
+import React, { Suspense, useState, useEffect } from 'react'; 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
@@ -8,7 +9,10 @@ import {
     UploadCloud, FileEdit, MonitorPlay, Sparkles, GraduationCap
 } from 'lucide-react';
 
-// 🌟 2. เอาคำว่า export default ออก แล้วเปลี่ยนชื่อฟังก์ชัน
+// 🌟 2. Import Supabase Client
+import { createClient } from '@/utils/supabase/client';
+
+// 🌟 3. คอมโพเนนต์ลูกสำหรับเนื้อหาหลัก
 function SmartMediaDashboardContent() {
     // คอมโพเนนต์การ์ดย่อย
     const MenuCard = ({ href, icon: Icon, title, desc, colorClass, badge }: any) => (
@@ -26,8 +30,28 @@ function SmartMediaDashboardContent() {
             <p className="text-slate-400 text-sm leading-relaxed flex-1">{desc}</p>
         </Link>
     );
+
     const searchParams = useSearchParams();
     const eventId = searchParams.get('event_id') || '';
+    
+    // 🌟 4. State สำหรับเก็บ Email
+    const [userEmail, setUserEmail] = useState<string>('');
+    const supabase = createClient();
+
+    // 🌟 5. ฟังก์ชันดึงข้อมูล User ทันทีที่โหลดหน้าจอ
+    useEffect(() => {
+        const fetchUserData = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                setUserEmail(user.email || '');
+            }
+        };
+        fetchUserData();
+    }, []);
+
+    // -----------------------------------------
+    // ตรงนี้คือคำสั่ง return ( ... UI ทั้งหมด ... ) ที่คุณมีอยู่แล้ว
+    // -----------------------------------------
     return (
         <div className="min-h-screen bg-[#0f172a] py-10 px-4 sm:px-6 lg:px-8 font-sans selection:bg-cyan-500/30">
             <div className="max-w-6xl mx-auto space-y-12">
@@ -36,9 +60,10 @@ function SmartMediaDashboardContent() {
                 <div className="flex flex-col md:flex-row justify-between items-center gap-6 bg-gradient-to-r from-slate-900 to-[#1e293b] p-8 rounded-3xl border border-slate-700/50 shadow-2xl relative overflow-hidden">
                     <div className="absolute -top-20 -right-20 w-64 h-64 bg-cyan-500/10 blur-[80px] rounded-full"></div>
 
-                    <div className="flex items-center gap-6 relative z-10">
+                    {/* ส่วนซ้าย: โลโก้และชื่อระบบ */}
+                    <div className="flex items-center gap-6 relative z-10 w-full md:w-auto">
                         {/* โลโก้ SMK.png */}
-                        <div className="bg-black/40 p-3 rounded-2xl border border-white/10 shadow-inner">
+                        <div className="bg-black/40 p-3 rounded-2xl border border-white/10 shadow-inner shrink-0">
                             <img src="/SMK.png" alt="NiiVaa SmartMedia" className="w-16 h-16 object-contain" />
                         </div>
                         <div>
@@ -48,6 +73,22 @@ function SmartMediaDashboardContent() {
                             <p className="text-slate-400 text-sm mt-2">ศูนย์รวมการจัดการสื่อมัลติมีเดีย คาราโอเกะอัจฉริยะ และสื่อการเรียนการสอน</p>
                         </div>
                     </div>
+
+                    {/* 🌟 ส่วนขวา (เพิ่มใหม่): แสดง Email ผู้ใช้งาน */}
+                    {userEmail && (
+                        <div className="relative z-10 flex items-center gap-3 bg-slate-950/60 border border-cyan-500/30 px-5 py-2.5 rounded-full shadow-inner backdrop-blur-md shrink-0 w-full md:w-auto justify-center md:justify-start">
+                            <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]"></div>
+                            <div className="flex flex-col">
+                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">
+                                    Logged in as
+                                </span>
+                                <span className="text-sm font-bold text-cyan-300 leading-none">
+                                    {userEmail}
+                                </span>
+                            </div>
+                        </div>
+                    )}
+
                 </div>
 
                 {/* 🌟 หมวดหมู่ที่ 1: การจัดการเพลย์ลิสต์ (Core Features) */}
@@ -165,9 +206,9 @@ function SmartMediaDashboardContent() {
 // 🚀 Component หลักที่ Export (หุ้ม Suspense ไว้ด้านนอกสุด)
 // ==========================================
 export default function SmartMediaDashboard() {
-  return (
-    <Suspense fallback={<div className="min-h-screen bg-gray-950 flex items-center justify-center text-cyan-500">กำลังโหลด Smart Media Dashboard...</div>}>
-      <SmartMediaDashboardContent />
-    </Suspense>
-  );
+    return (
+        <Suspense fallback={<div className="min-h-screen bg-gray-950 flex items-center justify-center text-cyan-500">กำลังโหลด Smart Media Dashboard...</div>}>
+            <SmartMediaDashboardContent />
+        </Suspense>
+    );
 }

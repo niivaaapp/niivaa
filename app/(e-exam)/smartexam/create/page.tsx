@@ -8,7 +8,7 @@ import {
     ArrowLeft, UploadCloud, Image as ImageIcon, BrainCircuit,
     Settings, CheckCircle2, ChevronRight, FileText, Type,
     ToggleLeft, ToggleRight, Sparkles, Save, Send, Loader2, LayoutPanelLeft,
-    List, Columns, Shuffle, GraduationCap, BookOpen
+    List, Columns, Shuffle, GraduationCap, BookOpen, KeyRound, Wand2
 } from 'lucide-react';
 
 interface Option {
@@ -26,7 +26,7 @@ interface Question {
     right_items?: Option[];
     correct_pairs?: Record<string, string>;
     correct?: string;
-    explanation: string;
+    solution_text: string;
     image_url?: string;
 }
 
@@ -81,7 +81,7 @@ const EXAM_CATEGORIES = [
 
 export default function CreateExamPage() {
     const router = useRouter();
-    const supabase = createClient(); // 🌟 เพิ่มบรรทัดนี้
+    const supabase = createClient();
     const [currentStep, setCurrentStep] = useState(1);
     const [sourceType, setSourceType] = useState<string | null>(null);
     const [sourceText, setSourceText] = useState("");
@@ -92,6 +92,7 @@ export default function CreateExamPage() {
 
     const [config, setConfig] = useState({
         title: '',
+        examCode: '', // 🌟 เพิ่มฟิลด์สำหรับเก็บรหัสข้อสอบ
         category: 'junior_high',
         grade_level: 'ม.1',
         subject: 'วิทยาศาสตร์',
@@ -107,6 +108,35 @@ export default function CreateExamPage() {
     const [questions, setQuestions] = useState<Question[]>([]);
     const [questionsSetA, setQuestionsSetA] = useState<Question[]>([]);
     const [questionsSetB, setQuestionsSetB] = useState<Question[]>([]);
+
+    // 🌟 ฟังก์ชันสร้างรหัสข้อสอบอัตโนมัติ (Smart Code)
+    const handleGenerateSmartCode = () => {
+        // 1. หาคำนำหน้าวิชา (3 ตัวอักษร)
+        let subjCode = 'GEN';
+        const subjMap: Record<string, string> = {
+            'ภาษาไทย': 'THA', 'คณิตศาสตร์': 'MAT', 'วิทยาศาสตร์': 'SCI',
+            'ภาษาอังกฤษ': 'ENG', 'สังคมศึกษา': 'SOC', 'เทคโนโลยี': 'TEC',
+            'ฟิสิกส์': 'PHY', 'เคมี': 'CHE', 'ชีววิทยา': 'BIO'
+        };
+        if (subjMap[config.subject]) subjCode = subjMap[config.subject];
+        else if (config.category === 'vocational') subjCode = 'VOC';
+        else if (config.category === 'government') subjCode = 'GOV';
+
+        // 2. หาคำนำหน้าระดับชั้น (2-3 ตัวอักษร)
+        let lvlCode = 'ALL';
+        const rawLvl = config.grade_level;
+        if (rawLvl.includes('ป.')) lvlCode = 'P' + rawLvl.replace('ป.', '').padStart(2, '0');
+        else if (rawLvl.includes('ม.')) lvlCode = 'M' + rawLvl.replace('ม.', '').padStart(2, '0');
+        else if (rawLvl.includes('ปวช')) lvlCode = 'V' + rawLvl.replace('ปวช.', '').padStart(2, '0');
+        else if (rawLvl.includes('ปวส')) lvlCode = 'S' + rawLvl.replace('ปวส.', '').padStart(2, '0');
+
+        // 3. หาส่วนปีและสร้างรหัสสุ่ม (เพื่อไม่ให้ซ้ำกัน)
+        const year = (new Date().getFullYear() + 543).toString().slice(-2); // ปี พ.ศ. 2 หลัก
+        const randomHash = Math.random().toString(36).substring(2, 6).toUpperCase(); // สุ่ม 4 หลัก
+
+        const smartCode = `${subjCode}-${lvlCode}-${year}-${randomHash}`;
+        setConfig({ ...config, examCode: smartCode });
+    };
 
     const handleCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const newCatId = e.target.value;
@@ -131,7 +161,6 @@ export default function CreateExamPage() {
         }
     };
 
-    // 🌟 ฟังก์ชันตัวช่วย แปลงไฟล์รูปภาพเป็น Base64 เพื่อส่งข้าม API แบบ JSON
     const fileToBase64 = (file: File): Promise<string> => {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -145,13 +174,19 @@ export default function CreateExamPage() {
         if (sourceType === 'image' && !imageFile) return alert("กรุณาอัปโหลดรูปภาพข้อสอบก่อนครับ");
         if ((sourceType === 'document' || sourceType === 'scratch') && !sourceText.trim()) return alert("กรุณาระบุเนื้อหาหรือหัวข้อก่อนครับ");
         if (!config.title.trim()) return alert("กรุณาตั้งชื่อชุดข้อสอบด้วยครับ");
+        if (!config.examCode.trim()) {
+            const confirmNoCode = confirm("คุณยังไม่ได้กำหนดรหัสข้อสอบ ต้องการให้ระบบสุ่มสร้างให้อัตโนมัติหรือไม่?");
+            if (confirmNoCode) {
+                handleGenerateSmartCode();
+                return; // หยุดและให้ผู้ใช้ดูรหัสก่อนกดสร้างอีกครั้ง
+            }
+        }
 
         const categoryLabel = EXAM_CATEGORIES.find(c => c.id === config.category)?.label || '';
         const exactLevel = config.grade_level ? `${categoryLabel} (${config.grade_level})` : categoryLabel;
 
         setIsGenerating(true);
         try {
-            // 🌟 ทำการแปลงภาพเป็น Base64 ก่อนยิง API
             let imageBase64Data = null;
             if (sourceType === 'image' && imageFile) {
                 imageBase64Data = await fileToBase64(imageFile);
@@ -161,7 +196,7 @@ export default function CreateExamPage() {
                 sourceType: sourceType,
                 sourceText: sourceText,
                 hasImage: !!imageFile,
-                imageBase64: imageBase64Data, // 🌟 ส่งข้อมูลภาพแบบ Base64 ไปยัง Backend แล้ว!
+                imageBase64: imageBase64Data,
                 level: exactLevel,
                 subject: config.subject,
                 difficulty: config.difficulty,
@@ -240,13 +275,12 @@ export default function CreateExamPage() {
             }
 
             const baseTopic = sourceType === 'scratch' ? sourceText : (sourceType === 'image' ? 'สแกนจากรูปภาพ' : 'สร้างจากเนื้อหา');
-
             const categoryLabel = EXAM_CATEGORIES.find(c => c.id === config.category)?.label || 'ทั่วไป';
             const subjectLabel = config.subject || 'ทั่วไป';
             const educationLevelToSave = config.grade_level || categoryLabel;
+            const finalExamCode = config.examCode.trim() || `GEN-${Date.now().toString().slice(-6)}`;
 
-            // 🌟 จุดที่มีการแก้ไข เพิ่ม `creator_id: user.id` ไปด้วยเพื่อป้องกัน RLS error
-            const formatQuestionForDB = (q: Question, examId: string, index: number) => {
+            const formatQuestionForDB = (q: Question, examId: string, index: number, currentExamCode: string) => {
                 let optionsToSave = q.options || [];
                 let correctAnswerToSave = q.correct || '';
 
@@ -260,74 +294,79 @@ export default function CreateExamPage() {
 
                 return {
                     exam_id: examId,
-                    creator_id: user.id, // 🌟 ปรับปรุงตรงนี้: ส่ง ID ผู้ใช้แนบไปกับคำถาม
+                    creator_id: user.id,
+                    exam_code: currentExamCode, // 🌟 เพิ่มบันทึกรหัสข้อสอบลงตาราง exam_questions
                     question_number: index + 1,
                     question_type: q.type || 'mcq',
                     question_text: q.text,
                     options: optionsToSave,
                     correct_answer: correctAnswerToSave,
-                    // 🌟 ใช้คอลัมน์ใหม่สำหรับการอธิบายเฉลย
-                    solution_text: q.explanation,
+                    solution_text: q.solution_text,
                     score: Number(q.score) || (q.type === 'matching' ? 5 : 1.0),
                     image_url: q.image_url,
-
-                    // 🌟 ระบุว่าเป็นข้อสอบต้นฉบับในคลัง (และถูกจัดเข้าชุดแล้ว)
                     is_bank_item: true,
-                    education_level: config.grade_level, // ใช้ค่าจาก config ที่ผู้ใช้กรอก
-                    subject_category: config.subject, // ใช้ค่าจาก config ที่ผู้ใช้กรอก
-                    //tags: JSON.stringify([config.difficulty, config.questionType, baseTopic])
-                    // 🌟 แก้ไขบรรทัดนี้: ส่งเป็น Array ตรงๆ ไม่ต้องครอบ JSON.stringify
+                    education_level: config.grade_level,
+                    subject_category: config.subject,
                     tags: [config.difficulty, config.questionType, baseTopic]
                 };
             };
 
             if (isParallelMode) {
+                // 🌟 บันทึกชุด A
                 const { data: examA, error: errA } = await supabase.from('exams').insert([{
-                    creator_id: user.id, title: `${config.title.trim() || "แบบทดสอบไม่มีชื่อ"} (ชุด A)`,
-                    education_level: educationLevelToSave, subject_category: subjectLabel,
-                    topic: baseTopic, difficulty_level: config.difficulty, status: status,
+                    creator_id: user.id,
+                    title: `${config.title.trim() || "แบบทดสอบไม่มีชื่อ"} (ชุด A)`,
+                    exam_code: `${finalExamCode}-A`, // 🌟 เพิ่มการบันทึก exam_code ลงตาราง (คู่ขนาน A)
+                    education_level: educationLevelToSave,
+                    subject_category: subjectLabel,
+                    topic: baseTopic,
+                    difficulty_level: config.difficulty,
+                    status: status,
                     total_score: questionsSetA.reduce((sum, q) => sum + (Number(q.score) || (q.type === 'matching' ? 5 : 1)), 0)
                 }]).select().single();
                 if (errA) throw errA;
 
-                const formattedSetA = questionsSetA.map((q, idx) => formatQuestionForDB(q, examA.id, idx));
+                const formattedSetA = questionsSetA.map((q, idx) => formatQuestionForDB(q, examA.id, idx, `${finalExamCode}-A`));
                 const { error: errorA } = await supabase.from('exam_questions').insert(formattedSetA);
-                if (errorA) {
-                    console.error("Error inserting Set A:", errorA);
-                    throw new Error("บันทึกคำถามชุด A ไม่สำเร็จ: " + errorA.message);
-                }
+                if (errorA) throw new Error("บันทึกคำถามชุด A ไม่สำเร็จ: " + errorA.message);
 
+                // 🌟 บันทึกชุด B
                 const { data: examB, error: errB } = await supabase.from('exams').insert([{
-                    creator_id: user.id, title: `${config.title.trim() || "แบบทดสอบไม่มีชื่อ"} (ชุด B)`,
-                    education_level: educationLevelToSave, subject_category: subjectLabel,
-                    topic: baseTopic, difficulty_level: config.difficulty, status: status,
+                    creator_id: user.id,
+                    title: `${config.title.trim() || "แบบทดสอบไม่มีชื่อ"} (ชุด B)`,
+                    exam_code: `${finalExamCode}-B`, // 🌟 เพิ่มการบันทึก exam_code ลงตาราง (คู่ขนาน B)
+                    education_level: educationLevelToSave,
+                    subject_category: subjectLabel,
+                    topic: baseTopic,
+                    difficulty_level: config.difficulty,
+                    status: status,
                     total_score: questionsSetB.reduce((sum, q) => sum + (Number(q.score) || (q.type === 'matching' ? 5 : 1)), 0)
                 }]).select().single();
                 if (errB) throw errB;
 
-                const formattedSetB = questionsSetB.map((q, idx) => formatQuestionForDB(q, examB.id, idx));
+                const formattedSetB = questionsSetB.map((q, idx) => formatQuestionForDB(q, examB.id, idx, `${finalExamCode}-B`));
                 const { error: errorB } = await supabase.from('exam_questions').insert(formattedSetB);
-                if (errorB) {
-                    console.error("Error inserting Set B:", errorB);
-                    throw new Error("บันทึกคำถามชุด B ไม่สำเร็จ: " + errorB.message);
-                }
+                if (errorB) throw new Error("บันทึกคำถามชุด B ไม่สำเร็จ: " + errorB.message);
 
                 alert(status === 'published' ? `เผยแพร่แบบทดสอบคู่ขนาน (2 ชุด) เรียบร้อย!` : `บันทึกแบบร่าง (2 ชุด) ลงคลังเรียบร้อยแล้วครับ`);
             } else {
+                // 🌟 บันทึกแบบชุดเดียวปกติ
                 const { data: examData, error: examError } = await supabase.from('exams').insert([{
-                    creator_id: user.id, title: config.title.trim() || "แบบทดสอบไม่มีชื่อ",
-                    education_level: educationLevelToSave, subject_category: subjectLabel,
-                    topic: baseTopic, difficulty_level: config.difficulty, status: status,
+                    creator_id: user.id,
+                    title: config.title.trim() || "แบบทดสอบไม่มีชื่อ",
+                    exam_code: finalExamCode, // 🌟 เพิ่มการบันทึก exam_code ลงตาราง
+                    education_level: educationLevelToSave,
+                    subject_category: subjectLabel,
+                    topic: baseTopic,
+                    difficulty_level: config.difficulty,
+                    status: status,
                     total_score: questions.reduce((sum, q) => sum + (Number(q.score) || (q.type === 'matching' ? 5 : 1)), 0)
                 }]).select().single();
                 if (examError) throw examError;
 
-                const formattedQuestions = questions.map((q, idx) => formatQuestionForDB(q, examData.id, idx));
+                const formattedQuestions = questions.map((q, idx) => formatQuestionForDB(q, examData.id, idx, finalExamCode));
                 const { error: questionsError } = await supabase.from('exam_questions').insert(formattedQuestions);
-                if (questionsError) {
-                    console.error("Error inserting questions:", questionsError);
-                    throw new Error("บันทึกคำถามไม่สำเร็จ: " + questionsError.message);
-                }
+                if (questionsError) throw new Error("บันทึกคำถามไม่สำเร็จ: " + questionsError.message);
 
                 alert(status === 'published' ? `เผยแพร่แบบทดสอบเรียบร้อย!` : `บันทึกแบบร่างลงคลังเรียบร้อยแล้วครับ`);
             }
@@ -345,7 +384,6 @@ export default function CreateExamPage() {
     const currentQuestionsToRender = isParallelMode ? (activeTab === 'A' ? questionsSetA : questionsSetB) : questions;
     const totalQuestionsCount = currentQuestionsToRender.length;
     const totalScoreSum = currentQuestionsToRender.reduce((sum, q) => sum + (Number(q.score) || (q.type === 'matching' ? 5 : 1)), 0);
-
     return (
         <div className="min-h-screen bg-gradient-to-b from-[#020617] via-[#0f172a] to-[#020617] text-white select-none pb-24">
 
@@ -441,15 +479,114 @@ export default function CreateExamPage() {
                 {currentStep === 2 && (
                     <div className="max-w-2xl mx-auto space-y-8 animate-in fade-in duration-300">
                         <div className="text-center space-y-2"><h2 className="text-3xl font-black">ตั้งค่าโครงสร้างข้อสอบ</h2></div>
-                        <div className="bg-slate-900 border border-white/10 rounded-3xl p-6 space-y-6">
+                        <div className="bg-slate-900 border border-white/10 rounded-3xl p-6 space-y-6 shadow-xl">
+
+                            {/* 🌟 0. ระบบตั้งรหัสข้อสอบ (Smart Code) */}
+                            <div className="bg-blue-500/5 border border-blue-500/20 p-4 rounded-2xl">
+                                <label className="text-sm text-blue-400 mb-2 font-bold flex items-center gap-2"><KeyRound size={16} /> รหัสอ้างอิงข้อสอบ (Exam Code)</label>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        value={config.examCode}
+                                        onChange={(e) => setConfig({ ...config, examCode: e.target.value.toUpperCase() })}
+                                        placeholder="เช่น THA-M03-69-001"
+                                        className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-white font-mono uppercase focus:outline-none focus:border-blue-500"
+                                    />
+                                    <button
+                                        onClick={handleGenerateSmartCode}
+                                        className="shrink-0 px-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl flex items-center gap-2 transition-colors shadow-md"
+                                        title="ให้ระบบสร้างรหัสจากวิชาและระดับชั้นให้อัตโนมัติ"
+                                    >
+                                        <Wand2 size={16} /> <span className="hidden sm:inline">สร้างรหัสอัตโนมัติ</span>
+                                    </button>
+                                </div>
+                                <p className="text-[10px] text-gray-500 mt-2 ml-1">* แนะนำให้กดสร้างรหัสอัตโนมัติ <strong>หลังจาก</strong> ที่เลือกวิชาและระดับชั้นด้านล่างเสร็จแล้ว</p>
+                            </div>
 
                             <div>
                                 <label className="text-sm text-gray-400 mb-1 block">ชื่อแบบทดสอบ / บทเรียน</label>
                                 <input type="text" value={config.title} onChange={(e) => setConfig({ ...config, title: e.target.value })} placeholder="เช่น แบบทดสอบกลางภาค วิชาวิทยาศาสตร์..." className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-amber-500" />
                             </div>
 
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-white/10 pt-4">
+
+                                {/* 🎓 1. ระดับชั้น (Hybrid Mode) */}
+                                <div>
+                                    <label className="text-sm text-gray-400 mb-1 flex items-center gap-1"><GraduationCap size={14} /> ระดับชั้น</label>
+                                    <div className="space-y-2">
+                                        {(() => {
+                                            const allGrades = Array.from(new Set(EXAM_CATEGORIES.flatMap(c => c.grades)));
+                                            return (
+                                                <>
+                                                    <div className="relative">
+                                                        <select
+                                                            value={allGrades.includes(config.grade_level) ? config.grade_level : 'custom'}
+                                                            onChange={(e) => {
+                                                                if (e.target.value !== 'custom') setConfig({ ...config, grade_level: e.target.value });
+                                                                else setConfig({ ...config, grade_level: '' });
+                                                            }}
+                                                            className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-500 appearance-none cursor-pointer hover:border-amber-500/50 transition-colors"
+                                                        >
+                                                            {allGrades.map(grade => <option key={grade} value={grade}>{grade}</option>)}
+                                                            <option value="custom" className="bg-slate-800 font-bold text-amber-400">➕ พิมพ์ระบุระดับชั้นเอง...</option>
+                                                        </select>
+                                                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-500"><ChevronRight size={16} className="rotate-90" /></div>
+                                                    </div>
+
+                                                    {!allGrades.includes(config.grade_level) && (
+                                                        <input
+                                                            type="text" autoFocus value={config.grade_level}
+                                                            onChange={(e) => setConfig({ ...config, grade_level: e.target.value })}
+                                                            placeholder="พิมพ์ระดับชั้นที่ต้องการ..."
+                                                            className="w-full bg-black/50 border border-amber-500/50 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-amber-400 animate-in fade-in slide-in-from-top-1 shadow-[0_0_10px_rgba(245,158,11,0.1)]"
+                                                        />
+                                                    )}
+                                                </>
+                                            );
+                                        })()}
+                                    </div>
+                                </div>
+
+                                {/* 📚 2. กลุ่มวิชา / รายวิชา (Hybrid Mode) */}
+                                <div>
+                                    <label className="text-sm text-gray-400 mb-1 flex items-center gap-1"><BookOpen size={14} /> กลุ่มวิชา / รายวิชา</label>
+                                    <div className="space-y-2">
+                                        {(() => {
+                                            const allSubjects = Array.from(new Set(EXAM_CATEGORIES.flatMap(c => c.subjects)));
+                                            return (
+                                                <>
+                                                    <div className="relative">
+                                                        <select
+                                                            value={allSubjects.includes(config.subject) ? config.subject : 'custom'}
+                                                            onChange={(e) => {
+                                                                if (e.target.value !== 'custom') setConfig({ ...config, subject: e.target.value });
+                                                                else setConfig({ ...config, subject: '' });
+                                                            }}
+                                                            className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-cyan-500 appearance-none cursor-pointer hover:border-cyan-500/50 transition-colors"
+                                                        >
+                                                            {allSubjects.map(sub => <option key={sub} value={sub}>{sub}</option>)}
+                                                            <option value="custom" className="bg-slate-800 font-bold text-cyan-400">➕ พิมพ์ระบุวิชาเอง...</option>
+                                                        </select>
+                                                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-500"><ChevronRight size={16} className="rotate-90" /></div>
+                                                    </div>
+
+                                                    {!allSubjects.includes(config.subject) && (
+                                                        <input
+                                                            type="text" autoFocus value={config.subject}
+                                                            onChange={(e) => setConfig({ ...config, subject: e.target.value })}
+                                                            placeholder="พิมพ์ชื่อวิชาที่ต้องการ..."
+                                                            className="w-full bg-black/50 border border-cyan-500/50 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-cyan-400 animate-in fade-in slide-in-from-top-1 shadow-[0_0_10px_rgba(6,182,212,0.1)]"
+                                                        />
+                                                    )}
+                                                </>
+                                            );
+                                        })()}
+                                    </div>
+                                </div>
+                            </div>
+
                             <div>
-                                <label className="text-sm text-gray-400 mb-2 block font-bold text-white">รูปแบบข้อสอบ (Question Type)</label>
+                                <label className="text-sm text-gray-400 mb-2 block font-bold text-white border-t border-white/10 pt-4">รูปแบบข้อสอบ (Question Type)</label>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${config.questionType === 'mcq' ? 'bg-amber-500/10 border-amber-500/50' : 'bg-slate-950 border-white/5 hover:border-white/20'}`}>
                                         <input type="radio" name="qType" value="mcq" checked={config.questionType === 'mcq'} onChange={(e) => setConfig({ ...config, questionType: e.target.value })} className="mt-1 accent-amber-500" />
@@ -471,94 +608,6 @@ export default function CreateExamPage() {
                                         </div>
                                     </label>
                                 </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-white/10 pt-4">
-
-                                {/* 🎓 1. ระดับชั้น (Hybrid Mode) */}
-                                <div>
-                                    <label className="text-sm text-gray-400 mb-1 flex items-center gap-1"><GraduationCap size={14} /> ระดับชั้น</label>
-                                    <div className="space-y-2">
-                                        {(() => {
-                                            // รวบรวมระดับชั้นทั้งหมดโดยไม่ซ้ำกัน
-                                            const allGrades = Array.from(new Set(EXAM_CATEGORIES.flatMap(c => c.grades)));
-
-                                            return (
-                                                <>
-                                                    <div className="relative">
-                                                        <select
-                                                            value={allGrades.includes(config.grade_level) ? config.grade_level : 'custom'}
-                                                            onChange={(e) => {
-                                                                if (e.target.value !== 'custom') setConfig({ ...config, grade_level: e.target.value });
-                                                                else setConfig({ ...config, grade_level: '' });
-                                                            }}
-                                                            className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-500 appearance-none cursor-pointer hover:border-amber-500/50 transition-colors"
-                                                        >
-                                                            {allGrades.map(grade => <option key={grade} value={grade}>{grade}</option>)}
-                                                            <option value="custom" className="bg-slate-800 font-bold text-amber-400">➕ พิมพ์ระบุระดับชั้นเอง...</option>
-                                                        </select>
-                                                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-500"><ChevronRight size={16} className="rotate-90" /></div>
-                                                    </div>
-
-                                                    {/* กล่องพิมพ์ระดับชั้นเอง */}
-                                                    {!allGrades.includes(config.grade_level) && (
-                                                        <input
-                                                            type="text"
-                                                            autoFocus
-                                                            value={config.grade_level}
-                                                            onChange={(e) => setConfig({ ...config, grade_level: e.target.value })}
-                                                            placeholder="พิมพ์ระดับชั้นที่ต้องการ..."
-                                                            className="w-full bg-black/50 border border-amber-500/50 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-amber-400 animate-in fade-in slide-in-from-top-1 shadow-[0_0_10px_rgba(245,158,11,0.1)]"
-                                                        />
-                                                    )}
-                                                </>
-                                            );
-                                        })()}
-                                    </div>
-                                </div>
-
-                                {/* 📚 2. กลุ่มวิชา / รายวิชา (Hybrid Mode) */}
-                                <div>
-                                    <label className="text-sm text-gray-400 mb-1 flex items-center gap-1"><BookOpen size={14} /> กลุ่มวิชา / รายวิชา</label>
-                                    <div className="space-y-2">
-                                        {(() => {
-                                            // รวบรวมวิชาทั้งหมดโดยไม่ซ้ำกัน
-                                            const allSubjects = Array.from(new Set(EXAM_CATEGORIES.flatMap(c => c.subjects)));
-
-                                            return (
-                                                <>
-                                                    <div className="relative">
-                                                        <select
-                                                            value={allSubjects.includes(config.subject) ? config.subject : 'custom'}
-                                                            onChange={(e) => {
-                                                                if (e.target.value !== 'custom') setConfig({ ...config, subject: e.target.value });
-                                                                else setConfig({ ...config, subject: '' });
-                                                            }}
-                                                            className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-cyan-500 appearance-none cursor-pointer hover:border-cyan-500/50 transition-colors"
-                                                        >
-                                                            {allSubjects.map(sub => <option key={sub} value={sub}>{sub}</option>)}
-                                                            <option value="custom" className="bg-slate-800 font-bold text-cyan-400">➕ พิมพ์ระบุวิชาเอง...</option>
-                                                        </select>
-                                                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-500"><ChevronRight size={16} className="rotate-90" /></div>
-                                                    </div>
-
-                                                    {/* กล่องพิมพ์วิชาเอง */}
-                                                    {!allSubjects.includes(config.subject) && (
-                                                        <input
-                                                            type="text"
-                                                            autoFocus
-                                                            value={config.subject}
-                                                            onChange={(e) => setConfig({ ...config, subject: e.target.value })}
-                                                            placeholder="พิมพ์ชื่อวิชาที่ต้องการ..."
-                                                            className="w-full bg-black/50 border border-cyan-500/50 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-cyan-400 animate-in fade-in slide-in-from-top-1 shadow-[0_0_10px_rgba(6,182,212,0.1)]"
-                                                        />
-                                                    )}
-                                                </>
-                                            );
-                                        })()}
-                                    </div>
-                                </div>
-
                             </div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -618,6 +667,11 @@ export default function CreateExamPage() {
                     <div className="space-y-6 animate-in fade-in duration-300">
                         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
                             <div>
+                                <div className="flex items-center gap-2 mb-1">
+                                    <span className="bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded-md text-[10px] font-bold font-mono">
+                                        CODE: {config.examCode || 'GEN-XXXX'}
+                                    </span>
+                                </div>
                                 <h2 className="text-2xl font-black text-amber-400">{config.title || "แบบทดสอบอัจฉริยะ"}</h2>
                                 <p className="text-sm text-gray-400">ตรวจสอบความถูกต้องก่อนบันทึกลงคลังระบบ</p>
                             </div>
@@ -761,9 +815,9 @@ export default function CreateExamPage() {
                                 <div className="bg-amber-500/5 border border-amber-500/10 p-3 rounded-lg mt-2 flex items-start gap-2">
                                     <span className="text-xl shrink-0">💡</span>
                                     <textarea
-                                        value={q.explanation}
+                                        value={q.solution_text || ''}
                                         onChange={(e) => {
-                                            const updateFn = (prev: Question[]) => prev.map(item => item.id === q.id ? { ...item, explanation: e.target.value } : item);
+                                            const updateFn = (prev: Question[]) => prev.map(item => item.id === q.id ? { ...item, solution_text: e.target.value } : item);
                                             isParallelMode ? (activeTab === 'A' ? setQuestionsSetA(updateFn) : setQuestionsSetB(updateFn)) : setQuestions(updateFn);
                                         }}
                                         placeholder="คำอธิบายเหตุผลของเฉลยข้อนี้..."

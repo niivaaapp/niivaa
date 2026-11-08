@@ -3,9 +3,38 @@ export const dynamic = 'force-dynamic';
 import { createClient } from '@/utils/supabase/server';
 import Link from 'next/link';
 import { CheckCircle2, XCircle, Zap, Crown, Star } from 'lucide-react';
+import { redirect } from 'next/navigation';
 
-export default async function SmartEventPricingPage() {
+// 🌟 ระบุ APP_ID ของ SmartEvent
+const APP_ID = 'b2222222-2222-2222-2222-222222222222';
+
+export default async function EventPricingPage() {
     const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    // 🌟 ลอจิกตรวจสอบกรณีมีแพ็กเกจแล้ว ให้เตะไปหน้า Welcome (ใช้ app=event)
+    if (user) {
+        const { data: userRole } = await supabase
+            .from('user_roles')
+            .select('org_id')
+            .eq('profile_id', user.id)
+            .eq('app_id', APP_ID)
+            .maybeSingle();
+
+        if (userRole) {
+            const { data: activeSub } = await supabase
+                .from('subscriptions')
+                .select('id')
+                .eq('org_id', userRole.org_id)
+                .eq('status', 'active')
+                .maybeSingle();
+
+            if (activeSub) {
+                // Redirect ไปหน้า Welcome พร้อมระบุแอป event
+                redirect('/welcome?status=returning_user&app=event');
+            }
+        }
+    }
 
     // 🌟 เอา .eq('tier', 'premium') ออก เพื่อให้ดึงแพ็กเกจ Free มาด้วย
     const { data: plans } = await supabase
@@ -52,7 +81,7 @@ export default async function SmartEventPricingPage() {
 
                 {/* ปรับ Grid ให้รองรับ 4 กล่อง (Free + Premium 3 แบบ) */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    {plans?.map((plan, index) => {
+                    {plans?.map((plan) => {
                         const isFree = plan.price === 0 || plan.tier === 'free';
                         const isPopular = plan.duration_days === 90; // ให้แพ็ก 3 เดือนเป็นยอดนิยม
                         const displayFeatures = isFree ? freeFeatures : premiumFeatures;
@@ -85,7 +114,8 @@ export default async function SmartEventPricingPage() {
                                         {!isFree && <span className="text-slate-400 ml-2">บาท</span>}
                                     </div>
                                     <p className="text-slate-500 text-xs mt-2 min-h-[16px]">
-                                        {!isFree && `เฉลี่ยเพียง ${Math.round(plan.price / (plan.duration_days / 30))} บาท/เดือน`}
+                                        {/* ป้องกัน Error กรณี duration_days น้อยกว่า 30 */}
+                                        {!isFree && plan.duration_days >= 30 && `เฉลี่ยเพียง ${Math.round(plan.price / (plan.duration_days / 30))} บาท/เดือน`}
                                     </p>
                                 </div>
 

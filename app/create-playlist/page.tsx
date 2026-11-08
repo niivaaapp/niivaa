@@ -30,14 +30,28 @@ export default function CreatePlaylistPage() {
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [logoUrl, setLogoUrl] = useState('')
 
+  const [userId, setUserId] = useState<string | null>(null);
   const router = useRouter();
+  // 🌟 เพิ่ม State สำหรับเก็บ userEmail เพื่อใช้แสดงผล
+  
+  const [userEmail, setUserEmail] = useState<string>('');
 
   const fetchPlaylists = async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+         router.push('/smart-media-dashboard');
+         return;
+      }
+      setUserId(user.id);
+      setUserEmail(user.email || 'ไม่พบอีเมล'); // 🌟 เก็บ Email ไว้แสดงผล
+
       const { data, error } = await supabase
         .from('playlists')
         .select('*, tracks(count)')
+        .eq('user_id', user.id) // ดึงเฉพาะของบัญชีนี้
         .order('created_at', { ascending: false })
+
       if (error) throw error
       if (data) {
         const formattedPlaylists = data.map(p => ({
@@ -90,6 +104,7 @@ export default function CreatePlaylistPage() {
   const handleCreatePlaylist = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!name) return alert('กรุณาระบุชื่อชุดสื่อ')
+    if (!userId) return alert('กรุณาล็อกอินก่อนสร้างชุดสื่อ'); // 🌟 เช็ค User
     setIsSaving(true)
 
     try {
@@ -100,7 +115,8 @@ export default function CreatePlaylistPage() {
         name, description, type,
         custom_banner: customBanner,
         show_niivaa_badge: showNiivaaBadge,
-        logo_url: finalLogoUrl
+        logo_url: finalLogoUrl,
+        user_id: userId // 🌟 ประทับตราความเป็นเจ้าของ
       }
 
       if (editingId) {
@@ -142,7 +158,7 @@ export default function CreatePlaylistPage() {
     // 1. ถามชื่อชุดสื่อใหม่
     const newName = window.prompt(`ตั้งชื่อชุดสื่อใหม่ (สำเนาจาก: ${playlist.name})`, `${playlist.name} (Copy)`);
     if (!newName) return; // ถ้ายกเลิก หรือไม่กรอกชื่อ ให้หยุดการทำงาน
-
+    if (!userId) return alert('กรุณาล็อกอินก่อนทำสำเนา'); // 🌟 เช็ค User
     try {
       // 2. สร้างชุดสื่อ (Playlist) ใหม่ด้วยข้อมูลเดิม แต่ชื่อใหม่
       const payload = {
@@ -151,7 +167,8 @@ export default function CreatePlaylistPage() {
         type: playlist.type,
         custom_banner: playlist.custom_banner,
         show_niivaa_badge: playlist.show_niivaa_badge,
-        logo_url: playlist.logo_url
+        logo_url: playlist.logo_url,
+        user_id: userId // 🌟 ประทับตราความเป็นเจ้าของให้อัลบั้มสำเนาด้วย
       };
 
       const { data: newPlaylist, error: pError } = await supabase
@@ -309,6 +326,13 @@ export default function CreatePlaylistPage() {
           </div>
 
           <div className="flex items-center gap-3 shrink-0">
+            {/* 🌟 [เพิ่มใหม่] ป้ายแสดง Email ผู้ใช้งานที่ล็อกอินอยู่ */}
+            {userEmail && (
+              <div className="hidden md:flex items-center gap-2 bg-[#003366]/40 border border-cyan-500/30 px-3 py-1.5 rounded-full shadow-inner">
+                 <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
+                 <span className="text-xs font-bold text-cyan-300">{userEmail}</span>
+              </div>
+            )}
             <Link
               href="/smart-media-dashboard"
               className="flex items-center justify-center gap-2 px-4 py-2 sm:px-5 sm:py-2.5 bg-[#003366]/40 hover:bg-[#003366]/80 text-[#CCFFFF] border border-[#006666]/50 rounded-xl text-[10px] sm:text-xs font-bold transition-all shadow-md"

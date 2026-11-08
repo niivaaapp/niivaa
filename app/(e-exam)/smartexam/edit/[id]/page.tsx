@@ -15,10 +15,11 @@ interface Question {
     id: string | number;
     question_number: number;
     question_text: string;
-    display_label?: string; 
+    display_label?: string;
     options: Option[];
     correct_answer: string;
-    explanation: string;
+    explanation?: string; // เปลี่ยนเป็น optional เผื่อของเดิมยังมีอยู่
+    solution_text: string; // 👈 เพิ่มบรรทัดนี้เข้ามา
     score: number;
     question_type?: string;
     image_index?: number;
@@ -53,6 +54,7 @@ export default function EditExamPage() {
 
     const [examConfig, setExamConfig] = useState({
         title: '', subject_category: '', education_level: '', status: 'draft',
+        exam_code: '',
         exam_format: 'standard', file_url: '',
         image_urls: [] as string[],
         metadata: { stamp_color: '#f59e0b', instructions: '' } as any
@@ -74,13 +76,13 @@ export default function EditExamPage() {
         try {
             const fileExt = file.name.split('.').pop();
             const fileName = `question_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-            const filePath = `images/questions/${fileName}`; 
+            const filePath = `images/questions/${fileName}`;
 
             const { error: uploadError } = await supabase.storage.from('exam-assets').upload(filePath, file);
             if (uploadError) throw uploadError;
 
             const { data: publicUrlData } = supabase.storage.from('exam-assets').getPublicUrl(filePath);
-            
+
             const updatedQuestions = [...questions];
             updatedQuestions[qIdx].image_url = publicUrlData.publicUrl;
             setQuestions(updatedQuestions);
@@ -110,7 +112,7 @@ export default function EditExamPage() {
                 const loadedImages = exam.image_urls || (exam.file_url ? [exam.file_url] : []);
 
                 setExamConfig({
-                    title: exam.title || '', subject_category: exam.subject_category || '',
+                    title: exam.title || '', exam_code: exam.exam_code || '', subject_category: exam.subject_category || '',
                     education_level: exam.education_level || '', status: exam.status || 'draft',
                     exam_format: exam.exam_format || 'standard', file_url: exam.file_url || '',
                     image_urls: loadedImages,
@@ -125,7 +127,7 @@ export default function EditExamPage() {
                 const formattedQ = (qData || []).map(q => {
                     let metaQ: any = {};
                     let plainExplanation = q.explanation || '';
-                    
+
                     let attempts = 0;
                     while (typeof plainExplanation === 'string' && plainExplanation.startsWith('{') && attempts < 5) {
                         try {
@@ -134,13 +136,23 @@ export default function EditExamPage() {
                                 plainExplanation = parsed.original_explanation;
                                 metaQ = { ...metaQ, ...parsed };
                             } else { break; }
-                        } catch(e) { break; }
+                        } catch (e) { break; }
                         attempts++;
                     }
-                    
-                    if (plainExplanation === '""' || plainExplanation === "''" || plainExplanation === 'null') plainExplanation = '';
-                    
-                    return { ...q, ...metaQ, explanation: plainExplanation };
+
+                    if (plainExplanation === '""' || plainExplanation === "''" || plainExplanation === 'null') {
+                        plainExplanation = '';
+                    }
+
+                    // 🌟 1. ดึงข้อความเฉลยมาเก็บใน solution_text (ให้ความสำคัญกับคอลัมน์ใหม่ก่อน ถ้าไม่มีค่อยดึงจากอันเก่า)
+                    const finalSolutionText = q.solution_text || plainExplanation || '';
+
+                    return {
+                        ...q,
+                        ...metaQ,
+                        solution_text: finalSolutionText,
+                        explanation: plainExplanation
+                    }
                 });
 
                 setQuestions(formattedQ);
@@ -152,6 +164,30 @@ export default function EditExamPage() {
         };
         if (examId) fetchExamData();
     }, [examId]);
+
+    // 🌟 ฟังก์ชันสร้างรหัสอัตโนมัติสำหรับหน้า Edit
+    const handleGenerateSmartCode = () => {
+        let subjCode = 'GEN';
+        const subjMap: Record<string, string> = {
+            'ภาษาไทย': 'THA', 'คณิตศาสตร์': 'MAT', 'วิทยาศาสตร์': 'SCI',
+            'ภาษาอังกฤษ': 'ENG', 'สังคมศึกษา': 'SOC', 'เทคโนโลยี': 'TEC',
+            'ฟิสิกส์': 'PHY', 'เคมี': 'CHE', 'ชีววิทยา': 'BIO'
+        };
+        if (subjMap[examConfig.subject_category]) subjCode = subjMap[examConfig.subject_category];
+
+        let lvlCode = 'ALL';
+        const rawLvl = examConfig.education_level;
+        if (rawLvl.includes('ป.')) lvlCode = 'P' + rawLvl.replace('ป.', '').padStart(2, '0');
+        else if (rawLvl.includes('ม.')) lvlCode = 'M' + rawLvl.replace('ม.', '').padStart(2, '0');
+        else if (rawLvl.includes('ปวช')) lvlCode = 'V' + rawLvl.replace('ปวช.', '').padStart(2, '0');
+        else if (rawLvl.includes('ปวส')) lvlCode = 'S' + rawLvl.replace('ปวส.', '').padStart(2, '0');
+
+        const year = (new Date().getFullYear() + 543).toString().slice(-2);
+        const randomHash = Math.random().toString(36).substring(2, 6).toUpperCase();
+
+        const smartCode = `${subjCode}-${lvlCode}-${year}-${randomHash}`;
+        setExamConfig(prev => ({ ...prev, exam_code: smartCode }));
+    };
 
     const getOptionsList = (format: string): Option[] => {
         switch (format) {
@@ -166,14 +202,14 @@ export default function EditExamPage() {
 
     const applyFormatToAllMCQ = () => {
         if (!confirm('ยืนยันการเปลี่ยนรูปแบบตัวเลือกของ "ข้อปรนัยทั้งหมด" หรือไม่?')) return;
-        
+
         setQuestions(prev => prev.map(q => {
             if (q.question_type !== 'mcq') return q;
             const oldOptions = q.options || [];
             const oldCorrectAnswer = q.correct_answer;
             const oldCorrectIndex = oldOptions.findIndex(opt => opt.id === oldCorrectAnswer);
             const newOptions = getOptionsList(mcqFormat);
-            
+
             let newCorrectAnswer = '';
             if (oldCorrectIndex !== -1 && oldCorrectIndex < newOptions.length) {
                 newCorrectAnswer = newOptions[oldCorrectIndex].id;
@@ -236,7 +272,7 @@ export default function EditExamPage() {
         const newQuestion: Question = {
             id: `new-${Date.now()}`, question_number: questions.length + 1, question_text: '',
             options: defaultQType === 'mcq' ? getOptionsList(mcqFormat) : [],
-            correct_answer: '', explanation: '', score: 1, question_type: defaultQType
+            correct_answer: '', solution_text: '', explanation: '', score: 1, question_type: defaultQType
         };
         setQuestions(prev => [...prev, newQuestion]);
     };
@@ -252,7 +288,7 @@ export default function EditExamPage() {
             const newQuestion: Question = {
                 id: `stamp-${Date.now()}`, question_number: questions.length + 1, question_type: defaultQType,
                 question_text: 'อิงจากภาพข้อสอบ', options: defaultQType === 'mcq' ? getOptionsList(mcqFormat) : [],
-                correct_answer: '', explanation: '', score: 1, image_index: imageIndex,
+                correct_answer: '', solution_text: '', score: 1, image_index: imageIndex,
                 marker_x_percent: parseFloat(xPercent.toFixed(2)), marker_y_percent: parseFloat(yPercent.toFixed(2)),
             };
             setQuestions(prev => [...prev, newQuestion]);
@@ -326,7 +362,7 @@ export default function EditExamPage() {
             const metaStr = JSON.stringify(finalMetadata);
 
             const { error: examError } = await supabase.from('exams').update({
-                title: examConfig.title.trim(), status: examConfig.status,
+                title: examConfig.title.trim(), exam_code: examConfig.exam_code.trim(), status: examConfig.status,
                 total_score: newTotalScore, exam_format: examConfig.exam_format,
                 file_url: examConfig.image_urls[0] || examConfig.file_url,
                 topic: metaStr,
@@ -341,16 +377,16 @@ export default function EditExamPage() {
                 const finalExplanation = JSON.stringify({ original_explanation: q.explanation, ...markerData });
 
                 return {
-                    exam_id: examId, 
+                    exam_id: examId,
                     question_number: i + 1,
                     display_label: q.display_label || `${i + 1}`,
                     part_name: (q as any).part_name || '', // cast as any to handle part_name if missing in interface
-                    question_type: q.question_type || 'mcq', 
+                    question_type: q.question_type || 'mcq',
                     question_text: q.question_text || '',
                     options: q.question_type === 'short_answer' ? [] : (q.options || []),
-                    correct_answer: q.correct_answer || '', 
+                    correct_answer: q.correct_answer || '',
                     score: Number(q.score) || 1,
-                    explanation: finalExplanation, 
+                    explanation: finalExplanation,
                     image_url: q.image_url || null,
                     solution_image_url: q.solution_image_url || null,
                     solution_video_url: q.solution_video_url || null, // 🌟 บันทึกลิงก์วิดีโอ
@@ -386,7 +422,7 @@ export default function EditExamPage() {
                     id: `parallel-${Date.now()}`, question_number: 0,
                     question_text: generated.question_text || generated.text,
                     options: generated.options, correct_answer: generated.correct_answer || generated.correct,
-                    explanation: generated.explanation, score: originalQuestion.score, question_type: originalQuestion.question_type || 'mcq'
+                    solution_text: generated.explanation, score: originalQuestion.score, question_type: originalQuestion.question_type || 'mcq'
                 };
                 setQuestions(prev => {
                     const copy = [...prev]; copy.splice(index + 1, 0, newQuestion);
@@ -419,9 +455,9 @@ export default function EditExamPage() {
                     </button>
                     {/* 🌟 โลโก้ NiiVaa */}
                     <img src="/niivaa_smartexam_logo.png" alt="SmartExam Logo" className="h-5 sm:h-6 object-contain hidden md:block" />
-                    
+
                     <div className="h-6 w-[1px] bg-white/10 mx-2 hidden sm:block"></div>
-                    
+
                     {/* 🌟 แก้ไขชื่อแบบทดสอบได้ทันทีบน Navbar */}
                     <input
                         type="text"
@@ -617,7 +653,7 @@ export default function EditExamPage() {
                                         </div>
                                         <button onClick={() => handleDeleteQuestion(qIdx)} className="text-gray-500 hover:text-red-400 p-2 rounded-lg hover:bg-red-500/10 transition-colors"><Trash2 size={16} /></button>
                                     </div>
-                                    
+
                                     {/* 🌟 เพิ่มกล่องอ้างอิงที่มา */}
                                     <div className="pl-0 sm:pl-12 flex-1">
                                         <div className="flex items-center gap-2 bg-slate-950 border border-white/5 rounded-lg px-3 py-1.5 w-full mb-3">
@@ -649,15 +685,15 @@ export default function EditExamPage() {
 
                                     <div className="bg-amber-500/5 border border-amber-500/20 p-4 rounded-xl mt-2 flex flex-col gap-3 sm:ml-12">
                                         <div className="text-sm font-bold text-amber-400 flex items-center gap-2"><span className="text-lg">💡</span> อธิบายเหตุผล / วิธีทำ</div>
-                                        <textarea 
-                                            value={q.explanation || ''} onChange={(e) => handleUpdateQuestionField(qIdx, 'explanation', e.target.value)}
+                                        <textarea
+                                            value={q.solution_text || ''} onChange={(e) => handleUpdateQuestionField(qIdx, 'explanation', e.target.value)}
                                             placeholder="พิมพ์คำอธิบายเหตุผล หรือสูตรที่ใช้..."
                                             className="w-full bg-slate-950/50 border border-white/10 rounded-lg p-3 text-xs text-gray-300 focus:outline-none focus:border-amber-500 resize-y min-h-[60px]"
                                         />
-                                        
+
                                         {/* 🌟 เพิ่มกล่องรับลิงก์วิดีโอเฉลย YouTube */}
                                         <div className="pt-2 border-t border-white/5">
-                                            <label className="text-[11px] text-gray-400 mb-1 flex items-center gap-1"><MonitorPlay size={12} className="text-red-400"/> ลิงก์วิดีโอเฉลย (YouTube URL)</label>
+                                            <label className="text-[11px] text-gray-400 mb-1 flex items-center gap-1"><MonitorPlay size={12} className="text-red-400" /> ลิงก์วิดีโอเฉลย (YouTube URL)</label>
                                             <input
                                                 type="text" placeholder="https://youtube.com/watch?v=..."
                                                 value={q.solution_video_url || ''} onChange={(e) => handleUpdateQuestionField(qIdx, 'solution_video_url', e.target.value)}
@@ -669,8 +705,8 @@ export default function EditExamPage() {
                                             {q.solution_image_url ? (
                                                 <div className="relative inline-block group/solimg">
                                                     <img src={q.solution_image_url} alt="ภาพเฉลย" className="max-h-32 rounded-lg border border-white/20 shadow-md" />
-                                                    <button 
-                                                        onClick={() => handleUpdateQuestionField(qIdx, 'solution_image_url', null)} 
+                                                    <button
+                                                        onClick={() => handleUpdateQuestionField(qIdx, 'solution_image_url', null)}
                                                         className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover/solimg:opacity-100 transition-opacity shadow-lg"
                                                     ><X size={14} /></button>
                                                 </div>
@@ -751,7 +787,7 @@ export default function EditExamPage() {
                                     </div>
 
                                     <div className="space-y-4">
-                                        
+
                                         {/* 🌟 กล่องระบุที่มา */}
                                         <div className="flex items-center gap-2 bg-slate-950 border border-white/5 rounded-lg px-3 py-1.5 w-full md:w-1/2">
                                             <LinkIcon size={12} className="text-gray-500" />
@@ -805,15 +841,15 @@ export default function EditExamPage() {
 
                                         <div className="bg-amber-500/5 border border-amber-500/20 p-4 rounded-xl mt-3 flex flex-col gap-3">
                                             <div className="text-sm font-bold text-amber-400 flex items-center gap-2"><span className="text-lg">💡</span> อธิบายเหตุผล / วิธีทำ (เฉลยข้อต่อข้อ)</div>
-                                            <textarea 
-                                                value={q.explanation || ''} onChange={(e) => handleUpdateQuestionField(qIdx, 'explanation', e.target.value)}
+                                            <textarea
+                                                value={q.solution_text || ''} onChange={(e) => handleUpdateQuestionField(qIdx, 'explanation', e.target.value)}
                                                 placeholder="พิมพ์คำอธิบายเหตุผล หรือสูตรที่ใช้..."
                                                 className="w-full bg-slate-950/50 border border-white/10 rounded-lg p-3 text-xs text-gray-300 focus:outline-none focus:border-amber-500 resize-y min-h-[60px]"
                                             />
-                                            
+
                                             {/* 🌟 กล่องรับลิงก์วิดีโอเฉลย YouTube */}
                                             <div className="pt-2 border-t border-white/5">
-                                                <label className="text-[11px] text-gray-400 mb-1 flex items-center gap-1"><MonitorPlay size={12} className="text-red-400"/> ลิงก์วิดีโอเฉลย (YouTube URL)</label>
+                                                <label className="text-[11px] text-gray-400 mb-1 flex items-center gap-1"><MonitorPlay size={12} className="text-red-400" /> ลิงก์วิดีโอเฉลย (YouTube URL)</label>
                                                 <input
                                                     type="text" placeholder="https://youtube.com/watch?v=..."
                                                     value={q.solution_video_url || ''} onChange={(e) => handleUpdateQuestionField(qIdx, 'solution_video_url', e.target.value)}
@@ -825,8 +861,8 @@ export default function EditExamPage() {
                                                 {q.solution_image_url ? (
                                                     <div className="relative inline-block group/solimg">
                                                         <img src={q.solution_image_url} alt="ภาพเฉลย" className="max-h-40 rounded-lg border border-white/20 shadow-md" />
-                                                        <button 
-                                                            onClick={() => handleUpdateQuestionField(qIdx, 'solution_image_url', null)} 
+                                                        <button
+                                                            onClick={() => handleUpdateQuestionField(qIdx, 'solution_image_url', null)}
                                                             className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover/solimg:opacity-100 transition-opacity shadow-lg"
                                                         ><X size={14} /></button>
                                                     </div>

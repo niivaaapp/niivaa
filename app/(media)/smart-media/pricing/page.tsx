@@ -1,5 +1,9 @@
 import { createClient } from '@/utils/supabase/server'; 
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
+
+// 🌟 กำหนด APP_ID เป็นค่าคงที่
+const APP_ID = 'a1111111-1111-1111-1111-111111111111';
 
 // 🌟 กำหนดสไตล์นีออนและโทนสีของ NiiVaa สำหรับแต่ละระดับ (Tier)
 const tierStyles: Record<string, any> = {
@@ -32,12 +36,36 @@ export default async function PricingPage() {
   // 1. ตรวจสอบสถานะการเข้าสู่ระบบของผู้ใช้ (User Auth State)
   const { data: { user } } = await supabase.auth.getUser();
   
-  // 2. ดึงข้อมูลแผนราคาจากฐานข้อมูล
+  // 🌟 2. ลอจิกตรวจสอบข้ามหน้า Pricing หากมีแพ็กเกจใช้งานอยู่แล้ว
+  if (user) {
+    const { data: userRole } = await supabase
+      .from('user_roles')
+      .select('org_id')
+      .eq('profile_id', user.id)
+      .eq('app_id', APP_ID)
+      .maybeSingle();
+
+    if (userRole) {
+      const { data: activeSub } = await supabase
+        .from('subscriptions')
+        .select('id')
+        .eq('org_id', userRole.org_id)
+        .eq('status', 'active')
+        .maybeSingle();
+
+      if (activeSub) {
+        // หากมีแพ็กเกจอยู่แล้ว ให้ข้ามไปหน้า Welcome สถานะผู้ใช้เดิมทันที
+        redirect('/welcome?status=returning_user&app=media');
+      }
+    }
+  }
+
+  // 3. ดึงข้อมูลแผนราคาจากฐานข้อมูล
   const { data: plans, error } = await supabase
     .from('plans')
     .select('*')
     .eq('is_active', true)
-    .eq('app_id', 'a1111111-1111-1111-1111-111111111111') 
+    .eq('app_id', APP_ID) 
     .order('price', { ascending: true });
 
   if (error) {
@@ -76,20 +104,18 @@ export default async function PricingPage() {
             const style = tierStyles[plan.tier] || tierStyles.standard;
             const features = plan.features || {};
 
-           // 🌟 3. ลอจิกคำนวณเส้นทาง (Dynamic Routing)
-            let targetUrl = `/signup?plan_id=${plan.id}`; // ค่าเริ่มต้น
+           // ลอจิกคำนวณเส้นทาง (Dynamic Routing)
+            let targetUrl = `/signup?plan_id=${plan.id}`; 
             
-            // เพิ่ม: ถ้าเป็นแพ็กเกจฟรี ให้แนบพารามิเตอร์ is_free=true ส่งไปให้หน้า Signup ด้วย
             if (plan.tier === 'free' || plan.price === 0) {
               targetUrl = `/signup?plan_id=${plan.id}&is_free=true`;
             }
             
             if (user) {
-              // ถ้าล็อกอินอยู่แล้ว
               if (plan.tier === 'free' || plan.price === 0) {
-                targetUrl = `/welcome?source=signup`; // รับสิทธิ์ฟรีทันที (ข้าม Signup และ Checkout)
+                targetUrl = `/welcome?source=signup&plan_id=${plan.id}&app=media`; 
               } else {
-                targetUrl = `/checkout/${plan.id}`; // ไปหน้าชำระเงิน (ข้าม Signup)
+                targetUrl = `/checkout/${plan.id}`; 
               }
             }
 
@@ -192,7 +218,6 @@ export default async function PricingPage() {
                   )}
                 </ul>
 
-                {/* 🌟 4. อัปเดตลิงก์ตามเส้นทางที่ประมวลผลไว้ (targetUrl) */}
                 <Link 
                   href={targetUrl}
                   className={`mt-8 block w-full text-center px-4 py-3.5 rounded-xl font-bold transition-all text-sm tracking-wide ${style.button}`}
@@ -207,7 +232,7 @@ export default async function PricingPage() {
           })}
         </div>
         
-        {/* 🌟 Corporate / Group Package Banner (คงเดิม) */}
+        {/* Corporate / Group Package Banner */}
         <div className="mt-16 bg-gradient-to-r from-[#0d1b3e] to-[#0f2a28] rounded-3xl p-1 relative overflow-hidden shadow-[0_0_20px_rgba(20,184,166,0.15)] border border-slate-700/50">
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-teal-400 to-green-400"></div>
           <div className="bg-[#0a1128]/90 backdrop-blur-md rounded-[22px] p-8 md:p-12 flex flex-col md:flex-row items-center justify-between relative z-10">

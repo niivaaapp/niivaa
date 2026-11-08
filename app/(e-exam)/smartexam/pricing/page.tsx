@@ -2,10 +2,13 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { CheckCircle2, XCircle, BrainCircuit, FileText, ImageIcon, LineChart, School, Database, Sparkles, ArrowLeft } from 'lucide-react';
+import { CheckCircle2, XCircle, BrainCircuit, Sparkles, ArrowLeft } from 'lucide-react';
+// ลบ import { redirect } ออกจากไฟล์ Client Component หากไม่ได้ใช้งานจริงในฝั่ง Client
+// import { redirect } from 'next/navigation';
 
 export default function SmartExamPricingPage() {
   const [isAnnual, setIsAnnual] = useState(false);
+  const APP_ID = 'c3333333-3333-3333-3333-333333333333'; 
 
   // ฟังก์ชันช่วยเหลือสำหรับแสดงรายการฟีเจอร์
   const FeatureItem = ({ included, text, highlight = false }: { included: boolean, text: string, highlight?: boolean }) => (

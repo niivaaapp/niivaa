@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { 
-  Clock, CheckCircle2, User, Send, Loader2, FileText, 
+import {
+  Clock, CheckCircle2, User, Send, Loader2, FileText,
   ChevronRight, Lock, AlertCircle, Hourglass,
   ChevronLeft, Flag, LayoutGrid, Hash, Info
 } from 'lucide-react';
@@ -21,19 +21,19 @@ export default function StudentExamPage() {
 
   // 2. States สถานะการเข้าสอบ
   const [accessStatus, setAccessStatus] = useState<'loading' | 'waiting' | 'open' | 'late' | 'closed' | 'error'>('loading');
-  const [timeToStart, setTimeToStart] = useState<number>(0); 
-  
+  const [timeToStart, setTimeToStart] = useState<number>(0);
+
   // 3. States การทำข้อสอบ
   const [examState, setExamState] = useState<'intro' | 'taking' | 'submitted'>('intro');
   const [studentInfo, setStudentInfo] = useState({ name: '', studentId: '' });
-  const [answers, setAnswers] = useState<Record<string, string>>({}); 
-  const [timeLeft, setTimeLeft] = useState<number>(0); 
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [timeLeft, setTimeLeft] = useState<number>(0);
   const [scoreResult, setScoreResult] = useState({ totalScore: 0, earnedScore: 0, correctCount: 0 });
 
   // 4. States สำหรับ UI
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [flagged, setFlagged] = useState<string[]>([]); 
-  const [showGrid, setShowGrid] = useState(false); 
+  const [flagged, setFlagged] = useState<string[]>([]);
+  const [showGrid, setShowGrid] = useState(false);
   const [showInstructionsModal, setShowInstructionsModal] = useState(false);
 
   // ----------------------------------------------------
@@ -52,36 +52,36 @@ export default function StudentExamPage() {
       if (qError) throw qError;
 
       let metadata: any = {};
-      try { 
+      try {
         if (exam.topic) {
-          metadata = JSON.parse(exam.topic); 
+          metadata = JSON.parse(exam.topic);
         }
-      } catch (e) {}
+      } catch (e) { }
 
       setExamConfig({ ...exam, metadata });
 
       let loadedQuestions = (qData || []).map(q => {
         let metaQ = {};
-        try { 
+        try {
           if (q.explanation) {
-            metaQ = JSON.parse(q.explanation); 
+            metaQ = JSON.parse(q.explanation);
           }
-        } catch(e) {}
-        
+        } catch (e) { }
+
         return { ...q, ...metaQ, explanation: q.explanation };
       });
 
       const isDocument = exam.exam_format === 'pdf' || exam.exam_format === 'image' || exam.exam_format === 'multi_image' || (exam.file_url && exam.file_url.includes('.pdf'));
-      
+
       if (loadedQuestions.length === 0 && isDocument) {
-        const count = exam.total_score > 0 ? Number(exam.total_score) : 10; 
+        const count = exam.total_score > 0 ? Number(exam.total_score) : 10;
         loadedQuestions = Array.from({ length: count }).map((_, i) => ({
           id: `virtual-q-${i + 1}`,
           question_number: i + 1,
           question_type: 'mcq',
           question_text: 'อ้างอิงจากไฟล์เอกสาร',
           options: [{ id: 'ก', text: 'ก' }, { id: 'ข', text: 'ข' }, { id: 'ค', text: 'ค' }, { id: 'ง', text: 'ง' }],
-          correct_answer: '', 
+          correct_answer: '',
           score: 1,
           explanation: ''
         }));
@@ -100,7 +100,7 @@ export default function StudentExamPage() {
 
   const checkAccessStatus = (metadata: any) => {
     if (!metadata?.settings) {
-      setAccessStatus('open'); 
+      setAccessStatus('open');
       return;
     }
 
@@ -123,11 +123,11 @@ export default function StudentExamPage() {
       if (timingMode === 'fixed') {
         const lateLimit = new Date(startDateTime.getTime() + (lateTolerance * 60000));
         if (now > lateLimit) {
-          setAccessStatus('late'); 
+          setAccessStatus('late');
           return;
         }
       }
-      setAccessStatus('open'); 
+      setAccessStatus('open');
     }
   };
 
@@ -136,7 +136,7 @@ export default function StudentExamPage() {
       const timer = setInterval(() => {
         setTimeToStart(prev => {
           if (prev <= 1) {
-            checkAccessStatus(examConfig?.metadata); 
+            checkAccessStatus(examConfig?.metadata);
             return 0;
           }
           return prev - 1;
@@ -150,10 +150,10 @@ export default function StudentExamPage() {
     if (examState !== 'taking' || timeLeft <= 0) return;
     const timer = setInterval(() => {
       setTimeLeft(prev => {
-        if (prev <= 1) { 
-          clearInterval(timer); 
-          handleAutoSubmit(); 
-          return 0; 
+        if (prev <= 1) {
+          clearInterval(timer);
+          handleAutoSubmit();
+          return 0;
         }
         return prev - 1;
       });
@@ -177,7 +177,7 @@ export default function StudentExamPage() {
     document.addEventListener('visibilitychange', handleVisibilityChange);
     document.addEventListener('contextmenu', handleContextMenu);
     window.addEventListener('keydown', handleKeyDown);
-    try { document.documentElement.requestFullscreen().catch(() => {}); } catch (e) {}
+    try { document.documentElement.requestFullscreen().catch(() => { }); } catch (e) { }
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
@@ -204,7 +204,7 @@ export default function StudentExamPage() {
     if (questions.length === 0) {
       return alert("⚠️ ขออภัย ไม่สามารถเข้าสอบได้\nเนื่องจากแบบทดสอบชุดนี้ยังไม่มีข้อคำถามครับ");
     }
-    
+
     const settings = examConfig?.metadata?.settings;
     if (settings && settings.examDate && settings.endTime) {
       const now = new Date();
@@ -217,7 +217,7 @@ export default function StudentExamPage() {
         setTimeLeft(Math.min(allowedDuration, secondsUntilEnd));
       }
     } else {
-      setTimeLeft(3600); 
+      setTimeLeft(3600);
     }
     setExamState('taking');
   };
@@ -225,11 +225,11 @@ export default function StudentExamPage() {
   const handleSelectOption = (questionId: string, value: string, isShortAnswer: boolean = false) => {
     if (!questionId) return;
     setAnswers(prev => ({ ...prev, [questionId]: value }));
-    
+
     const isDocument = examConfig.exam_format === 'pdf' || examConfig.exam_format === 'image' || examConfig.exam_format === 'multi_image' || (examConfig.file_url && examConfig.file_url.includes('.pdf'));
-    
+
     if (isDocument && !isShortAnswer && currentQuestionIndex < questions.length - 1) {
-      setTimeout(() => setCurrentQuestionIndex(prev => prev + 1), 300); 
+      setTimeout(() => setCurrentQuestionIndex(prev => prev + 1), 300);
     }
   };
 
@@ -261,7 +261,7 @@ export default function StudentExamPage() {
     questions.forEach(q => {
       const questionScore = Number(q.score) || 1;
       totalScore += questionScore;
-      
+
       const studentAns = (answers[q.id] || '').toString().trim().toLowerCase();
       const correctAns = (q.correct_answer || '').toString().trim().toLowerCase();
 
@@ -281,9 +281,9 @@ export default function StudentExamPage() {
         student_name: studentInfo.name,
         score: earnedScore,
         total_score: totalScore,
-        answers_data: answers 
+        answers_data: answers
       });
-      
+
       if (error) {
         console.error("Save Error:", error);
         alert("คำตอบถูกตรวจแล้ว แต่ระบบไม่สามารถบันทึกลงฐานข้อมูลได้ กรุณาแจ้งผู้คุมสอบ");
@@ -349,7 +349,7 @@ export default function StudentExamPage() {
           <AlertCircle size={48} className="mx-auto text-red-500" />
           <h2 className="text-2xl font-black text-red-400">ไม่อนุญาตให้เข้าสอบ (สายเกินกำหนด)</h2>
           <p className="text-gray-400 text-sm leading-relaxed">
-            ข้อสอบชุดนี้บังคับเข้าสอบตรงเวลา ({settings.startTime} น.) <br/>
+            ข้อสอบชุดนี้บังคับเข้าสอบตรงเวลา ({settings.startTime} น.) <br />
             คุณเข้าสู่ระบบช้าเกินกว่า {settings.lateTolerance} นาทีที่อนุโลมไว้
           </p>
         </div>
@@ -359,7 +359,7 @@ export default function StudentExamPage() {
 
   return (
     <div className={`w-full bg-[#0f172a] text-white font-sans ${examState === 'taking' && isPdfOrImage ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
-      
+
       {/* 🟢 STATE 1: ลงทะเบียนก่อนเริ่มสอบ */}
       {examState === 'intro' && accessStatus === 'open' && (
         <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-[#020617] to-[#0f172a]">
@@ -372,8 +372,8 @@ export default function StudentExamPage() {
                     <img src="/niivaasmartevent_logo.png" alt="NiiVaa SmartExam" className="h-10 mx-auto object-contain" />
                   </div>
                 ) : (
-                  branding.orgLogo ? <img src={branding.orgLogo} alt="Logo" className="w-20 h-20 rounded-full object-cover bg-white" /> 
-                                   : <div className="w-20 h-20 bg-slate-800 rounded-full flex items-center justify-center"><FileText size={32} className="text-gray-400" /></div>
+                  branding.orgLogo ? <img src={branding.orgLogo} alt="Logo" className="w-20 h-20 rounded-full object-cover bg-white" />
+                    : <div className="w-20 h-20 bg-slate-800 rounded-full flex items-center justify-center"><FileText size={32} className="text-gray-400" /></div>
                 )}
                 <h1 className="text-2xl sm:text-3xl font-black text-white text-center leading-tight">{examConfig.title}</h1>
               </div>
@@ -395,10 +395,10 @@ export default function StudentExamPage() {
               {/* 🌟 ส่วนแสดงคำชี้แจง */}
               <div className="mb-8">
                 <span className="font-bold block mb-2 text-amber-500 flex items-center gap-2">
-                    <Info size={18}/> คำชี้แจงการทำแบบทดสอบ:
+                  <Info size={18} /> คำชี้แจงการทำแบบทดสอบ:
                 </span>
                 <div className="text-gray-300 leading-relaxed text-sm whitespace-pre-wrap bg-slate-950 p-4 rounded-xl border border-white/10 shadow-inner">
-                    {metadata?.instructions || 'เลือกคำตอบที่ถูกต้อง หรือพิมพ์คำตอบให้สมบูรณ์'}
+                  {metadata?.instructions || 'เลือกคำตอบที่ถูกต้อง หรือพิมพ์คำตอบให้สมบูรณ์'}
                 </div>
               </div>
 
@@ -406,13 +406,13 @@ export default function StudentExamPage() {
                 <h3 className="font-bold text-white mb-2">ข้อมูลผู้เข้าสอบ</h3>
                 <div>
                   <label className="text-xs text-gray-400 mb-1 block">รหัสประจำตัวนักเรียน (Student ID) *</label>
-                  <input type="text" value={studentInfo.studentId} onChange={e => setStudentInfo({...studentInfo, studentId: e.target.value})} className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-amber-500 font-mono text-lg tracking-wider" placeholder="เช่น 670123" />
+                  <input type="text" value={studentInfo.studentId} onChange={e => setStudentInfo({ ...studentInfo, studentId: e.target.value })} className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-amber-500 font-mono text-lg tracking-wider" placeholder="เช่น 670123" />
                 </div>
                 <div>
                   <label className="text-xs text-gray-400 mb-1 block">ชื่อ-นามสกุล *</label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
-                    <input type="text" value={studentInfo.name} onChange={e => setStudentInfo({...studentInfo, name: e.target.value})} placeholder="นาย / นางสาว / ด.ช. / ด.ญ." className="w-full bg-black/50 border border-white/10 rounded-xl pl-10 pr-4 py-3 focus:outline-none focus:border-amber-500" />
+                    <input type="text" value={studentInfo.name} onChange={e => setStudentInfo({ ...studentInfo, name: e.target.value })} placeholder="นาย / นางสาว / ด.ช. / ด.ญ." className="w-full bg-black/50 border border-white/10 rounded-xl pl-10 pr-4 py-3 focus:outline-none focus:border-amber-500" />
                   </div>
                 </div>
               </div>
@@ -428,35 +428,72 @@ export default function StudentExamPage() {
       {/* 🟢 STATE 2: กำลังทำข้อสอบ (Taking) */}
       {examState === 'taking' && (
         <div className="flex flex-col h-full w-full">
-          
+
           <nav className="w-full bg-slate-950 border-b border-white/10 sticky top-0 z-50 shadow-xl shrink-0">
-            <div className={`w-full py-2 flex items-center justify-center gap-2 text-lg sm:text-xl font-black transition-colors ${timeLeft < 300 ? 'bg-red-500 text-white' : 'bg-slate-900 text-white'}`}>
-              <Clock size={20} className={timeLeft < 300 ? 'animate-bounce' : ''} /> 
+            {/* แถบเวลา */}
+            <div className={`w-full py-1.5 sm:py-2 flex items-center justify-center gap-2 text-base sm:text-xl font-black transition-colors ${timeLeft < 300 ? 'bg-red-500 text-white' : 'bg-slate-900 text-white'}`}>
+              <Clock size={18} className={timeLeft < 300 ? 'animate-bounce' : ''} />
               {timeLeft < 300 && "เหลือเวลาอีก: "} {formatTime(timeLeft)}
             </div>
-            
-            <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-              <div>
-                <div className="font-bold text-sm truncate max-w-[200px] md:max-w-md">{studentInfo.name} <span className="text-gray-500 font-normal ml-2">({studentInfo.studentId})</span></div>
-                <div className="text-xs text-gray-400 mt-1">
-                  ทำแล้ว <strong className="text-white">{Object.values(answers).filter(v => v && v.trim() !== '').length}</strong> จาก {questions.length} ข้อ
+
+            <div className="max-w-7xl mx-auto px-4 py-2 sm:py-3 flex items-center justify-between gap-4">
+
+              {/* 🌟 ส่วนข้อมูลแบบทดสอบ และ ข้อมูลผู้สอบ (จัดเรียงใหม่ให้กะทัดรัด) */}
+              <div className="flex flex-col min-w-0 flex-1">
+
+                {/* 1. ชื่อแบบทดสอบ และ มาตรฐาน/ตัวชี้วัด */}
+                <div className="flex flex-col sm:flex-row sm:items-baseline gap-0 sm:gap-2 truncate">
+                  <h2 className="text-sm sm:text-base font-black text-amber-400 truncate" title={examConfig?.title}>
+                    {examConfig?.title || 'แบบทดสอบออนไลน์'}
+                  </h2>
+                  {/* แสดงตัวชี้วัด (ใช้ฟ้อนต์ขนาด text-[10px]) */}
+                  {examConfig?.topic && !examConfig.topic.trim().startsWith('{') && (
+                    <span className="text-[10px] text-gray-400 truncate" title={examConfig.topic}>
+                      <span className="hidden sm:inline">|</span> 📍 {examConfig.topic}
+                    </span>
+                  )}
+                </div>
+
+                {/* 2. ข้อมูลผู้เข้าสอบ และ สรุปจำนวนข้อ */}
+                <div className="flex items-center gap-2 text-[11px] sm:text-xs text-gray-300 mt-1 sm:mt-0.5 truncate">
+                  <span className="font-bold text-white truncate max-w-[120px] sm:max-w-xs">{studentInfo.name}</span>
+                  <span className="text-gray-500 hidden sm:inline">({studentInfo.studentId})</span>
+                  <span className="text-gray-600 px-1">•</span>
+                  <span>
+                    ทำแล้ว <strong className="text-white bg-slate-800 px-1.5 py-0.5 rounded">{Object.values(answers).filter(v => v && v.trim() !== '').length}</strong>
+                    <span className="mx-1">/</span>
+                    <strong className="text-amber-400">{questions.length}</strong> ข้อ
+                  </span>
                 </div>
               </div>
-              <div className="flex items-center gap-2 sm:gap-4">
-                {/* 🌟 ปุ่มเปิดคำชี้แจงระหว่างทำข้อสอบ */}
-                <button 
-                    onClick={() => setShowInstructionsModal(true)} 
-                    className="p-2 sm:px-3 sm:py-2 bg-slate-800 hover:bg-slate-700 text-cyan-400 rounded-lg flex items-center gap-1.5 transition-colors border border-cyan-500/20 shadow-sm"
+
+              {/* 🌟 ปุ่มดำเนินการ (ฝั่งขวา) */}
+              <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+                {/* ปุ่มเปิดคำชี้แจงระหว่างทำข้อสอบ */}
+                <button
+                  onClick={() => setShowInstructionsModal(true)}
+                  className="p-2 sm:px-3 sm:py-2 bg-slate-800 hover:bg-slate-700 text-cyan-400 rounded-lg flex items-center gap-1.5 transition-colors border border-cyan-500/20 shadow-sm"
                 >
-                    <Info size={16} /> <span className="hidden sm:inline text-xs font-bold">คำชี้แจง</span>
+                  <Info size={16} /> <span className="hidden sm:inline text-xs font-bold">คำชี้แจง</span>
                 </button>
 
-                <button onClick={handleSubmitExam} className="px-4 py-2 sm:px-6 sm:py-2.5 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl flex items-center gap-2 transition-colors shadow-[0_0_15px_rgba(16,185,129,0.3)]">
+                {/* ปุ่มส่งคำตอบ */}
+                <button onClick={handleSubmitExam} className="px-3 py-2 sm:px-6 sm:py-2.5 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl flex items-center gap-2 transition-colors shadow-[0_0_15px_rgba(16,185,129,0.3)] active:scale-95">
                   <Send size={16} /> <span className="hidden sm:inline">ส่งคำตอบ</span>
                 </button>
               </div>
             </div>
-            <div className="w-full h-1.5 bg-slate-800"><div className="h-full transition-all duration-300" style={{ width: `${(Object.values(answers).filter(v => v && v.trim() !== '').length / questions.length) * 100}%`, backgroundColor: branding.primaryColor }}></div></div>
+
+            {/* Progress Bar ด้านล่างสุดของ Header */}
+            <div className="w-full h-1 bg-slate-800">
+              <div
+                className="h-full transition-all duration-300 rounded-r-full"
+                style={{
+                  width: `${(Object.values(answers).filter(v => v && v.trim() !== '').length / questions.length) * 100}%`,
+                  backgroundColor: branding?.primaryColor || '#f59e0b'
+                }}
+              ></div>
+            </div>
           </nav>
 
           {isPdfOrImage ? (
@@ -474,7 +511,7 @@ export default function StudentExamPage() {
                       examConfig.image_urls.map((url: string, imgIndex: number) => (
                         <div key={imgIndex} className="relative w-full max-w-3xl shadow-2xl rounded-xl bg-white overflow-hidden shrink-0">
                           <img src={url} alt={`Page ${imgIndex + 1}`} className="w-full h-auto block pointer-events-none" />
-                          
+
                           {/* เรนเดอร์ตรายางข้อสอบ */}
                           {questions.filter(q => q.image_index === imgIndex).map((q) => (
                             <div
@@ -498,15 +535,15 @@ export default function StudentExamPage() {
                           {/* 🌟 เรนเดอร์กล่องข้อความ (Annotations) บนภาพ */}
                           {examConfig.metadata?.annotations?.filter((a: any) => a.image_index === imgIndex).map((anno: any) => (
                             <div
-                                key={anno.id}
-                                className="absolute p-3 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.2)] border border-white/20 pointer-events-none font-bold whitespace-pre-wrap leading-tight"
-                                style={{
-                                    left: `${anno.x_percent}%`, top: `${anno.y_percent}%`,
-                                    backgroundColor: anno.bg_color, color: anno.text_color, fontSize: `${anno.font_size}px`,
-                                    transform: 'translate(0, -50%)', maxWidth: '80%'
-                                }}
+                              key={anno.id}
+                              className="absolute p-3 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.2)] border border-white/20 pointer-events-none font-bold whitespace-pre-wrap leading-tight"
+                              style={{
+                                left: `${anno.x_percent}%`, top: `${anno.y_percent}%`,
+                                backgroundColor: anno.bg_color, color: anno.text_color, fontSize: `${anno.font_size}px`,
+                                transform: 'translate(0, -50%)', maxWidth: '80%'
+                              }}
                             >
-                                {anno.text}
+                              {anno.text}
                             </div>
                           ))}
 
@@ -539,13 +576,13 @@ export default function StudentExamPage() {
                   {/* แสดง Input หรือปุ่ม กขคง ตามประเภทข้อสอบ */}
                   {isShortAnswerMode ? (
                     <div className="mb-6 relative z-50">
-                      <label className="text-xs text-gray-400 mb-2 block flex items-center justify-center gap-1"><Hash size={12}/> พิมพ์คำตอบที่ถูกต้องด้านล่าง</label>
-                      <input 
+                      <label className="text-xs text-gray-400 mb-2 block flex items-center justify-center gap-1"><Hash size={12} /> พิมพ์คำตอบที่ถูกต้องด้านล่าง</label>
+                      <input
                         key={`input-${safeQuestionId}`}
-                        type="text" 
-                        value={answers[safeQuestionId] || ''} 
+                        type="text"
+                        value={answers[safeQuestionId] || ''}
                         onChange={(e) => handleSelectOption(safeQuestionId, e.target.value, true)}
-                        onMouseDown={(e) => e.stopPropagation()} 
+                        onMouseDown={(e) => e.stopPropagation()}
                         onClick={(e) => e.stopPropagation()}
                         onKeyDown={(e) => e.stopPropagation()}
                         placeholder="ระบุคำตอบ"
@@ -558,9 +595,8 @@ export default function StudentExamPage() {
                       {currentQ?.options?.map((opt: any) => (
                         <button
                           key={opt.id} onClick={() => handleSelectOption(safeQuestionId, opt.id, false)}
-                          className={`flex-1 min-w-[50px] aspect-square rounded-2xl flex items-center justify-center text-2xl font-black transition-all border-2 ${
-                            answers[safeQuestionId] === opt.id ? 'bg-cyan-500 border-cyan-400 text-black shadow-[0_0_20px_rgba(6,182,212,0.6)] scale-105' : 'bg-slate-800/80 border-slate-700 text-gray-300 hover:bg-slate-700'
-                          }`}
+                          className={`flex-1 min-w-[50px] aspect-square rounded-2xl flex items-center justify-center text-2xl font-black transition-all border-2 ${answers[safeQuestionId] === opt.id ? 'bg-cyan-500 border-cyan-400 text-black shadow-[0_0_20px_rgba(6,182,212,0.6)] scale-105' : 'bg-slate-800/80 border-slate-700 text-gray-300 hover:bg-slate-700'
+                            }`}
                         >
                           {opt.id}
                         </button>
@@ -601,9 +637,8 @@ export default function StudentExamPage() {
                         return (
                           <button
                             key={qIdStr} onClick={() => { setCurrentQuestionIndex(idx); setShowGrid(false); }}
-                            className={`relative aspect-square rounded-xl flex items-center justify-center text-sm md:text-base font-black border-2 hover:scale-110 transition-all ${
-                              idx === currentQuestionIndex ? 'ring-2 ring-white ring-offset-4 ring-offset-slate-900 z-10' : ''
-                            } ${isAns ? 'bg-cyan-500/20 border-cyan-500 text-cyan-400' : 'bg-slate-800 border-slate-700 text-gray-400'}`}
+                            className={`relative aspect-square rounded-xl flex items-center justify-center text-sm md:text-base font-black border-2 hover:scale-110 transition-all ${idx === currentQuestionIndex ? 'ring-2 ring-white ring-offset-4 ring-offset-slate-900 z-10' : ''
+                              } ${isAns ? 'bg-cyan-500/20 border-cyan-500 text-cyan-400' : 'bg-slate-800 border-slate-700 text-gray-400'}`}
                           >
                             {q.question_number || (idx + 1)}
                             {isFlag && <div className="absolute -top-2 -right-2 bg-orange-500 w-4 h-4 rounded-full flex items-center justify-center shadow-lg border-2 border-slate-900"><Flag size={8} className="text-white fill-current" /></div>}
@@ -639,12 +674,12 @@ export default function StudentExamPage() {
                       <div className="space-y-3 pl-0 md:pl-14">
                         {isThisQShortAnswer ? (
                           <div className="mt-4 relative z-50">
-                            <input 
+                            <input
                               key={`input-std-${q.id}`}
-                              type="text" 
-                              value={answers[q.id] || ''} 
+                              type="text"
+                              value={answers[q.id] || ''}
                               onChange={(e) => handleSelectOption(q.id, e.target.value, true)}
-                              onMouseDown={(e) => e.stopPropagation()} 
+                              onMouseDown={(e) => e.stopPropagation()}
                               onClick={(e) => e.stopPropagation()}
                               onKeyDown={(e) => e.stopPropagation()}
                               placeholder="พิมพ์คำตอบของคุณที่นี่..."
@@ -698,13 +733,13 @@ export default function StudentExamPage() {
               <div className="bg-black/50 p-6 rounded-2xl border border-white/5 mt-6 flex flex-col items-center gap-3">
                 <Clock size={32} className="text-blue-400" />
                 <div className="text-sm text-gray-300 font-medium">คะแนนถูกซ่อนไว้ชั่วคราว</div>
-                <div className="text-xs text-gray-500">ระบบจะแสดงผลคะแนนของคุณอัตโนมัติ<br/>หลังจากหมดเวลาสอบของทุกคน</div>
+                <div className="text-xs text-gray-500">ระบบจะแสดงผลคะแนนของคุณอัตโนมัติ<br />หลังจากหมดเวลาสอบของทุกคน</div>
               </div>
             ) : (
               <div className="bg-black/50 p-6 rounded-2xl border border-white/5 mt-6 flex flex-col items-center gap-3">
                 <Lock size={32} className="text-gray-500" />
                 <div className="text-sm text-gray-300 font-medium">คะแนนส่วนนี้เป็นความลับ</div>
-                <div className="text-xs text-gray-500">กรุณารอการประกาศผลอย่างเป็นทางการ<br/>จากคุณครูประจำวิชาของคุณ</div>
+                <div className="text-xs text-gray-500">กรุณารอการประกาศผลอย่างเป็นทางการ<br />จากคุณครูประจำวิชาของคุณ</div>
               </div>
             )}
 
@@ -718,20 +753,20 @@ export default function StudentExamPage() {
       {/* 🌟 Modal: แสดงคำชี้แจงระหว่างทำข้อสอบ */}
       {showInstructionsModal && (
         <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-slate-900 border border-white/10 p-6 rounded-3xl max-w-lg w-full shadow-2xl animate-in zoom-in-95 duration-200">
-                <h3 className="text-xl font-black text-cyan-400 mb-4 flex items-center gap-2">
-                    <Info size={24} /> คำชี้แจงการทำแบบทดสอบ
-                </h3>
-                <div className="text-sm text-gray-300 whitespace-pre-wrap leading-relaxed mb-6 bg-slate-950 p-5 rounded-2xl border border-white/5 shadow-inner">
-                    {metadata?.instructions || 'เลือกคำตอบที่ถูกต้อง หรือพิมพ์คำตอบให้สมบูรณ์ในช่องที่กำหนด'}
-                </div>
-                <button 
-                    onClick={() => setShowInstructionsModal(false)} 
-                    className="w-full py-3.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl transition-colors border border-white/10"
-                >
-                    รับทราบ และกลับไปทำข้อสอบ
-                </button>
+          <div className="bg-slate-900 border border-white/10 p-6 rounded-3xl max-w-lg w-full shadow-2xl animate-in zoom-in-95 duration-200">
+            <h3 className="text-xl font-black text-cyan-400 mb-4 flex items-center gap-2">
+              <Info size={24} /> คำชี้แจงการทำแบบทดสอบ
+            </h3>
+            <div className="text-sm text-gray-300 whitespace-pre-wrap leading-relaxed mb-6 bg-slate-950 p-5 rounded-2xl border border-white/5 shadow-inner">
+              {metadata?.instructions || 'เลือกคำตอบที่ถูกต้อง หรือพิมพ์คำตอบให้สมบูรณ์ในช่องที่กำหนด'}
             </div>
+            <button
+              onClick={() => setShowInstructionsModal(false)}
+              className="w-full py-3.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl transition-colors border border-white/10"
+            >
+              รับทราบ และกลับไปทำข้อสอบ
+            </button>
+          </div>
         </div>
       )}
 
