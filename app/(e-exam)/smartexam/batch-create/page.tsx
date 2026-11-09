@@ -113,7 +113,7 @@ export default function BatchCreateExamPage() {
             }
 
             // หน่วงเวลาเล็กน้อยกัน Rate Limit
-            await new Promise(res => setTimeout(res, 1500));
+            await new Promise(res => setTimeout(res, 4500));
         }
 
         setProgress(prev => ({ ...prev, successCount: success, failCount: fail }));

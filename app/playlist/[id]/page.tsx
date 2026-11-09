@@ -255,11 +255,12 @@ export default function SmartKaraokePage({ params }: { params: any }) {
         return;
       }
 
-      // 🌟 2. ดึง Playlist "เฉพาะที่เป็นของ User คนนี้เท่านั้น"
+      // 🌟 2. ดึง Playlist "ของ User คนนี้" หรือ "เทมเพลตส่วนกลาง (is_global=true)"
       const { data: allP, error: pError } = await supabase
         .from('playlists')
         .select('*, tracks(count)')
-        .eq('user_id', user.id); // 👈 ใช้ user_id ตามโครงสร้างตารางของคุณ
+        // 👇 ปรับปรุงจุดนี้: ใช้ .or() เพื่อดึงทั้งงานส่วนตัวและเทมเพลตส่วนกลาง
+        .or(`user_id.eq.${user.id},is_global.eq.true`); 
 
       if (pError) throw pError;
 
@@ -273,7 +274,7 @@ export default function SmartKaraokePage({ params }: { params: any }) {
         const currentPlay = formattedPlaylists.find(p => p.id === playlistId);
 
         // 🌟 3. ป้องกันการแอบเอา URL (id) ของคนอื่นมาเปิด
-        // ถ้าหา id นี้ไม่เจอในรายการของตัวเอง ให้ดีดกลับหน้า Dashboard ทันที
+        // (ตอนนี้ currentPlay จะเจอทั้งเพลย์ลิสต์ของเรา และเพลย์ลิสต์แม่แบบส่วนกลางแล้ว)
         if (!currentPlay && allP.length > 0) {
           alert("คุณไม่มีสิทธิ์เข้าถึงเพลย์ลิสต์นี้ หรือไม่มีข้อมูลในระบบ!");
           window.location.href = '/smart-media-dashboard';

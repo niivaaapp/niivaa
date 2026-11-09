@@ -3,7 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { deleteWorkspace } from '@/app/actions/super-admin';
-import { Trash2, Loader2, Search } from 'lucide-react';
+import { Trash2, Loader2, Search, PlusCircle, FileText } from 'lucide-react'; // 🌟 เพิ่มไอคอน PlusCircle, FileText
+import Link from 'next/link'; // 🌟 นำเข้า Link สำหรับทำปุ่มเปลี่ยนหน้า
 
 export default function SuperDashboardPage() {
   const supabase = createClient();
@@ -48,10 +49,30 @@ export default function SuperDashboardPage() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
-      <div className="flex justify-between items-end">
+      {/* 🌟 ปรับปรุงส่วน Header เพิ่มกลุ่มปุ่มกดด้านขวา */}
+      <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-4">
         <div>
           <h2 className="text-3xl font-black text-white mb-2">ภาพรวม Workspaces</h2>
           <p className="text-slate-400">โปรเจกต์ทั้งหมดที่เปิดใช้งานในระบบ NiiVaa</p>
+        </div>
+        
+        {/* 🌟 เพิ่มปุ่มทั้ง 2 ปุ่มตรงนี้ */}
+        <div className="flex flex-wrap items-center gap-3">
+          <Link 
+            href="/admin/create-template" 
+            className="flex items-center gap-2 px-4 py-2.5 bg-cyan-600/20 hover:bg-cyan-600/40 text-cyan-400 border border-cyan-500/30 rounded-xl text-sm font-bold transition-all shadow-md"
+          >
+            <PlusCircle size={18} />
+            สร้างเทมเพลตชุดสื่อ
+          </Link>
+          
+          <Link 
+            href="/admin/templates" 
+            className="flex items-center gap-2 px-4 py-2.5 bg-purple-600/20 hover:bg-purple-600/40 text-purple-400 border border-purple-500/30 rounded-xl text-sm font-bold transition-all shadow-md"
+          >
+            <FileText size={18} />
+            สร้างเทมเพลตสคริปต์พิธีกร
+          </Link>
         </div>
       </div>
 

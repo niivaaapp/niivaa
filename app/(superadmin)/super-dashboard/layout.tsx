@@ -1,8 +1,34 @@
 import React from 'react';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { LayoutDashboard, Users, Server, Settings, LogOut } from 'lucide-react';
 
-export default function SuperAdminLayout({ children }: { children: React.ReactNode }) {
+// 🌟 นำเข้า Supabase สำหรับฝั่ง Server (แก้ไข Path ให้ตรงกับโฟลเดอร์ utils ของคุณถ้าจำเป็น)
+import { createClient } from '@/utils/supabase/server';
+
+export default async function SuperAdminLayout({ children }: { children: React.ReactNode }) {
+  const supabase = await createClient();
+
+  // 🛡️ 1. ตรวจสอบว่าผู้ใช้ล็อกอินอยู่หรือไม่
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    redirect('/login'); // ยังไม่ล็อกอิน ดีดไปหน้า Login
+  }
+
+  // 🛡️ 2. ตรวจสอบสิทธิ์ (Role) จากตาราง profiles
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('system_role')
+    .eq('id', user.id)
+    .single();
+
+  // 🛡️ 3. ถ้าไม่ใช่ super_admin ให้ดีดกลับไปหน้า Dashboard ของผู้ใช้ทั่วไป
+  if (profile?.system_role !== 'super_admin') {
+    redirect('/smart-media-dashboard'); 
+  }
+
+  // 🟢 ผ่านการตรวจสอบสิทธิ์: แสดงผลหน้า Dashboard ของ Super Admin
   return (
     <div className="min-h-screen bg-slate-950 flex text-slate-200 font-sans">
       {/* 🌟 Sidebar */}
@@ -24,9 +50,12 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
           </Link>
         </nav>
         <div className="p-4 border-t border-slate-800">
-          <button className="flex items-center gap-3 px-4 py-3 w-full text-red-400 hover:bg-red-500/10 rounded-xl transition-colors font-bold">
-            <LogOut size={20} /> ออกจากระบบ
-          </button>
+          {/* หมายเหตุ: ปุ่ม Logout ใน Server Component มักจะต้องใช้ <form> Action หรือ Client Component */}
+          <form action="/auth/signout" method="post">
+            <button type="submit" className="flex items-center gap-3 px-4 py-3 w-full text-red-400 hover:bg-red-500/10 rounded-xl transition-colors font-bold">
+              <LogOut size={20} /> ออกจากระบบ
+            </button>
+          </form>
         </div>
       </aside>
 
