@@ -131,7 +131,7 @@ export default function SmartKaraokePage({ params }: { params: any }) {
   const [cutTail, setCutTail] = useState(0);
   const [skipS, setSkipS] = useState(0);
   const [skipE, setSkipE] = useState(0);
-  
+
   // 🌟 [เพิ่มใหม่] วางฟังก์ชันตัวช่วยกรองเพลงไว้ตรงนี้ครับ
   const isValidMode = (title: string) => {
     if (!title) return false;
@@ -140,7 +140,7 @@ export default function SmartKaraokePage({ params }: { params: any }) {
 
     // ถ้าเปิดโหมดไมค์ (คาราโอเกะ) แต่ชื่อเพลง "ไม่มี" คำว่าคาราโอเกะ -> คัดทิ้ง
     if (isKaraokeMode && !isK) return false;
-    
+
     // ถ้าเปิดโหมดหูฟัง (ฟังเพลง) แต่ชื่อเพลง "มี" คำว่าคาราโอเกะ -> คัดทิ้ง
     if (isListeningMode && isK) return false;
 
@@ -260,7 +260,7 @@ export default function SmartKaraokePage({ params }: { params: any }) {
         .from('playlists')
         .select('*, tracks(count)')
         // 👇 ปรับปรุงจุดนี้: ใช้ .or() เพื่อดึงทั้งงานส่วนตัวและเทมเพลตส่วนกลาง
-        .or(`user_id.eq.${user.id},is_global.eq.true`); 
+        .or(`user_id.eq.${user.id},is_global.eq.true`);
 
       if (pError) throw pError;
 
@@ -474,12 +474,12 @@ export default function SmartKaraokePage({ params }: { params: any }) {
           playlist_id: playlistId,
           ...payload
         }]).select();
-        
+
         console.log("✅ ผลการ Insert - Data:", insData, " | Error:", insErr);
       }
-      
+
       console.log("=== 🎉 จบกระบวนการส่งสัญญาณ ===");
-      
+
     } catch (err) {
       console.error("❌ เกิดข้อผิดพลาดร้ายแรงของระบบ:", err);
     }
@@ -550,31 +550,31 @@ export default function SmartKaraokePage({ params }: { params: any }) {
     if (pool.length === 0 && targetCategory) {
       console.log(`[AutoDJ] คลังเพลงแนว '${targetCategory}' หมดแล้ว กำลังค้นหาจาก YouTube...`);
       const searchSuffix = isKaraokeMode ? "คาราโอเกะ" : isListeningMode ? "Official Audio" : "";
-      
+
       // สร้างคำค้นหาอัจฉริยะ เช่น "เพลง ลูกทุ่งอีสาน คาราโอเกะ"
-      const query = `เพลง ${targetCategory} ${searchSuffix}`; 
-      
+      const query = `เพลง ${targetCategory} ${searchSuffix}`;
+
       try {
         const apiKey = "AIzaSyC3SFBRAazRzbkP1COhhkyQK2JTG6wHiTg"; // ⚠️ อย่าลืมใส่ API Key ของคุณที่นี่
-        
+
         // ใช้ videoCategoryId=10 เพื่อเน้นหมวดหมู่ Music ใน YouTube
         const res = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=5&q=${encodeURIComponent(query)}&type=video&videoCategoryId=10&key=${apiKey}`);
         const ytData = await res.json();
-        
+
         if (ytData.items && ytData.items.length > 0) {
           // สุ่มเลือก 1 เพลงจากผลลัพธ์ที่ได้
           const randomYt = ytData.items[Math.floor(Math.random() * ytData.items.length)];
-          
+
           const newSong = {
             video_id: randomYt.id.videoId,
             title: randomYt.snippet.title,
             thumbnail_url: randomYt.snippet.thumbnails.default.url,
             category: targetCategory // 🌟 ประทับตราหมวดหมู่เดียวกันเข้าไปด้วยเลย
           };
-          
+
           // บันทึกลงคลัง Master_songs ก่อน
           await supabase.from('master_songs').upsert(newSong, { onConflict: 'video_id' });
-          
+
           // นำเข้าคิว (tracks)
           handleAddToQueue(newSong);
           speakResponse(`คิวหมดแล้ว ออโต้ดีเจจัดเพลงแนว ${targetCategory} จากยูทูปให้ต่อเลยครับ`);
@@ -589,7 +589,7 @@ export default function SmartKaraokePage({ params }: { params: any }) {
     if (pool.length > 0) {
       const randomSong = pool[Math.floor(Math.random() * pool.length)];
       handleAddToQueue(randomSong);
-      
+
       if (targetCategory) {
         speakResponse(`ออโต้ดีเจจัดเพลง ${randomSong.title} ให้ต่อเลยครับ`);
       } else {
@@ -599,9 +599,9 @@ export default function SmartKaraokePage({ params }: { params: any }) {
       // แผนสำรองสุดท้าย: ถ้าไม่มีเพลงหมวดหมู่นั้นจริงๆ และหาจากเน็ตไม่เจอ ให้สุ่มเพลงอะไรก็ได้ที่ตรงโหมด
       const backupPool = allMasterSongs.filter(s => isValidMode(s.title));
       if (backupPool.length > 0) {
-         const fallbackSong = backupPool[Math.floor(Math.random() * backupPool.length)];
-         handleAddToQueue(fallbackSong);
-         speakResponse(`หาเพลงแนวเดิมไม่เจอ ออโต้ดีเจขอเปลี่ยนบรรยากาศเป็น ${fallbackSong.title} นะครับ`);
+        const fallbackSong = backupPool[Math.floor(Math.random() * backupPool.length)];
+        handleAddToQueue(fallbackSong);
+        speakResponse(`หาเพลงแนวเดิมไม่เจอ ออโต้ดีเจขอเปลี่ยนบรรยากาศเป็น ${fallbackSong.title} นะครับ`);
       }
     }
   }, [isAutoDJ, allMasterSongs, isKaraokeMode, isListeningMode, tracks, isValidMode]);
@@ -1859,7 +1859,7 @@ export default function SmartKaraokePage({ params }: { params: any }) {
           {!isFullscreen && (
             <aside className="w-full lg:w-[380px] shrink-0 min-h-[500px] lg:h-full flex flex-col bg-[#000a12] border-t lg:border-t-0 lg:border-l border-white/5 relative shadow-[0_0_20px_rgba(34,211,238,0.05)] rounded-t-3xl lg:rounded-none mt-4 lg:mt-0">
               {/* 1. Banner & Neon Control Panel (ฉบับอัปเดตระบบ White-Label ติดแบรนด์หน่วยงาน) */}
-              <div className={`bg-slate-900 rounded-2xl p-4 ... ${isCompact ? 'hidden' : 'block'}`}>
+              <div className={`bg-slate-900 rounded-2xl p-4 mb-4 ${isCompact ? 'hidden' : 'hidden md:block'}`}>
                 <div className="bg-[#000a1a] p-4 border-b border-white/5 shrink-0">
                   <div className="flex items-center justify-center gap-3 mb-5">
                     {/* 🏢 [ส่วนที่ 1 - โลโก้]: แสดงรูปโลโก้หน่วยงานจริง หรือแสดงตัวอักษรแบรนด์ NIIVAA ทันสมัยหากไม่มีรูป */}
@@ -1975,7 +1975,7 @@ export default function SmartKaraokePage({ params }: { params: any }) {
                         // 🌟 รองรับ Double Click บนคอม
                         onDoubleClick={async () => {
                           startApp(track.video_id, true);
-                          
+
                           // 🌟 แก้ไข: เรียกฟังก์ชันตัวช่วยแทน upsert เดิม
                           await updateCurrentPlayingRoom(track.video_id, track.master_songs?.title);
                         }}
@@ -1984,7 +1984,7 @@ export default function SmartKaraokePage({ params }: { params: any }) {
                         onClick={async (e) => {
                           const currentTime = new Date().getTime();
                           // 🌟 ดึงเป้าหมายมาเก็บไว้ก่อน ป้องกันการเป็น null หลัง await
-                          const targetElement = e.currentTarget; 
+                          const targetElement = e.currentTarget;
                           const lastTap = Number(targetElement.getAttribute('data-last-tap') || 0);
                           const tapLength = currentTime - lastTap;
 

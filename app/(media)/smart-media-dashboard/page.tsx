@@ -1,6 +1,5 @@
 'use client';
 
-// 🌟 1. เพิ่ม useEffect เข้ามาที่นี่ด้วย
 import React, { Suspense, useState, useEffect } from 'react'; 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -9,12 +8,9 @@ import {
     UploadCloud, FileEdit, MonitorPlay, Sparkles, GraduationCap
 } from 'lucide-react';
 
-// 🌟 2. Import Supabase Client
 import { createClient } from '@/utils/supabase/client';
 
-// 🌟 3. คอมโพเนนต์ลูกสำหรับเนื้อหาหลัก
 function SmartMediaDashboardContent() {
-    // คอมโพเนนต์การ์ดย่อย
     const MenuCard = ({ href, icon: Icon, title, desc, colorClass, badge }: any) => (
         <Link href={href} className="group relative bg-[#1e293b]/60 backdrop-blur-md border border-slate-700/50 rounded-2xl p-6 hover:border-cyan-500/50 transition-all duration-300 hover:shadow-[0_0_25px_rgba(6,182,212,0.15)] hover:-translate-y-1 overflow-hidden flex flex-col h-full">
             <div className={`absolute top-0 left-0 w-1 h-full ${colorClass}`}></div>
@@ -34,35 +30,43 @@ function SmartMediaDashboardContent() {
     const searchParams = useSearchParams();
     const eventId = searchParams.get('event_id') || '';
     
-    // 🌟 4. State สำหรับเก็บ Email
     const [userEmail, setUserEmail] = useState<string>('');
+    // 🌟 1. เพิ่ม State สำหรับเก็บ ID ของเพลย์ลิสต์
+    const [playlistId, setPlaylistId] = useState<string | null>(null);
     const supabase = createClient();
 
-    // 🌟 5. ฟังก์ชันดึงข้อมูล User ทันทีที่โหลดหน้าจอ
     useEffect(() => {
-        const fetchUserData = async () => {
+        const fetchUserDataAndPlaylist = async () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
                 setUserEmail(user.email || '');
+                
+                // 🌟 2. ดึงข้อมูลเพลย์ลิสต์ล่าสุดของ User คนนี้
+                const { data: playlist } = await supabase
+                    .from('playlists')
+                    .select('id')
+                    .eq('user_id', user.id)
+                    .order('created_at', { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+                
+                if (playlist) {
+                    setPlaylistId(playlist.id);
+                }
             }
         };
-        fetchUserData();
+        fetchUserDataAndPlaylist();
     }, []);
 
-    // -----------------------------------------
-    // ตรงนี้คือคำสั่ง return ( ... UI ทั้งหมด ... ) ที่คุณมีอยู่แล้ว
-    // -----------------------------------------
     return (
         <div className="min-h-screen bg-[#0f172a] py-10 px-4 sm:px-6 lg:px-8 font-sans selection:bg-cyan-500/30">
             <div className="max-w-6xl mx-auto space-y-12">
 
-                {/* 🌟 Header Section */}
+                {/* Header Section */}
                 <div className="flex flex-col md:flex-row justify-between items-center gap-6 bg-gradient-to-r from-slate-900 to-[#1e293b] p-8 rounded-3xl border border-slate-700/50 shadow-2xl relative overflow-hidden">
                     <div className="absolute -top-20 -right-20 w-64 h-64 bg-cyan-500/10 blur-[80px] rounded-full"></div>
 
-                    {/* ส่วนซ้าย: โลโก้และชื่อระบบ */}
                     <div className="flex items-center gap-6 relative z-10 w-full md:w-auto">
-                        {/* โลโก้ SMK.png */}
                         <div className="bg-black/40 p-3 rounded-2xl border border-white/10 shadow-inner shrink-0">
                             <img src="/SMK.png" alt="NiiVaa SmartMedia" className="w-16 h-16 object-contain" />
                         </div>
@@ -74,7 +78,6 @@ function SmartMediaDashboardContent() {
                         </div>
                     </div>
 
-                    {/* 🌟 ส่วนขวา (เพิ่มใหม่): แสดง Email ผู้ใช้งาน */}
                     {userEmail && (
                         <div className="relative z-10 flex items-center gap-3 bg-slate-950/60 border border-cyan-500/30 px-5 py-2.5 rounded-full shadow-inner backdrop-blur-md shrink-0 w-full md:w-auto justify-center md:justify-start">
                             <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]"></div>
@@ -88,10 +91,9 @@ function SmartMediaDashboardContent() {
                             </div>
                         </div>
                     )}
-
                 </div>
 
-                {/* 🌟 หมวดหมู่ที่ 1: การจัดการเพลย์ลิสต์ (Core Features) */}
+                {/* หมวดหมู่ที่ 1 */}
                 <section>
                     <div className="flex items-center gap-3 mb-6">
                         <ListMusic className="w-6 h-6 text-cyan-400" />
@@ -108,15 +110,17 @@ function SmartMediaDashboardContent() {
                             icon={PlusCircle} title="สร้างชุดสื่อ/อัลบั้มใหม่" colorClass="bg-cyan-400"
                             desc="สร้างเพลย์ลิสต์ใหม่สำหรับงานของคุณ เพื่อเตรียมใส่เพลงหรือวิดีโอ"
                         />
+                        
+                        {/* 🌟 3. แก้ไขลิงก์ตรงนี้ โดยดักจับกรณีที่ยังไม่มีเพลย์ลิสต์ ให้ไปหน้าสร้างแทน */}
                         <MenuCard
-                            href="/playlist/manage"
+                            href={playlistId ? `/playlist/${playlistId}` : "/create-playlist"}
                             icon={Music} title="เพลย์ลิสต์ของฉัน (My Library)" colorClass="bg-cyan-400"
-                            desc="เข้าสู่หน้าเครื่องเล่น จัดการคิวเพลง และร้องคาราโอเกะ (เลือกจากอัลบั้มของคุณ)"
+                            desc={playlistId ? "เข้าสู่หน้าเครื่องเล่น จัดการคิวเพลง และร้องคาราโอเกะ (เลือกจากอัลบั้มของคุณ)" : "คุณยังไม่มีเพลย์ลิสต์ คลิกเพื่อสร้างใหม่"}
                         />
                     </div>
                 </section>
 
-                {/* 🌟 หมวดหมู่ที่ 2: เครื่องมือจัดการ (Tools & Studio) */}
+                {/* หมวดหมู่ที่ 2 */}
                 <section>
                     <div className="flex items-center gap-3 mb-6">
                         <Mic2 className="w-6 h-6 text-purple-400" />
@@ -145,14 +149,9 @@ function SmartMediaDashboardContent() {
                             colorClass="bg-cyan-500"
                             desc="อัปโหลดและจัดการไฟล์ภาพ วิดีโอ พื้นหลังในระบบ"
                         />
-                        {/* โค้ดเดิมของการ์ดอื่นๆ... */}
-                        <MenuCard
-                            href="/playlist/manage"
-                            icon={Music} title="เพลย์ลิสต์ของฉัน (My Library)" colorClass="bg-cyan-400"
-                            desc="เข้าสู่หน้าเครื่องเล่น จัดการคิวเพลง และร้องคาราโอเกะ (เลือกจากอัลบั้มของคุณ)"
-                        />
-
-                        {/* 🌟 เพิ่มการ์ดใหม่: MyKaraoke (Combo Mode) */}
+                        
+                        {/* ลบ MenuCard ที่ซ้ำซ้อนออก (ที่ชี้ไป /playlist/manage หรือ /playlist/[id] ตัวเก่า) */}
+                        
                         <MenuCard
                             href="/mykaraoke"
                             icon={Layers} title="คาราโอเกะคอมโบ (MyKaraoke)" colorClass="bg-cyan-400"
@@ -163,12 +162,12 @@ function SmartMediaDashboardContent() {
                             href="/smartmedia/dashboard/billing"
                             icon={Layers} title="ตรวจสอบสถานะสมาชิก แพ็กเกจ" colorClass="bg-cyan-400"
                             badge=""
-                            desc=" ข้อมูลแพ็กเกจ และระยะเวลาใช้งาน)"
+                            desc="ข้อมูลแพ็กเกจ และระยะเวลาใช้งาน"
                         />
                     </div>
                 </section>
 
-                {/* 🌟 หมวดหมู่ที่ 3: ระบบต่อยอด (Cross-Sell / Ecosystem) */}
+                {/* หมวดหมู่ที่ 3 */}
                 <section className="relative">
                     <div className="absolute inset-0 bg-gradient-to-r from-emerald-900/20 to-teal-900/20 rounded-3xl -m-6 p-6 border border-emerald-500/20"></div>
                     <div className="relative">
@@ -202,6 +201,7 @@ function SmartMediaDashboardContent() {
         </div>
     );
 }
+
 // ==========================================
 // 🚀 Component หลักที่ Export (หุ้ม Suspense ไว้ด้านนอกสุด)
 // ==========================================
