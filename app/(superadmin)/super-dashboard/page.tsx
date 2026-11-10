@@ -1,5 +1,5 @@
 'use client';
-
+import { getAdminWorkspaces } from '@/app/actions/super-admin';
 import React, { useEffect, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { deleteWorkspace } from '@/app/actions/super-admin';
@@ -18,21 +18,22 @@ export default function SuperDashboardPage() {
 
   const fetchWorkspaces = async () => {
     setLoading(true);
-    // ดึงข้อมูล Workspace พร้อมชื่อเจ้าของจากตาราง profiles
-    const { data, error } = await supabase
-      .from('workspaces')
-      .select('*, profiles(first_name, last_name, email)')
-      .order('created_at', { ascending: false });
 
-    if (!error && data) {
-      setWorkspaces(data);
+    // 🌟 เรียกใช้ฟังก์ชันที่ดึงข้อมูลทะลุ RLS
+    const result = await getAdminWorkspaces();
+
+    if (result.success && result.data) {
+      setWorkspaces(result.data);
+    } else {
+      console.error("ดึงข้อมูลไม่สำเร็จ:", result.message);
     }
+
     setLoading(false);
   };
 
   const handleDelete = async (id: string, name: string) => {
     if (!window.confirm(`⚠️ คำเตือน: คุณแน่ใจหรือไม่ว่าต้องการลบโปรเจกต์ "${name}"?\nข้อมูลที่เกี่ยวข้องทั้งหมดจะถูกลบถาวร`)) return;
-    
+
     setDeletingId(id);
     const result = await deleteWorkspace(id);
     setDeletingId(null);
@@ -55,19 +56,19 @@ export default function SuperDashboardPage() {
           <h2 className="text-3xl font-black text-white mb-2">ภาพรวม Workspaces</h2>
           <p className="text-slate-400">โปรเจกต์ทั้งหมดที่เปิดใช้งานในระบบ NiiVaa</p>
         </div>
-        
+
         {/* 🌟 เพิ่มปุ่มทั้ง 2 ปุ่มตรงนี้ */}
         <div className="flex flex-wrap items-center gap-3">
-          <Link 
-            href="/admin/create-template" 
+          <Link
+            href="/admin/create-template"
             className="flex items-center gap-2 px-4 py-2.5 bg-cyan-600/20 hover:bg-cyan-600/40 text-cyan-400 border border-cyan-500/30 rounded-xl text-sm font-bold transition-all shadow-md"
           >
             <PlusCircle size={18} />
             สร้างเทมเพลตชุดสื่อ
           </Link>
-          
-          <Link 
-            href="/admin/templates" 
+
+          <Link
+            href="/admin/templates"
             className="flex items-center gap-2 px-4 py-2.5 bg-purple-600/20 hover:bg-purple-600/40 text-purple-400 border border-purple-500/30 rounded-xl text-sm font-bold transition-all shadow-md"
           >
             <FileText size={18} />
@@ -99,7 +100,7 @@ export default function SuperDashboardPage() {
                   </td>
                   <td className="px-6 py-4 font-bold text-white">{ws.workspace_name}</td>
                   <td className="px-6 py-4">
-                    {ws.profiles ? `${ws.profiles.first_name || ''} ${ws.profiles.last_name || ''}` : 'Unknown'}
+                    {ws.profiles ? `${ws.profiles.full_name || ''}` : 'Unknown'}
                   </td>
                   <td className="px-6 py-4">
                     {ws.is_private ? (

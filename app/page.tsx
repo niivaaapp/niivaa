@@ -25,7 +25,6 @@ export default function LaunchpadPage() {
             className="h-8 md:h-10 w-auto object-contain drop-shadow-[0_0_10px_rgba(34,211,238,0.3)]"
           />
         </div>
-    
       </div>
 
       {/* ส่วนกลาง: ศูนย์รวมการเข้าถึงบริการหลัก */}
@@ -47,7 +46,8 @@ export default function LaunchpadPage() {
 
           {/* 🟢 การ์ดที่ 1: NiiVaa SmartMedia&Karaoke */}
           <div
-            onClick={() => router.push('/smart-media/pricing')}
+            // 🌟 ปรับปรุง: ชี้ไปที่ Welcome พร้อมระบุ app=media
+            onClick={() => router.push('/welcome?app=media')}
             className="p-6 bg-gradient-to-br from-cyan-500/10 to-blue-500/5 hover:from-cyan-500/20 hover:to-blue-500/10 border border-cyan-500/20 hover:border-cyan-400 rounded-3xl cursor-pointer flex flex-col justify-between items-start text-left gap-6 group hover:scale-[1.03] transition-all duration-300 shadow-lg shadow-cyan-500/5"
           >
             <div className="space-y-2">
@@ -68,7 +68,8 @@ export default function LaunchpadPage() {
 
           {/* 🟣 การ์ดที่ 2: NiiVaa SmartEvent */}
           <div
-            onClick={() => router.push('/eventhub')}
+            // 🌟 ปรับปรุง: ชี้ไปที่ Welcome พร้อมระบุ app=event
+            onClick={() => router.push('/welcome?app=event')}
             className="p-6 bg-gradient-to-br from-purple-500/10 to-indigo-500/5 hover:from-purple-500/20 hover:to-indigo-500/10 border border-white/5 hover:border-purple-400 rounded-3xl cursor-pointer flex flex-col justify-between items-start text-left gap-6 group hover:scale-[1.03] transition-all duration-300 shadow-lg shadow-purple-500/5"
           >
             <div className="space-y-2">
@@ -91,12 +92,10 @@ export default function LaunchpadPage() {
           <div
             className="p-6 bg-gradient-to-br from-emerald-500/5 to-teal-500/5 border border-slate-800 rounded-3xl cursor-not-allowed flex flex-col justify-between items-start text-left gap-6 group relative overflow-hidden opacity-80"
           >
-            {/* 🌟 ป้ายกำกับ Coming Soon */}
             <div className="absolute top-5 right-5 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-bold rounded-full flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
               เร็วๆ นี้
             </div>
-
             <div className="space-y-2 opacity-70 grayscale-[20%]">
               <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-emerald-400 w-fit">
                 <GraduationCap size={20} />
@@ -108,8 +107,6 @@ export default function LaunchpadPage() {
                 ระบบบริหารงานแผนงาน พัสดุ การเงิน บริหารวิชาการ และงานบุคคล แบบอัตโนมัติสมบูรณ์แบบ
               </p>
             </div>
-            
-            {/* 🌟 เปลี่ยนข้อความ Call to Action ด้านล่าง */}
             <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 mt-auto">
               กำลังอยู่ในระหว่างการพัฒนา...
             </div>
@@ -117,7 +114,8 @@ export default function LaunchpadPage() {
 
           {/* 🟠 การ์ดที่ 4: NiiVaa SmartExam */}
           <div
-            onClick={() => router.push('/smart-exam-dashboard')}
+            // 🌟 ปรับปรุง: ชี้ไปที่ Welcome พร้อมระบุ app=exam
+            onClick={() => router.push('/welcome?app=exam')}
             className="p-6 bg-gradient-to-br from-orange-500/10 to-amber-500/5 hover:from-orange-500/20 hover:to-amber-500/10 border border-white/5 hover:border-orange-400 rounded-3xl cursor-pointer flex flex-col justify-between items-start text-left gap-6 group hover:scale-[1.03] transition-all duration-300 shadow-lg shadow-orange-500/5"
           >
             <div className="space-y-2">

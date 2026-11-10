@@ -17,7 +17,7 @@ export default async function AdminMembersPage() {
     .from('user_roles')
     .select('role, org_id')
     .eq('profile_id', user.id)
-    .eq('app_id', 'c3333333-3333-3333-3333-3333-333333333333')
+    .eq('app_id', 'c3333333-3333-3333-3333-333333333333')
     .maybeSingle();
 
   // ป้องกันกรณี userRole เป็น null หรือไม่มี org_id
@@ -60,7 +60,7 @@ export default async function AdminMembersPage() {
             <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400">
               <Users size={24} />
             </div>
-            <h1 className="text-3xl font-black text-white tracking-wide">จัดการสมาชิกในโรงเรียน</h1>
+            <h1 className="text-3xl font-black text-white tracking-wide">จัดการสมาชิกในหน่วยงาน</h1>
           </div>
           <p className="text-slate-400">เพิ่มและกำหนดสิทธิ์คุณครูท่านอื่นเพื่อเข้าใช้งานคลังข้อสอบและแผงควบคุมเดียวกัน</p>
         </div>

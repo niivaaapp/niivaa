@@ -1,12 +1,11 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { createClient } from '@/utils/supabase/client';
-import { deleteUserAccount } from '@/app/actions/super-admin';
+// 🌟 เปลี่ยนมาดึงข้อมูลผ่าน Server Action แทน
+import { deleteUserAccount, getAdminUsers } from '@/app/actions/super-admin';
 import { Trash2, Loader2, User, Mail, ShieldAlert } from 'lucide-react';
 
 export default function ManageUsersPage() {
-  const supabase = createClient();
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -17,14 +16,13 @@ export default function ManageUsersPage() {
 
   const fetchUsers = async () => {
     setLoading(true);
-    // ดึงข้อมูลจากตาราง profiles
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (!error && data) {
-      setUsers(data);
+    // 🌟 เรียกใช้ Server Action ที่ทะลุ RLS แล้ว
+    const result = await getAdminUsers();
+    
+    if (result.success && result.data) {
+      setUsers(result.data);
+    } else {
+      console.error("ดึงข้อมูลไม่สำเร็จ:", result.message);
     }
     setLoading(false);
   };
@@ -80,7 +78,7 @@ export default function ManageUsersPage() {
                   </td>
                   <td className="px-6 py-4">
                     <span className="bg-slate-800 px-3 py-1 rounded-full text-xs border border-slate-700">
-                      {user.role || 'Member'}
+                      {user.system_role || user.role || 'Member'}
                     </span>
                   </td>
                   <td className="px-6 py-4">

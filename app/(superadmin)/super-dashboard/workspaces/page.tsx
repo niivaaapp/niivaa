@@ -1,12 +1,11 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { createClient } from '@/utils/supabase/client';
-import { deleteWorkspace } from '@/app/actions/super-admin';
+// 🌟 เปลี่ยนมาดึงข้อมูลผ่าน Server Action แทน
+import { deleteWorkspace, getAdminWorkspaces } from '@/app/actions/super-admin';
 import { Trash2, Loader2, Server } from 'lucide-react';
 
 export default function ManageWorkspacesPage() {
-  const supabase = createClient();
   const [workspaces, setWorkspaces] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -17,12 +16,14 @@ export default function ManageWorkspacesPage() {
 
   const fetchWorkspaces = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('workspaces')
-      .select('*, profiles(first_name, last_name, email)')
-      .order('created_at', { ascending: false });
-
-    if (!error && data) setWorkspaces(data);
+    // 🌟 เรียกใช้ Server Action ที่ทะลุ RLS แล้ว
+    const result = await getAdminWorkspaces();
+    
+    if (result.success && result.data) {
+      setWorkspaces(result.data);
+    } else {
+      console.error("ดึงข้อมูลไม่สำเร็จ:", result.message);
+    }
     setLoading(false);
   };
 
@@ -76,7 +77,7 @@ export default function ManageWorkspacesPage() {
                   </td>
                   <td className="px-6 py-4 font-bold text-white">{ws.workspace_name}</td>
                   <td className="px-6 py-4">
-                    {ws.profiles ? `${ws.profiles.first_name || ''} ${ws.profiles.last_name || ''}` : 'Unknown'}
+                    {ws.profiles ? `${ws.profiles.full_name || ''}` : 'Unknown'}
                   </td>
                   <td className="px-6 py-4">
                     {ws.is_private ? (

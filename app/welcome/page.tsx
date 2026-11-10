@@ -24,7 +24,7 @@ const APP_CONFIGS = {
     serviceCode: 'SMART_EVENT',
     workspaceName: 'SmartEvent Manager',
     title: 'NiiVaa SmartEvent',
-    dashboardUrl: '/events/event-dashboard',
+    dashboardUrl: '/eventhub',
     themeColor: 'from-blue-600 to-indigo-600',
   },
   exam: {
@@ -90,10 +90,64 @@ function WelcomeContent() {
       hasRun.current = true;
       executeSilentOnboarding();
     } else {
-      setLoading(false);
+      // 🌟 [จุดที่แก้ไข] เมื่อเข้ามาแบบปกติ (เช่น คลิกการ์ดจากหน้าหลัก) ให้เช็กสิทธิ์เลย
+      if (hasRun.current) return;
+      hasRun.current = true;
+      checkAccessAndRedirect();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [source, status]);
+
+  // 🌟 [ฟังก์ชันใหม่] ตรวจสอบสิทธิ์จากตาราง Workspaces
+  const checkAccessAndRedirect = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      // ถ้ายังไม่ล็อกอิน ให้ส่งไปหน้า Login
+      if (!user) {
+        router.push('/login');
+        return;
+      }
+
+      // ตรวจสอบว่าผู้ใช้มี Workspace ของแอปนี้ (serviceCode) หรือยัง?
+      const { data: wsData, error: wsError } = await supabase
+        .from('workspaces')
+        .select('id')
+        .eq('owner_id', user.id)
+        .eq('service_code', currentApp.serviceCode)
+        .maybeSingle();
+
+      if (wsError && wsError.code !== 'PGRST116') {
+        throw wsError;
+      }
+
+      if (wsData) {
+        // 🟢 มี Workspace แล้ว -> โชว์ข้อความต้อนรับ 2.5 วินาที แล้วไป Dashboard
+        setWorkspaceId(wsData.id);
+        setAccessStatus('returning_user');
+        setLoading(false);
+        
+        setTimeout(() => {
+          router.push(getFinalDashboardUrl());
+        }, 2500);
+      } else {
+        // 🔴 ยังไม่มี Workspace -> ดีดไปหน้า Pricing ของแอปนั้นๆ
+        const targetApp = appParam || 'media';
+        let pricingUrl = '/';
+        
+        if (targetApp === 'media') pricingUrl = '/smart-media/pricing';
+        else if (targetApp === 'event') pricingUrl = '/eventdashboard/pricing';
+        else if (targetApp === 'exam') pricingUrl = '/smartexam/pricing';
+        
+        router.push(pricingUrl);
+      }
+
+    } catch (error) {
+      console.error("Check Access Error:", error);
+      setAccessStatus('error');
+      setLoading(false);
+    }
+  };
 
   // 🌟 ฟังก์ชันคำนวณ URL ให้แม่นยำที่สุด
   const getFinalDashboardUrl = () => {
@@ -216,7 +270,7 @@ function WelcomeContent() {
     return (
       <div className="flex flex-col items-center justify-center h-full min-h-[60vh] z-20 relative">
         <Loader2 className="w-14 h-14 text-cyan-400 animate-spin mb-6 drop-shadow-[0_0_15px_rgba(34,211,238,0.5)]" />
-        <p className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-400 animate-pulse">กำลังจัดเตรียมพื้นที่ทำงาน...</p>
+        <p className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-400 animate-pulse">กำลังตรวจสอบสิทธิ์การเข้าใช้งาน...</p>
       </div>
     );
   }
