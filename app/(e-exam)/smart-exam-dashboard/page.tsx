@@ -118,7 +118,7 @@ export default async function SmartExamDashboardPage() {
               'use server';
               const sb = await createClient();
               await sb.auth.signOut();
-              redirect('/login');
+              redirect('/');
             }}>
               <button type="submit" className="flex items-center justify-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl text-xs font-bold transition-all shadow-md">
                 <LogOut size={16} /> <span className="hidden sm:inline">ออกจากระบบ</span>

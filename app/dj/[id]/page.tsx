@@ -27,46 +27,65 @@ export default function DJManagerPage() {
     const [requestAlias, setRequestAlias] = useState('');
     const [requestSinger, setRequestSinger] = useState('');
 
-    // --- [1. ดึงข้อมูลคิวเพลง] ---
-    // --- [1. ดึงข้อมูลคิวเพลง และจัดการ Auto-Redirect] ---
     // --- [1. ดึงข้อมูลคิวเพลง และตั้งค่าการเลือกอัตโนมัติ] ---
     const fetchAllData = useCallback(async () => {
-        if (!playlistId) return;
         try {
-            // 1. โหลดรายชื่อ Playlist ทั้งหมดขึ้นมาก่อน
-            const { data: allPData } = await supabase.from('playlists').select('id, name').order('name', { ascending: true });
-            
+            // 🌟 1. ดึงข้อมูลผู้ใช้ (User) ปัจจุบันที่ล็อกอินอยู่
+            const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+            if (userError || !user) {
+                console.error("No user logged in");
+                return;
+            }
+
+            // 🌟 2. โหลดรายชื่อ Playlist เฉพาะของ User คนนี้เท่านั้น
+            const { data: allPData, error: playlistError } = await supabase
+                .from('playlists')
+                .select('id, name')
+                .eq('user_id', user.id) // <--- กรองเอาเฉพาะเพลย์ลิสต์ของตัวเอง
+                .order('name', { ascending: true });
+
+            if (playlistError) throw playlistError;
+
             if (allPData && allPData.length > 0) {
                 setAllPlaylists(allPData);
-                
-                // 🌟 ตรวจสอบว่า ID จาก URL มีในฐานข้อมูลหรือไม่
-                const foundPlaylist = allPData.find(p => p.id === playlistId);
-                
+
+                // 🌟 ตรวจสอบว่า ID จาก URL (ถ้ามีและไม่ใช่คำว่า selector) ตรงกับเพลย์ลิสต์ของตัวเองไหม
+                const foundPlaylist = (playlistId && playlistId !== 'selector')
+                    ? allPData.find(p => p.id === playlistId)
+                    : null;
+
                 if (foundPlaylist) {
                     // ถ้าเจอ: ให้ล็อก State เป็น ID นี้ (ช่อง Select จะแสดงชื่อนี้ทันที)
                     setCurrentSelectId(foundPlaylist.id);
                     setPlaylistName(foundPlaylist.name);
+
+                    // 3. ดึงข้อมูลคิวเพลง (Tracks) เมื่อได้เพลย์ลิสต์ที่ถูกต้องแล้ว
+                    const { data: tData, error: trackError } = await supabase
+                        .from('tracks')
+                        .select(`*, master_songs(*)`)
+                        .eq('playlist_id', foundPlaylist.id)
+                        .order('order_index', { ascending: true });
+
+                    if (!trackError && tData) {
+                        setTracks(tData);
+                    }
                 } else {
-                    // 🌟 ถ้าไม่เจอ (หรือเข้าผ่าน /dj/selector): ให้ล็อกเป็น "รายการแรกสุด" แล้วเด้ง URL ไปหา
+                    // 🌟 ถ้าไม่เจอ (เช่น เข้าผ่าน /dj/selector หรือเอา ID คนอื่นมาใส่): 
+                    // ให้ล็อกเป็น "รายการแรกสุดของตัวเอง" แล้วเด้ง URL ไปหา
                     setCurrentSelectId(allPData[0].id);
                     setPlaylistName(allPData[0].name);
                     router.replace(`/dj/${allPData[0].id}`);
-                    return; // หยุดทำงานเพื่อรอโหลดหน้าใหม่
+                    return; // หยุดทำงานเพื่อรอโหลดหน้าใหม่ตาม URL ที่ถูกต้อง
                 }
             } else {
+                // กรณี User สมัครใหม่และยังไม่เคยสร้าง Playlist เลย
                 setAllPlaylists([]);
+                setTracks([]);
+                // หากต้องการให้เด้งไปหน้าสร้างเพลย์ลิสต์ สามารถเปิดคอมเมนต์ด้านล่างได้ครับ
+                // router.replace('/create-playlist');
             }
 
-            // 2. ดึงข้อมูลคิวเพลง (Tracks) ตามปกติ
-            const { data: tData, error } = await supabase
-                .from('tracks')
-                .select(`*, master_songs(*)`)
-                .eq('playlist_id', playlistId)
-                .order('order_index', { ascending: true });
-
-            if (!error && tData) {
-                setTracks(tData);
-            }
         } catch (err) {
             console.error("Error fetching data:", err);
         }
@@ -314,10 +333,10 @@ export default function DJManagerPage() {
                             💡 โปรดตรวจสอบ เลือกอัลบั้ม หรือชุดสื่อที่ต้องการปรับปรุงก่อนเสมอ
                         </span>
                     </div>
-                    
+
                     {/* ส่วนเลือก Playlist และค้นหา */}
                     <div className="flex flex-col sm:flex-row gap-2 mb-3">
-                        
+
                         {/* 🌟 3. ผูกช่อง Select เข้ากับ State ตัวใหม่ของเรา */}
                         <select
                             value={currentSelectId}

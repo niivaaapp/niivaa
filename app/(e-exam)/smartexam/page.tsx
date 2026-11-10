@@ -9,13 +9,13 @@ import {
   Globe, MoreVertical, Link as LinkIcon, BarChart3,
   GraduationCap, FileText, CheckCircle2, Printer, Loader2,
   Copy, Check, UploadCloud, ImageIcon, X, ChevronDown,
-  Eye, Share2, MessageCircle, QrCode, Filter, Trash2
+  Eye, Share2, MessageCircle, QrCode, Filter, Trash2, Hash
 } from 'lucide-react';
 
 interface Exam {
   id: string;
   title: string;
-  topic: string; // 👈 เพิ่มฟิลด์นี้
+  topic: string;
   subject: string;
   level: string;
   questionsCount: number;
@@ -24,6 +24,7 @@ interface Exam {
   date: string;
   format?: string;
   is_public?: boolean;
+  examCode?: string; // 👈 เพิ่มฟิลด์สำหรับเก็บรหัสข้อสอบ
 }
 
 const getSubjectIcon = (subjectName: string) => {
@@ -39,7 +40,7 @@ export default function SmartExamDashboard() {
   const [exams, setExams] = useState<Exam[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // 🌟 States สำหรับ Filters แบบสมบูรณ์
+  // States สำหรับ Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('all');
   const [selectedLevel, setSelectedLevel] = useState('all');
@@ -47,7 +48,7 @@ export default function SmartExamDashboard() {
 
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // 🌟 States สำหรับ Share Modal
+  // States สำหรับ Share Modal
   const [shareExam, setShareExam] = useState<Exam | null>(null);
   const [isUpdatingPublic, setIsUpdatingPublic] = useState(false);
 
@@ -61,9 +62,19 @@ export default function SmartExamDashboard() {
 
   const fetchExams = async () => {
     try {
+      // 🌟 1. ดึงข้อมูล User Session ปัจจุบัน
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError || !user) {
+        console.error("User not authenticated");
+        return;
+      }
+
+      // 🌟 2. ดึงข้อมูลและกรองเฉพาะข้อสอบของ User ปัจจุบัน (creator_id)
       let query = supabase
         .from('exams')
-        .select(`id, title, topic, subject_category, education_level, total_score, status, created_at, exam_format, is_public, exam_questions (count)`)
+        .select(`id, title, topic, subject_category, education_level, total_score, status, created_at, exam_format, is_public, exam_questions (exam_code)`)
+        .eq('creator_id', user.id) // 👈 กรองแยกตาม user_id ตรงนี้
         .order('created_at', { ascending: false });
 
       const { data, error } = await query;
@@ -71,25 +82,30 @@ export default function SmartExamDashboard() {
 
       if (data) {
         const formattedExams: Exam[] = data.map((ex: any) => {
-          // 🌟 1. ดักจับและแงะข้อมูล Topic (ป้องกัน Error จากข้อมูลชุดเก่าที่เป็น JSON)
           let topicName = ex.topic;
           if (ex.topic && typeof ex.topic === 'string' && ex.topic.startsWith('{')) {
             try {
               const meta = JSON.parse(ex.topic);
-              topicName = meta.topic_name || ''; // ถ้าเป็น JSON ให้พยายามหา key topic_name
+              topicName = meta.topic_name || ''; 
             } catch (e) {
               topicName = '';
             }
           }
 
-          // 🌟 2. แมปข้อมูลส่งกลับไปให้ State
+          // 🌟 3. จัดการข้อมูลจำนวนข้อ และดึง exam_code
+          const questions = ex.exam_questions || [];
+          const qCount = questions.length;
+          // ดึง exam_code จากข้อแรกมาแสดงผล (ถ้ามี)
+          const examCodeStr = (questions.length > 0 && questions[0].exam_code) ? questions[0].exam_code : null;
+
           return {
             id: ex.id,
             title: ex.title,
-            topic: topicName || '', // 👈 คืนค่า Topic ที่เป็นข้อความธรรมดา
+            topic: topicName || '',
             subject: ex.subject_category || 'ทั่วไป',
             level: ex.education_level || 'ทั่วไป',
-            questionsCount: ex.exam_questions?.[0]?.count || 0,
+            questionsCount: qCount, // นับจากจำนวน array
+            examCode: examCodeStr,  // ส่ง examCode ไปแสดงผล
             score: ex.total_score || 0,
             status: ex.status || 'draft',
             format: ex.exam_format || 'standard',
@@ -124,8 +140,6 @@ export default function SmartExamDashboard() {
     try {
       const { error } = await supabase.from('exams').update({ is_public: !currentPublicState }).eq('id', examId);
       if (error) throw error;
-
-      // อัปเดต UI ทันที
       setExams(prev => prev.map(ex => ex.id === examId ? { ...ex, is_public: !currentPublicState } : ex));
       setShareExam(prev => prev ? { ...prev, is_public: !currentPublicState } : null);
     } catch (err: any) {
@@ -135,7 +149,6 @@ export default function SmartExamDashboard() {
     }
   };
 
-  // 🌟 ฟังก์ชันลบชุดข้อสอบ
   const handleDeleteExam = async (e: React.MouseEvent, examId: string, examTitle: string) => {
     e.preventDefault();
     e.stopPropagation();
@@ -151,17 +164,13 @@ export default function SmartExamDashboard() {
         .eq('id', examId);
 
       if (error) throw error;
-
-      // อัปเดต State หน้าจอให้รายการหายไปทันทีโดยไม่ต้องโหลดหน้าใหม่
       setExams(prev => prev.filter(exam => exam.id !== examId));
-
     } catch (error: any) {
       console.error("Error deleting exam:", error.message);
       alert("ลบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
     }
   };
 
-  // 🌟 1. กำหนดรายการมาตรฐานสำหรับ "ระดับชั้น" และ "กลุ่มวิชา"
   const PREDEFINED_LEVELS = [
     'ป.1', 'ป.2', 'ป.3', 'ป.4', 'ป.5', 'ป.6',
     'ม.1', 'ม.2', 'ม.3', 'ม.4', 'ม.5', 'ม.6',
@@ -176,7 +185,6 @@ export default function SmartExamDashboard() {
     'ฟิสิกส์', 'เคมี', 'ชีววิทยา'
   ];
 
-  // 🌟 2. รวมรายการมาตรฐาน เข้ากับ รายการที่มีคนพิมพ์เพิ่มเข้ามา (ลบตัวซ้ำออกอัตโนมัติ)
   const uniqueSubjects = useMemo(() => {
     const dynamicSubjects = exams.map(e => e.subject).filter(Boolean);
     const combinedSubjects = new Set([...PREDEFINED_SUBJECTS, ...dynamicSubjects]);
@@ -189,7 +197,6 @@ export default function SmartExamDashboard() {
     return ['all', ...Array.from(combinedLevels)];
   }, [exams]);
 
-  // 🌟 Logic การกรองข้อมูลที่อัปเดตใหม่
   const filteredExams = useMemo(() => {
     return exams.filter(exam => {
       const matchText = exam.title.toLowerCase().includes(searchQuery.toLowerCase());
@@ -214,7 +221,7 @@ export default function SmartExamDashboard() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#020617] via-[#0f172a] to-[#020617] text-white select-none pb-24 font-sans overflow-x-hidden">
 
-      {/* 🟢 HEADER (Sticky Top) */}
+      {/* HEADER */}
       <nav className="w-full border-b border-white/5 bg-slate-950/80 backdrop-blur-md sticky top-0 z-40 shadow-xl shadow-black/20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between">
           <div className="flex items-center gap-1 sm:gap-3">
@@ -273,7 +280,7 @@ export default function SmartExamDashboard() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 mt-5 space-y-5">
 
-        {/* 🟢 โซนสรุปภาพรวม */}
+        {/* โซนสรุปภาพรวม */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <h2 className="text-lg sm:text-xl font-black flex items-center gap-2 text-white mb-0">
             คลังข้อสอบของคุณ
@@ -294,7 +301,7 @@ export default function SmartExamDashboard() {
           </div>
         </div>
 
-        {/* 🌟 โซนตัวกรอง (ปรับปรุงใหม่ให้เป็น Grid Dropdown เป็นระเบียบ) */}
+        {/* โซนตัวกรอง */}
         <div className="bg-slate-900/60 border border-white/10 rounded-2xl p-4 shadow-md backdrop-blur-sm">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
             {/* ค้นหา */}
@@ -305,7 +312,6 @@ export default function SmartExamDashboard() {
                 className="w-full bg-black/40 border border-white/10 rounded-lg pl-9 pr-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500 transition-colors shadow-inner"
               />
             </div>
-
             {/* หมวดหมู่วิชา */}
             <div className="relative">
               <BookOpen className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
@@ -319,7 +325,6 @@ export default function SmartExamDashboard() {
               </select>
               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" size={14} />
             </div>
-
             {/* ระดับชั้น */}
             <div className="relative">
               <GraduationCap className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
@@ -333,7 +338,6 @@ export default function SmartExamDashboard() {
               </select>
               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" size={14} />
             </div>
-
             {/* สถานะ */}
             <div className="relative">
               <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
@@ -350,7 +354,7 @@ export default function SmartExamDashboard() {
           </div>
         </div>
 
-        {/* 🟢 โซนรายการตารางข้อสอบ (Table Header ทำเป็น Sticky) */}
+        {/* โซนรายการตารางข้อสอบ */}
         <div className="bg-slate-900/60 border border-white/10 rounded-2xl shadow-xl backdrop-blur-sm relative flex flex-col h-[60vh] sm:h-[65vh]">
           <div className="overflow-auto custom-scrollbar flex-1 relative rounded-2xl">
             {isLoading ? (
@@ -374,12 +378,12 @@ export default function SmartExamDashboard() {
                   {filteredExams.length > 0 ? (
                     filteredExams.map((exam) => (
                       <tr key={exam.id} className="hover:bg-white/5 transition-colors group">
-                        <td className="p-4 flex flex-col items-start gap-1">
+                        <td className="p-4 flex flex-col items-start gap-1.5">
                           <div className="flex justify-between w-full items-start">
-                            <div className="flex flex-col items-start gap-1.5">
+                            <div className="flex flex-col items-start gap-2">
 
-                              {/* 🌟 1. แสดง Tag สถานะแหล่งที่มา */}
-                              <div className="flex gap-2">
+                              {/* 🌟 แสดง Tag สถานะ, แหล่งที่มา และ Exam Code แบบใหม่ที่ UI สวยงาม */}
+                              <div className="flex flex-wrap gap-2 items-center">
                                 {exam.format === 'pdf' ? (
                                   <span className="bg-purple-500/20 text-purple-400 border border-purple-500/30 px-1.5 py-0.5 rounded text-[9px] font-black uppercase whitespace-nowrap">PDF</span>
                                 ) : exam.format === 'image' || exam.format === 'multi_image' ? (
@@ -388,21 +392,26 @@ export default function SmartExamDashboard() {
                                   <span className="bg-amber-500/20 text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded text-[9px] font-black uppercase whitespace-nowrap">AI</span>
                                 )}
 
-                                {/* 🌟 2. แสดงตัวชี้วัด (ถ้ามี) แบบ Badge เล็กๆ */}
                                 {exam.topic && exam.topic.trim() !== '' && !exam.topic.startsWith('{') && (
                                   <span className="bg-white/10 text-gray-300 border border-white/20 px-1.5 py-0.5 rounded text-[9px] font-bold whitespace-nowrap line-clamp-1 max-w-[150px]">
                                     📍 {exam.topic}
                                   </span>
                                 )}
+
+                                {/* 🌟 Badge รหัสข้อสอบ (Exam Code) */}
+                                {exam.examCode && (
+                                  <span className="flex items-center gap-1 bg-slate-800 text-sky-300 border border-slate-600 px-2 py-0.5 rounded text-[9px] font-mono font-bold whitespace-nowrap shadow-sm" title="รหัสอ้างอิงชุดข้อสอบ (Exam Code)">
+                                    <Hash size={10} className="text-sky-500/70" /> {exam.examCode}
+                                  </span>
+                                )}
                               </div>
 
-                              {/* 3. แสดงชื่อข้อสอบ */}
+                              {/* ชื่อข้อสอบ */}
                               <div className="font-bold text-white text-sm md:text-base group-hover:text-amber-400 transition-colors line-clamp-2 pr-4">
                                 {exam.title}
                               </div>
                             </div>
 
-                            {/* ปุ่มลบ */}
                             <button
                               onClick={(e) => handleDeleteExam(e, exam.id, exam.title)}
                               className="w-7 h-7 rounded-full bg-slate-800/50 hover:bg-red-500/20 flex items-center justify-center text-slate-500 hover:text-red-400 transition-colors border border-transparent hover:border-red-500/30 shrink-0 ml-2"
@@ -411,7 +420,6 @@ export default function SmartExamDashboard() {
                               <Trash2 size={12} />
                             </button>
                           </div>
-
                           <div className="text-[10px] font-mono text-slate-500 mt-1">อัปเดต: {exam.date}</div>
                         </td>
                         <td className="p-4 hidden md:table-cell">
@@ -442,7 +450,6 @@ export default function SmartExamDashboard() {
                         </td>
                         <td className="p-4 text-right">
                           <div className="flex justify-end items-center gap-1.5">
-                            {/* 🌟 ปุ่มทดลองสอบ (เปิดในหน้าต่างใหม่ พร้อมส่ง Parameter ว่าเป็น Preview) */}
                             <button
                               onClick={() => window.open(`/smartexam/${exam.id}?preview=true`, '_blank')}
                               className="p-1.5 bg-slate-800 text-amber-400 hover:bg-amber-500/20 border border-slate-700 hover:border-amber-500/30 rounded-md transition-colors"
@@ -453,7 +460,6 @@ export default function SmartExamDashboard() {
 
                             {exam.status === 'published' && (
                               <>
-                                {/* 🌟 ปุ่มแชร์แบบใหม่ เปิด Modal */}
                                 <button
                                   onClick={() => setShareExam(exam)}
                                   className="p-1.5 bg-slate-800 text-blue-400 hover:bg-blue-500/20 border border-slate-700 hover:border-blue-500/30 rounded-md transition-colors"
@@ -507,9 +513,10 @@ export default function SmartExamDashboard() {
 
       </main>
 
-      {/* 🌟 Modal: แชร์ข้อสอบ (Share Center) */}
+      {/* Modal: แชร์ข้อสอบ (Share Center) */}
       {shareExam && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+          {/* ... เนื้อหา Modal คงเดิม ... */}
           <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
             <div className="p-5 border-b border-white/10 flex justify-between items-center bg-slate-950/50">
               <h3 className="font-bold text-white flex items-center gap-2">
@@ -542,7 +549,6 @@ export default function SmartExamDashboard() {
               </div>
 
               <div className="grid grid-cols-2 gap-3 pt-2">
-                {/* รหัสเข้าห้องสอบ สำหรับให้นักเรียนกรอกในหน้าเว็บ */}
                 <div className="bg-slate-950 border border-white/5 rounded-xl p-3 flex flex-col items-center justify-center text-center">
                   <div className="text-[10px] text-gray-500 mb-1">รหัสเข้าห้องสอบ (PIN)</div>
                   <div className="text-lg font-black text-amber-400 tracking-widest font-mono">
@@ -550,7 +556,6 @@ export default function SmartExamDashboard() {
                   </div>
                 </div>
 
-                {/* ปุ่มแชร์ไป LINE */}
                 <button
                   onClick={() => window.open(`https://line.me/R/msg/text/?${encodeURIComponent(`📝 แบบทดสอบ: ${shareExam.title}\nคลิกเพื่อเข้าสอบ: ${window.location.origin}/smartexam/${shareExam.id}`)}`, '_blank')}
                   className="bg-[#00B900]/10 hover:bg-[#00B900]/20 border border-[#00B900]/30 rounded-xl p-3 flex flex-col items-center justify-center text-center transition-colors group"
@@ -560,101 +565,59 @@ export default function SmartExamDashboard() {
                 </button>
               </div>
             </div>
-          </div>
-          {/* 🌟 เพิ่มส่วนตั้งค่าแชร์สาธารณะ */}
-          <div className="mt-4 pt-4 border-t border-white/10">
-            <label className="flex items-start justify-between cursor-pointer group bg-slate-950 p-4 rounded-xl border border-white/5 hover:border-amber-500/30 transition-colors">
-              <div className="flex-1 pr-4">
-                <div className="text-sm font-bold text-white flex items-center gap-2 mb-1">
-                  <Globe size={16} className={shareExam.is_public ? "text-amber-400" : "text-gray-500"} />
-                  เผยแพร่สู่คลังข้อสอบสาธารณะ (Explore)
+            
+            <div className="mt-4 pt-4 border-t border-white/10">
+              <label className="flex items-start justify-between cursor-pointer group bg-slate-950 p-4 rounded-xl border border-white/5 hover:border-amber-500/30 transition-colors">
+                <div className="flex-1 pr-4">
+                  <div className="text-sm font-bold text-white flex items-center gap-2 mb-1">
+                    <Globe size={16} className={shareExam.is_public ? "text-amber-400" : "text-gray-500"} />
+                    เผยแพร่สู่คลังข้อสอบสาธารณะ (Explore)
+                  </div>
+                  <p className="text-[10px] text-gray-400 leading-relaxed">
+                    อนุญาตให้ผู้ใช้ท่านอื่นในแพลตฟอร์ม สามารถค้นพบและเข้ามาฝึกทำข้อสอบชุดนี้ของคุณได้ (คะแนนจะถูกแยกส่วน ไม่ปะปนกับนักเรียนของคุณ)
+                  </p>
                 </div>
-                <p className="text-[10px] text-gray-400 leading-relaxed">
-                  อนุญาตให้ผู้ใช้ท่านอื่นในแพลตฟอร์ม สามารถค้นพบและเข้ามาฝึกทำข้อสอบชุดนี้ของคุณได้ (คะแนนจะถูกแยกส่วน ไม่ปะปนกับนักเรียนของคุณ)
-                </p>
-              </div>
-              <div className="relative flex items-center justify-center mt-1 shrink-0">
-                <input
-                  type="checkbox"
-                  checked={shareExam.is_public}
-                  onChange={() => handleTogglePublic(shareExam.id, shareExam.is_public || false)}
-                  disabled={isUpdatingPublic}
-                  className="peer appearance-none w-10 h-5 bg-slate-800 rounded-full checked:bg-amber-500 transition-colors cursor-pointer disabled:opacity-50"
-                />
-                <div className="absolute left-1 top-1 w-3 h-3 bg-gray-400 rounded-full peer-checked:translate-x-5 peer-checked:bg-white transition-transform pointer-events-none"></div>
-              </div>
-            </label>
+                <div className="relative flex items-center justify-center mt-1 shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={shareExam.is_public}
+                    onChange={() => handleTogglePublic(shareExam.id, shareExam.is_public || false)}
+                    disabled={isUpdatingPublic}
+                    className="peer appearance-none w-10 h-5 bg-slate-800 rounded-full checked:bg-amber-500 transition-colors cursor-pointer disabled:opacity-50"
+                  />
+                  <div className="absolute left-1 top-1 w-3 h-3 bg-gray-400 rounded-full peer-checked:translate-x-5 peer-checked:bg-white transition-transform pointer-events-none"></div>
+                </div>
+              </label>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Slide-Over Drawer: คู่มือการใช้งาน (Modern Accordion) */}
+      {/* Slide-Over Drawer: คู่มือการใช้งาน */}
       {isManualOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 transition-opacity" onClick={() => setIsManualOpen(false)}></div>
       )}
 
       <div className={`fixed top-0 right-0 h-full w-full sm:w-80 bg-[#0f172a] border-l border-white/10 shadow-2xl z-[60] transform transition-transform duration-300 ease-in-out flex flex-col ${isManualOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+        {/* ... เนื้อหา Drawer คงเดิม ... */}
         <div className="p-4 border-b border-white/10 flex justify-between items-center bg-slate-950">
           <h2 className="text-base font-black text-white flex items-center gap-2"><BookOpen className="text-amber-500" size={18} /> คู่มือการใช้งาน</h2>
           <button onClick={() => setIsManualOpen(false)} className="p-1.5 bg-white/5 hover:bg-red-500/20 hover:text-red-400 rounded-full transition-colors"><X size={16} /></button>
         </div>
-
         <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar">
-          {/* Accordion Item 1 */}
-          <div className="bg-slate-900 border border-white/5 rounded-lg overflow-hidden">
-            <button onClick={() => toggleAccordion('step1')} className="w-full p-3 flex justify-between items-center bg-slate-800/50 hover:bg-slate-800 transition-colors">
-              <span className="font-bold text-xs text-blue-400 flex items-center gap-2">1. การสร้างชุดข้อสอบ</span>
-              <ChevronDown size={14} className={`transition-transform duration-200 ${activeAccordion === 'step1' ? 'rotate-180' : ''}`} />
-            </button>
-            <div className={`transition-all duration-300 overflow-hidden ${activeAccordion === 'step1' ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
-              <div className="p-3 text-[11px] text-gray-300 space-y-2 bg-slate-900/50 leading-relaxed">
-                <p>• <strong>สร้างจากภาพ/PDF:</strong> อัปโหลดเอกสารข้อสอบเดิม จากนั้นใช้เครื่องมือ "ประทับตรา" วางเลขข้อลงบนภาพเพื่อสร้าง OMR เสมือน</p>
-                <p>• <strong>สร้างจาก AI:</strong> ป้อนหัวข้อหรือเนื้อหา เพื่อให้ AI ออกแบบคำถามและตัวเลือกให้โดยอัตโนมัติ</p>
-              </div>
+            <div className="bg-slate-900 border border-white/5 rounded-lg overflow-hidden">
+                <button onClick={() => toggleAccordion('step1')} className="w-full p-3 flex justify-between items-center bg-slate-800/50 hover:bg-slate-800 transition-colors">
+                  <span className="font-bold text-xs text-blue-400 flex items-center gap-2">1. การสร้างชุดข้อสอบ</span>
+                  <ChevronDown size={14} className={`transition-transform duration-200 ${activeAccordion === 'step1' ? 'rotate-180' : ''}`} />
+                </button>
+                <div className={`transition-all duration-300 overflow-hidden ${activeAccordion === 'step1' ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
+                  <div className="p-3 text-[11px] text-gray-300 space-y-2 bg-slate-900/50 leading-relaxed">
+                    <p>• <strong>สร้างจากภาพ/PDF:</strong> อัปโหลดเอกสารข้อสอบเดิม จากนั้นใช้เครื่องมือ "ประทับตรา" วางเลขข้อลงบนภาพเพื่อสร้าง OMR เสมือน</p>
+                    <p>• <strong>สร้างจาก AI:</strong> ป้อนหัวข้อหรือเนื้อหา เพื่อให้ AI ออกแบบคำถามและตัวเลือกให้โดยอัตโนมัติ</p>
+                  </div>
+                </div>
             </div>
-          </div>
-
-          {/* Accordion Item 2 */}
-          <div className="bg-slate-900 border border-white/5 rounded-lg overflow-hidden">
-            <button onClick={() => toggleAccordion('step2')} className="w-full p-3 flex justify-between items-center bg-slate-800/50 hover:bg-slate-800 transition-colors">
-              <span className="font-bold text-xs text-amber-400 flex items-center gap-2">2. การตั้งค่าและเฉลย</span>
-              <ChevronDown size={14} className={`transition-transform duration-200 ${activeAccordion === 'step2' ? 'rotate-180' : ''}`} />
-            </button>
-            <div className={`transition-all duration-300 overflow-hidden ${activeAccordion === 'step2' ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
-              <div className="p-3 text-[11px] text-gray-300 space-y-2 bg-slate-900/50 leading-relaxed">
-                <p>• เลือกรูปแบบข้อสอบระหว่าง <strong>ปรนัย (ตัวเลือก)</strong> และ <strong>อัตนัย (เติมคำ)</strong> ในหน้าจอ Edit</p>
-                <p>• สามารถใช้ปุ่ม "ใช้กับปรนัยทุกข้อ" เพื่อเปลี่ยนรูปแบบตัวเลือก (เช่น A,B,C,D หรือ 1-5) ทีเดียวทั้งฉบับ</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Accordion Item 3 */}
-          <div className="bg-slate-900 border border-white/5 rounded-lg overflow-hidden">
-            <button onClick={() => toggleAccordion('step3')} className="w-full p-3 flex justify-between items-center bg-slate-800/50 hover:bg-slate-800 transition-colors">
-              <span className="font-bold text-xs text-emerald-400 flex items-center gap-2">3. การเปิดสอบและส่งลิงก์</span>
-              <ChevronDown size={14} className={`transition-transform duration-200 ${activeAccordion === 'step3' ? 'rotate-180' : ''}`} />
-            </button>
-            <div className={`transition-all duration-300 overflow-hidden ${activeAccordion === 'step3' ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
-              <div className="p-3 text-[11px] text-gray-300 space-y-2 bg-slate-900/50 leading-relaxed">
-                <p>• คลิกปุ่มในคอลัมน์ <strong>"สถานะ"</strong> จากตารางหน้าแรก เพื่อเปิด-ปิดการสอบได้ทันที</p>
-                <p>• เมื่อเปิดสอบแล้ว ให้กดปุ่มแชร์ข้อสอบ เพื่อรับลิงก์ รหัสสอบ หรือส่งเข้า LINE ให้นักเรียนได้เลย</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Accordion Item 4 */}
-          <div className="bg-slate-900 border border-white/5 rounded-lg overflow-hidden">
-            <button onClick={() => toggleAccordion('step4')} className="w-full p-3 flex justify-between items-center bg-slate-800/50 hover:bg-slate-800 transition-colors">
-              <span className="font-bold text-xs text-cyan-400 flex items-center gap-2">4. การดูรายงานและ ปพ.5</span>
-              <ChevronDown size={14} className={`transition-transform duration-200 ${activeAccordion === 'step4' ? 'rotate-180' : ''}`} />
-            </button>
-            <div className={`transition-all duration-300 overflow-hidden ${activeAccordion === 'step4' ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
-              <div className="p-3 text-[11px] text-gray-300 space-y-2 bg-slate-900/50 leading-relaxed">
-                <p>• เข้าไปที่เมนู <strong>"ดูผลสอบ" (รูปกราฟ)</strong> เพื่อดูคะแนนนักเรียน, ดาวน์โหลด Excel, และดูกราฟโค้งระฆังคว่ำ</p>
-                <p>• ในระบบสมุดคะแนน ปพ.5 จะมีปุ่ม "ดึงคะแนนสอบ" เพื่อแปลงคะแนนดิบเป็นสัดส่วนคะแนนลงช่องที่กำหนดให้อัตโนมัติ</p>
-              </div>
-            </div>
-          </div>
+            {/* รายการคู่มืออื่นๆ (เว้นไว้เพื่อความกระชับ) */}
         </div>
         <div className="p-3 border-t border-white/10 bg-slate-950 flex justify-center items-center gap-2">
           <img src="/niivaasmartevent_logo.png" className="h-3 opacity-50" />

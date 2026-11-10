@@ -53,7 +53,7 @@ export default async function AdminMembersPage() {
 
         {/* Header */}
         <div className="mb-8">
-          <Link href="/smartexam/dashboard" className="inline-flex items-center text-sm text-slate-400 hover:text-rose-400 transition-colors mb-6">
+          <Link href="/smart-exam-dashboard" className="inline-flex items-center text-sm text-slate-400 hover:text-rose-400 transition-colors mb-6">
             <ArrowLeft className="w-4 h-4 mr-2" /> กลับไปหน้าแผงควบคุม
           </Link>
           <div className="flex items-center gap-3 mb-2">
