@@ -2,36 +2,23 @@
 
 import React, { Suspense, useState, useEffect } from 'react'; 
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation'; // 🌟 1. เพิ่ม useRouter
 import {
     Music, Mic2, PlusCircle, ListMusic, Video, Layers,
-    UploadCloud, FileEdit, MonitorPlay, Sparkles, GraduationCap
+    UploadCloud, FileEdit, MonitorPlay, Sparkles, GraduationCap, LogIn
 } from 'lucide-react';
 
 import { createClient } from '@/utils/supabase/client';
 
 function SmartMediaDashboardContent() {
-    const MenuCard = ({ href, icon: Icon, title, desc, colorClass, badge }: any) => (
-        <Link href={href} className="group relative bg-[#1e293b]/60 backdrop-blur-md border border-slate-700/50 rounded-2xl p-6 hover:border-cyan-500/50 transition-all duration-300 hover:shadow-[0_0_25px_rgba(6,182,212,0.15)] hover:-translate-y-1 overflow-hidden flex flex-col h-full">
-            <div className={`absolute top-0 left-0 w-1 h-full ${colorClass}`}></div>
-            {badge && (
-                <span className="absolute top-4 right-4 bg-gradient-to-r from-pink-500 to-rose-500 text-white text-[10px] font-black px-2 py-1 rounded-full uppercase tracking-widest shadow-lg">
-                    {badge}
-                </span>
-            )}
-            <div className={`p-3 rounded-xl inline-block w-fit bg-slate-800 group-hover:bg-slate-700 transition-colors mb-4`}>
-                <Icon className={`w-7 h-7 ${colorClass.replace('bg-', 'text-')}`} />
-            </div>
-            <h3 className="text-white font-bold text-lg mb-2 group-hover:text-cyan-300 transition-colors">{title}</h3>
-            <p className="text-slate-400 text-sm leading-relaxed flex-1">{desc}</p>
-        </Link>
-    );
-
+    const router = useRouter(); // 🌟 2. เรียกใช้งาน router
     const searchParams = useSearchParams();
     const eventId = searchParams.get('event_id') || '';
     
-    const [userEmail, setUserEmail] = useState<string>('');
-    // 🌟 1. เพิ่ม State สำหรับเก็บ ID ของเพลย์ลิสต์
+    // 🌟 3. State สำหรับตรวจสอบสถานะการ Login (Auth Guard)
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+    const [userDisplay, setUserDisplay] = useState<string>('');
     const [playlistId, setPlaylistId] = useState<string | null>(null);
     const supabase = createClient();
 
@@ -39,9 +26,10 @@ function SmartMediaDashboardContent() {
         const fetchUserDataAndPlaylist = async () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
-                setUserEmail(user.email || '');
+                setIsAuthenticated(true);
+                // 🌟 4. รองรับทั้ง Email และ เบอร์โทรศัพท์ (ป้องกันกรณีสมัครด้วยเบอร์โทรแล้วบัค)
+                setUserDisplay(user.email || user.phone || user.user_metadata?.full_name || 'สมาชิก NiiVaa');
                 
-                // 🌟 2. ดึงข้อมูลเพลย์ลิสต์ล่าสุดของ User คนนี้
                 const { data: playlist } = await supabase
                     .from('playlists')
                     .select('id')
@@ -54,9 +42,37 @@ function SmartMediaDashboardContent() {
                     setPlaylistId(playlist.id);
                 }
             }
+            setIsCheckingAuth(false);
         };
         fetchUserDataAndPlaylist();
     }, []);
+
+    // 🌟 5. ปรับปรุง MenuCard ให้ดักจับการคลิก (หากยังไม่ล็อกอิน ให้เตือนและพาไปหน้า Login)
+    const MenuCard = ({ href, icon: Icon, title, desc, colorClass, badge, requireAuth = true }: any) => {
+        const handleClick = (e: React.MouseEvent) => {
+            if (requireAuth && !isAuthenticated && !isCheckingAuth) {
+                e.preventDefault(); // หยุดการเปลี่ยนหน้า
+                alert('⚠️ กรุณาเข้าสู่ระบบ หรือ สมัครสมาชิก ก่อนเข้าใช้งานเมนูนี้ครับ');
+                router.push('/login?app=smartmedia'); // พาไปหน้าล็อกอินทันที
+            }
+        };
+
+        return (
+            <Link href={href} onClick={handleClick} className="group relative bg-[#1e293b]/60 backdrop-blur-md border border-slate-700/50 rounded-2xl p-6 hover:border-cyan-500/50 transition-all duration-300 hover:shadow-[0_0_25px_rgba(6,182,212,0.15)] hover:-translate-y-1 overflow-hidden flex flex-col h-full">
+                <div className={`absolute top-0 left-0 w-1 h-full ${colorClass}`}></div>
+                {badge && (
+                    <span className="absolute top-4 right-4 bg-gradient-to-r from-pink-500 to-rose-500 text-white text-[10px] font-black px-2 py-1 rounded-full uppercase tracking-widest shadow-lg">
+                        {badge}
+                    </span>
+                )}
+                <div className={`p-3 rounded-xl inline-block w-fit bg-slate-800 group-hover:bg-slate-700 transition-colors mb-4`}>
+                    <Icon className={`w-7 h-7 ${colorClass.replace('bg-', 'text-')}`} />
+                </div>
+                <h3 className="text-white font-bold text-lg mb-2 group-hover:text-cyan-300 transition-colors">{title}</h3>
+                <p className="text-slate-400 text-sm leading-relaxed flex-1">{desc}</p>
+            </Link>
+        );
+    };
 
     return (
         <div className="min-h-screen bg-[#0f172a] py-10 px-4 sm:px-6 lg:px-8 font-sans selection:bg-cyan-500/30">
@@ -78,19 +94,31 @@ function SmartMediaDashboardContent() {
                         </div>
                     </div>
 
-                    {userEmail && (
-                        <div className="relative z-10 flex items-center gap-3 bg-slate-950/60 border border-cyan-500/30 px-5 py-2.5 rounded-full shadow-inner backdrop-blur-md shrink-0 w-full md:w-auto justify-center md:justify-start">
-                            <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]"></div>
-                            <div className="flex flex-col">
-                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">
-                                    Logged in as
-                                </span>
-                                <span className="text-sm font-bold text-cyan-300 leading-none">
-                                    {userEmail}
-                                </span>
+                    {/* 🌟 6. ปุ่มมุมขวาบน จะเปลี่ยนเป็นปุ่ม Login ถ้าพบว่ายังไม่ได้เข้าสู่ระบบ */}
+                    <div className="relative z-10 w-full md:w-auto flex justify-center md:justify-end">
+                        {isCheckingAuth ? (
+                            <div className="text-slate-400 text-sm animate-pulse">กำลังตรวจสอบสิทธิ์...</div>
+                        ) : isAuthenticated ? (
+                            <div className="flex items-center gap-3 bg-slate-950/60 border border-cyan-500/30 px-5 py-2.5 rounded-full shadow-inner backdrop-blur-md shrink-0">
+                                <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]"></div>
+                                <div className="flex flex-col">
+                                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">
+                                        Logged in as
+                                    </span>
+                                    <span className="text-sm font-bold text-cyan-300 leading-none">
+                                        {userDisplay}
+                                    </span>
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        ) : (
+                            <button 
+                                onClick={() => router.push('/login?app=smartmedia')}
+                                className="flex items-center gap-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 px-6 py-3 rounded-full text-white font-bold shadow-lg transition-all active:scale-95 border border-cyan-400/50"
+                            >
+                                <LogIn size={18} /> เข้าสู่ระบบ / สมัครสมาชิก
+                            </button>
+                        )}
+                    </div>
                 </div>
 
                 {/* หมวดหมู่ที่ 1 */}
@@ -102,18 +130,19 @@ function SmartMediaDashboardContent() {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                         <MenuCard
                             href="/playlistdashboard"
+                            requireAuth={true} // 🌟 บังคับล็อกอินก่อนเข้าหน้าเทมเพลต เพื่อไม่ให้ไปสะดุดตอนกดบันทึก
                             icon={Sparkles} title="ชุดสื่อแนะนำ (Templates)" colorClass="bg-cyan-400"
                             desc="เรียกดูชุดสื่อตัวอย่าง บทเรียน หรืออัลบั้มเพลงที่ระบบสร้างไว้ให้ เพื่อนำมาโคลนใช้งาน"
                         />
                         <MenuCard
                             href="/create-playlist"
+                            requireAuth={true}
                             icon={PlusCircle} title="สร้างชุดสื่อ/อัลบั้มใหม่" colorClass="bg-cyan-400"
                             desc="สร้างเพลย์ลิสต์ใหม่สำหรับงานของคุณ เพื่อเตรียมใส่เพลงหรือวิดีโอ"
                         />
-                        
-                        {/* 🌟 3. แก้ไขลิงก์ตรงนี้ โดยดักจับกรณีที่ยังไม่มีเพลย์ลิสต์ ให้ไปหน้าสร้างแทน */}
                         <MenuCard
                             href={playlistId ? `/playlist/${playlistId}` : "/create-playlist"}
+                            requireAuth={true}
                             icon={Music} title="เพลย์ลิสต์ของฉัน (My Library)" colorClass="bg-cyan-400"
                             desc={playlistId ? "เข้าสู่หน้าเครื่องเล่น จัดการคิวเพลง และร้องคาราโอเกะ (เลือกจากอัลบั้มของคุณ)" : "คุณยังไม่มีเพลย์ลิสต์ คลิกเพื่อสร้างใหม่"}
                         />
@@ -129,37 +158,41 @@ function SmartMediaDashboardContent() {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
                         <MenuCard
                             href="/dj/selector"
+                            requireAuth={true}
                             icon={Video} title="DJ / เพิ่มสื่อ YouTube" colorClass="bg-purple-400"
                             desc="นำ URL จาก YouTube มาวางเพื่อบันทึกเข้าคิวเพลย์ลิสต์"
                         />
                         <MenuCard
                             href="/studio"
+                            requireAuth={true}
                             icon={FileEdit} title="ระบบสร้างเนื้อเพลง" colorClass="bg-purple-400"
                             desc="Studio สำหรับเพิ่ม แก้ไข หรือซิงค์เวลาเนื้อเพลงคาราโอเกะ"
                         />
                         <MenuCard
                             href="/lyrics"
+                            requireAuth={true}
                             icon={MonitorPlay} title="จอแสดงเนื้อเพลง (Display)" colorClass="bg-purple-400"
                             desc="เปิดหน้าจอสไลด์เนื้อเพลงคาราโอเกะ ที่ซิงค์กับเครื่องเล่นหลัก"
                         />
                         <MenuCard
                             href={`/eventdashboard/media?event_id=${eventId}&source=smartmedia`}
+                            requireAuth={true}
                             icon={MonitorPlay}
                             title="คลังสื่อ SmartMedia"
                             colorClass="bg-cyan-500"
                             desc="อัปโหลดและจัดการไฟล์ภาพ วิดีโอ พื้นหลังในระบบ"
                         />
                         
-                        {/* ลบ MenuCard ที่ซ้ำซ้อนออก (ที่ชี้ไป /playlist/manage หรือ /playlist/[id] ตัวเก่า) */}
-                        
                         <MenuCard
                             href="/mykaraoke"
+                            requireAuth={true}
                             icon={Layers} title="คาราโอเกะคอมโบ (MyKaraoke)" colorClass="bg-cyan-400"
                             badge="โหมดใหม่"
                             desc="ร้องคาราโอเกะโหมดส่วนตัว (เนื้อเพลงพื้นหลังเต็มจอ + จอลอยเครื่องเล่นเพลง)"
                         />
                         <MenuCard
                             href="/smartmedia/dashboard/billing"
+                            requireAuth={true}
                             icon={Layers} title="ตรวจสอบสถานะสมาชิก แพ็กเกจ" colorClass="bg-cyan-400"
                             badge=""
                             desc="ข้อมูลแพ็กเกจ และระยะเวลาใช้งาน"
@@ -176,7 +209,18 @@ function SmartMediaDashboardContent() {
                             <h2 className="text-xl font-bold text-white">ต่อยอดสื่อการเรียนรู้ (Education Suite)</h2>
                         </div>
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                            <Link href="/smartexam" className="group flex bg-emerald-950/40 border border-emerald-800 hover:border-emerald-500 rounded-2xl p-6 transition-all duration-300 hover:shadow-[0_0_30px_rgba(16,185,129,0.15)]">
+                            {/* 🌟 7. ดักการกดปุ่ม NiiVaa SmartExam เช่นเดียวกัน */}
+                            <Link 
+                                href="/smartexam" 
+                                onClick={(e) => {
+                                    if (!isAuthenticated && !isCheckingAuth) {
+                                        e.preventDefault();
+                                        alert('⚠️ กรุณาเข้าสู่ระบบ หรือ สมัครสมาชิก ก่อนใช้งาน NiiVaa SmartExam');
+                                        router.push('/login?app=smartexam');
+                                    }
+                                }} 
+                                className="group flex bg-emerald-950/40 border border-emerald-800 hover:border-emerald-500 rounded-2xl p-6 transition-all duration-300 hover:shadow-[0_0_30px_rgba(16,185,129,0.15)]"
+                            >
                                 <div className="mr-6 shrink-0">
                                     <div className="w-16 h-16 bg-emerald-900/50 rounded-2xl flex items-center justify-center border border-emerald-500/30 group-hover:scale-110 transition-transform">
                                         <GraduationCap className="w-8 h-8 text-emerald-400" />
@@ -202,9 +246,6 @@ function SmartMediaDashboardContent() {
     );
 }
 
-// ==========================================
-// 🚀 Component หลักที่ Export (หุ้ม Suspense ไว้ด้านนอกสุด)
-// ==========================================
 export default function SmartMediaDashboard() {
     return (
         <Suspense fallback={<div className="min-h-screen bg-gray-950 flex items-center justify-center text-cyan-500">กำลังโหลด Smart Media Dashboard...</div>}>
