@@ -1,3 +1,4 @@
+// app/login/page.tsx
 'use client';
 
 import { useState, Suspense } from 'react';
@@ -6,11 +7,11 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Mail, Lock, Eye, EyeOff, Loader2, LogIn, AlertCircle, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 
-// 🌟 1. สร้างชุดการตั้งค่า (Config) ธีมและเส้นทางสำหรับแต่ละแอป
+// 🌟 ปรับปรุง redirectUrl และธีมสี
 const APP_CONFIGS = {
   media: {
     title: 'NiiVaa SmartMedia',
-    redirectUrl: '/smart-media-dashboard',
+    redirectUrl: '/welcome?status=returning_user&app=media',
     gradientText: 'from-cyan-400 to-blue-500',
     buttonBg: 'from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500',
     glowBg: 'bg-cyan-600/20',
@@ -19,7 +20,7 @@ const APP_CONFIGS = {
   },
   event: {
     title: 'NiiVaa SmartEvent',
-    redirectUrl: '/eventhub',
+    redirectUrl: '/welcome?status=returning_user&app=event',
     gradientText: 'from-purple-400 to-indigo-400',
     buttonBg: 'from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500',
     glowBg: 'bg-purple-600/20',
@@ -28,12 +29,13 @@ const APP_CONFIGS = {
   },
   exam: {
     title: 'NiiVaa SmartExam',
-    redirectUrl: '/smartexam',
-    gradientText: 'from-fuchsia-400 to-purple-400',
-    buttonBg: 'from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500',
-    glowBg: 'bg-fuchsia-600/20',
-    shadow: 'shadow-[0_0_20px_rgba(192,38,211,0.4)]',
-    linkColor: 'text-fuchsia-400 hover:text-fuchsia-300',
+    redirectUrl: '/welcome?status=returning_user&app=exam',
+    // 🌟 เปลี่ยนสีตามความต้องการ: Dark Navy (slate-900) ไล่ไป Amber (amber-500)
+    gradientText: 'from-slate-900 to-amber-500', 
+    buttonBg: 'from-slate-900 to-amber-500 hover:from-slate-800 hover:to-amber-400',
+    glowBg: 'bg-amber-500/20',
+    shadow: 'shadow-[0_0_20px_rgba(245,158,11,0.4)]',
+    linkColor: 'text-amber-500 hover:text-amber-400',
   },
   default: {
     title: 'NiiVaa Workspace',
@@ -46,13 +48,11 @@ const APP_CONFIGS = {
   }
 };
 
-// 🌟 2. แยกฟอร์มออกมาเพื่อให้รองรับ Suspense และอ่านค่าจาก URL ได้
 function LoginForm() {
   const searchParams = useSearchParams();
   const appParam = searchParams.get('app') as keyof typeof APP_CONFIGS;
-  const nextUrl = searchParams.get('next'); // รับค่า URL เดิมเผื่อโดนระบบ Guard เตะมา
+  const nextUrl = searchParams.get('next'); 
 
-  // เลือกการตั้งค่าตามแอป ถ้าไม่มีให้ใช้ค่าเริ่มต้น (default)
   const currentApp = APP_CONFIGS[appParam] || APP_CONFIGS.default;
 
   const [email, setEmail] = useState('');
@@ -84,9 +84,8 @@ function LoginForm() {
       setMessage({ text: 'เข้าสู่ระบบสำเร็จ! กำลังพาท่านเข้าสู่ระบบ...', type: 'success' });
 
       setTimeout(() => {
-        // 🌟 3. ลำดับความสำคัญการเปลี่ยนหน้า: 1. ค่า next (ถ้ามี) -> 2. หน้าหลักของแอปนั้นๆ
         router.push(nextUrl || currentApp.redirectUrl);
-        router.refresh(); // รีเฟรชสถานะให้แอปอัปเดตข้อมูลผู้ใช้ล่าสุด
+        router.refresh(); 
       }, 1500);
     }
   };
@@ -94,9 +93,7 @@ function LoginForm() {
   const handleGoogleLogin = async () => {
     setLoading(true);
 
-    // กำหนดเส้นทางที่จะให้ตีกลับมา (พุ่งไปที่ API Callback ที่เราเพิ่งสร้าง)
-    // และพ่วง parameter ?next= ไปด้วย เพื่อให้รู้ว่าล็อกอินเสร็จต้องพาไปแอปไหน
-    const redirectTo = `${window.location.origin}/auth/callback?next=${nextUrl || currentApp.redirectUrl}`;
+    const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextUrl || currentApp.redirectUrl)}`;
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -113,23 +110,28 @@ function LoginForm() {
 
   return (
     <>
-      {/* 🌟 เอฟเฟกต์แสงออร่าพื้นหลัง (เปลี่ยนสีตามแอป) */}
       <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] md:w-[600px] md:h-[600px] rounded-full blur-[100px] pointer-events-none ${currentApp.glowBg}`}></div>
 
-      {/* 📦 กล่อง Login Card (Glassmorphism) */}
       <div className="w-full max-w-md p-8 sm:p-10 bg-zinc-950/80 backdrop-blur-2xl border border-white/10 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-10 relative animate-in fade-in zoom-in duration-500">
 
-        {/* Header (เปลี่ยนชื่อและสีตามแอป) */}
         <div className="text-center mb-8">
-          <h2 className={`text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r ${currentApp.gradientText} tracking-tight`}>
-            {currentApp.title}
-          </h2>
-          <p className="text-sm text-zinc-400 font-medium mt-2">
+            {/* 🌟 แสดงรูปโลโก้ที่ถูกต้องจากโฟลเดอร์ public */}
+            {appParam === 'exam' ? (
+              <img 
+                src="/niivaa_smartexam_logo.png" 
+                alt="NiiVaa SmartExam" 
+                className="h-14 mx-auto object-contain drop-shadow-[0_0_8px_rgba(255,255,255,0.1)]" 
+              />
+            ) : (
+              <h2 className={`text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r ${currentApp.gradientText} tracking-tight`}>
+                {currentApp.title}
+              </h2>
+            )}
+          <p className="text-sm text-zinc-400 font-medium mt-3">
             ยินดีต้อนรับกลับเข้าสู่ระบบครับ
           </p>
         </div>
 
-        {/* Message Alert Box */}
         {message.text && (
           <div className={`flex items-center gap-2 p-3 rounded-xl mb-6 text-xs font-bold ${message.type === 'success'
               ? 'bg-emerald-950/50 border border-emerald-500/50 text-emerald-400'
@@ -140,9 +142,7 @@ function LoginForm() {
           </div>
         )}
 
-        {/* Form */}
         <form onSubmit={handleLogin} className="space-y-5">
-          {/* 🌟 ปุ่ม Login with Google */}
           <button
             type="button"
             onClick={handleGoogleLogin}
@@ -153,16 +153,12 @@ function LoginForm() {
             เข้าสู่ระบบด้วย Google
           </button>
 
-          {/* เส้นคั่นกลาง */}
           <div className="flex items-center gap-4 mb-5">
             <div className="h-px bg-white/10 flex-1"></div>
             <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">หรือใช้อีเมล</span>
             <div className="h-px bg-white/10 flex-1"></div>
           </div>
 
-          {/* ... (จากนั้นค่อยเป็น Form กรอก Email/Password แบบเดิมของคุณ) ... */}
-
-          {/* Email Input */}
           <div className="space-y-1.5">
             <label className="text-[10px] text-zinc-400 font-black uppercase tracking-widest pl-1">อีเมลผู้ใช้งาน</label>
             <div className="relative group">
@@ -178,7 +174,6 @@ function LoginForm() {
             </div>
           </div>
 
-          {/* Password Input */}
           <div className="space-y-1.5">
             <label className="text-[10px] text-zinc-400 font-black uppercase tracking-widest pl-1">รหัสผ่าน</label>
             <div className="relative group">
@@ -201,7 +196,6 @@ function LoginForm() {
             </div>
           </div>
 
-          {/* Submit Button (เปลี่ยนสีตามแอป) */}
           <button
             disabled={loading}
             type="submit"
@@ -212,11 +206,9 @@ function LoginForm() {
           </button>
         </form>
 
-        {/* Footer Links */}
         <div className="mt-8 text-center border-t border-white/5 pt-6">
           <p className="text-xs text-zinc-500 font-medium">
             ยังไม่มีบัญชี NiiVaa ID?{' '}
-            {/* 🌟 4. ส่งค่าแอปกลับไปหน้า Signup ด้วย เผื่อเปลี่ยนใจไปสมัครใหม่ */}
             <Link
               href={`/signup${appParam ? `?app=${appParam}` : ''}`}
               className={`${currentApp.linkColor} font-bold transition-all underline decoration-transparent hover:decoration-current`}
@@ -231,7 +223,6 @@ function LoginForm() {
   );
 }
 
-// 🌟 3. คอมโพเนนต์หลักที่ทำหน้าที่ครอบ Suspense เพื่อป้องกัน Error ตอนดึง URL Parameters
 export default function LoginPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#050b1a] via-[#0c1633] to-[#050b1a] flex items-center justify-center p-4 relative overflow-hidden font-sans">

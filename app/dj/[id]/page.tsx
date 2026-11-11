@@ -16,21 +16,24 @@ export default function DJManagerPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [tracks, setTracks] = useState<any[]>([]);
     const [playlistName, setPlaylistName] = useState('กำลังโหลด...');
-    const [editingTrack, setEditingTrack] = useState<any>(null); // สำหรับเปิด Modal SME
+    const [editingTrack, setEditingTrack] = useState<any>(null);
     const [allPlaylists, setAllPlaylists] = useState<any[]>([]);
-    const [isManualOpen, setIsManualOpen] = useState(false); // State สำหรับเปิดคู่มือ
+    const [isManualOpen, setIsManualOpen] = useState(false);
     const [currentSelectId, setCurrentSelectId] = useState("");
+    
     // States สำหรับฟอร์มเพิ่มเพลง
     const [requestUrl, setRequestUrl] = useState('');
     const [fetchedTitle, setFetchedTitle] = useState('=== ดึงชื่อเพลงแสดงที่นี่ ===');
     const [isFetchingTitle, setIsFetchingTitle] = useState(false);
     const [requestAlias, setRequestAlias] = useState('');
     const [requestSinger, setRequestSinger] = useState('');
+    
+    // 🌟 ปรับปรุงใหม่: เพิ่ม State สำหรับเก็บข้อมูลวิดีโอหลายตัว
+    const [extractedVideos, setExtractedVideos] = useState<{id: string, title: string}[]>([]);
 
     // --- [1. ดึงข้อมูลคิวเพลง และตั้งค่าการเลือกอัตโนมัติ] ---
     const fetchAllData = useCallback(async () => {
         try {
-            // 🌟 1. ดึงข้อมูลผู้ใช้ (User) ปัจจุบันที่ล็อกอินอยู่
             const { data: { user }, error: userError } = await supabase.auth.getUser();
 
             if (userError || !user) {
@@ -38,11 +41,10 @@ export default function DJManagerPage() {
                 return;
             }
 
-            // 🌟 2. โหลดรายชื่อ Playlist เฉพาะของ User คนนี้เท่านั้น
             const { data: allPData, error: playlistError } = await supabase
                 .from('playlists')
                 .select('id, name')
-                .eq('user_id', user.id) // <--- กรองเอาเฉพาะเพลย์ลิสต์ของตัวเอง
+                .eq('user_id', user.id)
                 .order('name', { ascending: true });
 
             if (playlistError) throw playlistError;
@@ -50,17 +52,14 @@ export default function DJManagerPage() {
             if (allPData && allPData.length > 0) {
                 setAllPlaylists(allPData);
 
-                // 🌟 ตรวจสอบว่า ID จาก URL (ถ้ามีและไม่ใช่คำว่า selector) ตรงกับเพลย์ลิสต์ของตัวเองไหม
                 const foundPlaylist = (playlistId && playlistId !== 'selector')
                     ? allPData.find(p => p.id === playlistId)
                     : null;
 
                 if (foundPlaylist) {
-                    // ถ้าเจอ: ให้ล็อก State เป็น ID นี้ (ช่อง Select จะแสดงชื่อนี้ทันที)
                     setCurrentSelectId(foundPlaylist.id);
                     setPlaylistName(foundPlaylist.name);
 
-                    // 3. ดึงข้อมูลคิวเพลง (Tracks) เมื่อได้เพลย์ลิสต์ที่ถูกต้องแล้ว
                     const { data: tData, error: trackError } = await supabase
                         .from('tracks')
                         .select(`*, master_songs(*)`)
@@ -71,19 +70,14 @@ export default function DJManagerPage() {
                         setTracks(tData);
                     }
                 } else {
-                    // 🌟 ถ้าไม่เจอ (เช่น เข้าผ่าน /dj/selector หรือเอา ID คนอื่นมาใส่): 
-                    // ให้ล็อกเป็น "รายการแรกสุดของตัวเอง" แล้วเด้ง URL ไปหา
                     setCurrentSelectId(allPData[0].id);
                     setPlaylistName(allPData[0].name);
                     router.replace(`/dj/${allPData[0].id}`);
-                    return; // หยุดทำงานเพื่อรอโหลดหน้าใหม่ตาม URL ที่ถูกต้อง
+                    return;
                 }
             } else {
-                // กรณี User สมัครใหม่และยังไม่เคยสร้าง Playlist เลย
                 setAllPlaylists([]);
                 setTracks([]);
-                // หากต้องการให้เด้งไปหน้าสร้างเพลย์ลิสต์ สามารถเปิดคอมเมนต์ด้านล่างได้ครับ
-                // router.replace('/create-playlist');
             }
 
         } catch (err) {
@@ -133,34 +127,54 @@ export default function DJManagerPage() {
         fetchAllData();
     };
 
-    // --- [4. ระบบฟอร์มดึงชื่อเพลงอัตโนมัติ] ---
-    const extractYouTubeVideoId = (url: string) => {
-        const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-        const match = url.match(regExp);
-        return (match && match[2].length === 11) ? match[2] : null;
+    // --- [4. ระบบฟอร์มดึงชื่อเพลงอัตโนมัติ (รองรับหลายลิงก์)] ---
+    // 🌟 ปรับปรุงใหม่: สแกนหา YouTube ID ทั้งหมดที่อยู่ใน Text
+    const extractMultipleYouTubeIds = (text: string) => {
+        const regExp = /(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/g;
+        const matches = [...text.matchAll(regExp)];
+        return [...new Set(matches.map(m => m[1]))]; // ใช้ Set เพื่อตัดลิงก์ที่ซ้ำกันออก
     };
 
     useEffect(() => {
-        const fetchTitle = async () => {
-            if (!requestUrl) {
+        const fetchTitles = async () => {
+            if (!requestUrl.trim()) {
                 setFetchedTitle('=== ดึงชื่อเพลงแสดงที่นี่ ===');
+                setExtractedVideos([]);
                 return;
             }
-            const videoId = extractYouTubeVideoId(requestUrl);
-            if (!videoId) {
-                setFetchedTitle('❌ รูปแบบลิงก์ไม่ถูกต้อง');
+            
+            const videoIds = extractMultipleYouTubeIds(requestUrl);
+            
+            if (videoIds.length === 0) {
+                setFetchedTitle('❌ ไม่พบรูปแบบลิงก์ YouTube ที่ถูกต้อง');
+                setExtractedVideos([]);
                 return;
             }
 
             setIsFetchingTitle(true);
-            setFetchedTitle('⏳ กำลังดึงข้อมูลเพลง...');
+            setFetchedTitle(videoIds.length === 1 ? '⏳ กำลังดึงข้อมูลเพลง...' : `⏳ กำลังตรวจสอบ ${videoIds.length} ลิงก์...`);
+
             try {
-                const res = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`);
-                if (res.ok) {
-                    const data = await res.json();
-                    setFetchedTitle(`🎵 ${data.title}`);
+                // 🌟 ปรับปรุงใหม่: ดึงข้อมูลชื่อเพลงพร้อมๆ กันหลายเพลง (รวดเร็ว)
+                const results = await Promise.all(videoIds.map(async (vid) => {
+                    try {
+                        const res = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${vid}&format=json`);
+                        if (res.ok) {
+                            const data = await res.json();
+                            return { id: vid, title: data.title };
+                        }
+                    } catch (err) {
+                        // ดึงชื่อไม่สำเร็จ ให้ใช้ ID ไปก่อน
+                    }
+                    return { id: vid, title: `YouTube Video (${vid})` };
+                }));
+
+                setExtractedVideos(results);
+
+                if (results.length === 1) {
+                    setFetchedTitle(`🎵 ${results[0].title}`);
                 } else {
-                    setFetchedTitle('⚠️ ดึงชื่อเพลงไม่ได้ (แต่บันทึกได้)');
+                    setFetchedTitle(`📚 พร้อมเพิ่ม ${results.length} เพลงรวด!`);
                 }
             } catch (err) {
                 setFetchedTitle('⚠️ เกิดข้อผิดพลาดในการเชื่อมต่อ');
@@ -169,35 +183,48 @@ export default function DJManagerPage() {
             }
         };
 
-        const timer = setTimeout(() => fetchTitle(), 500);
+        const timer = setTimeout(() => fetchTitles(), 800); // หน่วงเวลาพิมพ์
         return () => clearTimeout(timer);
     }, [requestUrl]);
 
     const handleSaveRequest = async () => {
-        const videoId = extractYouTubeVideoId(requestUrl);
-        if (!videoId) return alert('กรุณาวางลิงก์ YouTube ให้ถูกต้อง');
+        if (extractedVideos.length === 0) return alert('กรุณาวางลิงก์ YouTube ให้ถูกต้องอย่างน้อย 1 ลิงก์');
 
         try {
-            const cleanTitle = fetchedTitle.replace(/^(🎵|⏳|❌|⚠️)\s*/, '');
-            await supabase.from('master_songs').upsert({
-                video_id: videoId,
-                title: cleanTitle === 'ดึงชื่อเพลงแสดงที่นี่ ===' ? `YouTube Video (${videoId})` : cleanTitle,
-                thumbnail_url: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
-            }, { onConflict: 'video_id' });
-
-            await supabase.from('tracks').insert({
-                playlist_id: playlistId,
-                video_id: videoId,
-                alias_name: requestAlias.trim(),
-                singer_name: requestSinger.trim() || 'แขกในงาน',
-                order_index: tracks.length
+            // 🌟 ปรับปรุงใหม่: 1. บันทึกลง master_songs แบบทีละหลายรายการ (Bulk Upsert)
+            const masterSongsPayload = extractedVideos.map(v => {
+                const cleanTitle = v.title.replace(/^(🎵|⏳|❌|⚠️)\s*/, '');
+                return {
+                    video_id: v.id,
+                    title: cleanTitle,
+                    thumbnail_url: `https://img.youtube.com/vi/${v.id}/hqdefault.jpg`
+                };
             });
+            await supabase.from('master_songs').upsert(masterSongsPayload, { onConflict: 'video_id' });
 
-            alert('เพิ่มคิวเพลงสำเร็จ!');
+            // 🌟 ปรับปรุงใหม่: 2. บันทึกลง tracks แบบทีละหลายรายการ (Bulk Insert)
+            const tracksPayload = extractedVideos.map((v, index) => {
+                // ถ้าเพิ่มหลายเพลงพร้อมกัน ให้เติมนามแฝงด้วยตัวเลข (เช่น ชุดเมดเลย์ 1, ชุดเมดเลย์ 2)
+                const finalAlias = extractedVideos.length > 1 && requestAlias.trim() 
+                    ? `${requestAlias.trim()} (ตอน ${index + 1})` 
+                    : requestAlias.trim();
+
+                return {
+                    playlist_id: playlistId,
+                    video_id: v.id,
+                    alias_name: finalAlias,
+                    singer_name: requestSinger.trim() || 'แขกในงาน',
+                    order_index: tracks.length + index // คำนวณคิวต่อท้าย
+                };
+            });
+            await supabase.from('tracks').insert(tracksPayload);
+
+            alert(`🎉 เพิ่มคิวเพลงสำเร็จ ${extractedVideos.length} เพลง!`);
             setRequestUrl('');
             setRequestAlias('');
             setRequestSinger('');
             setFetchedTitle('=== ดึงชื่อเพลงแสดงที่นี่ ===');
+            setExtractedVideos([]);
             fetchAllData();
         } catch (err) {
             console.error(err);
@@ -223,12 +250,11 @@ export default function DJManagerPage() {
         if (!confirm('ยืนยันการลบเพลงที่ "ซ้ำกัน" ออกจากคิว?\n(ระบบจะเก็บเพลงที่มีการตั้งค่า S, M, E แตกต่างกันไว้)')) return;
 
         try {
-            // 1. ดึงข้อมูลเพลงทั้งหมดในอัลบั้มนี้
             const { data: allTracks, error: fetchError } = await supabase
                 .from('tracks')
                 .select('*')
                 .eq('playlist_id', playlistId)
-                .order('order_index', { ascending: true }); // ดึงตามลำดับคิว
+                .order('order_index', { ascending: true });
 
             if (fetchError) throw fetchError;
             if (!allTracks || allTracks.length === 0) return alert('ไม่มีเพลงในคิวให้เคลียร์ครับ');
@@ -237,22 +263,16 @@ export default function DJManagerPage() {
             const tracksToDelete: string[] = [];
             const tracksToKeep: any[] = [];
 
-            // 2. คัดแยกเพลงว่าอันไหนซ้ำ อันไหนไม่ซ้ำ
             allTracks.forEach(track => {
-                // ดึงค่า SME (ถ้าไม่มีค่า ให้เป็น 0 เพื่อให้เทียบกันได้)
                 const st = track.start_time || 0;
                 const et = track.end_time || 0;
                 const ss = track.skip_start || 0;
                 const se = track.skip_end || 0;
-
-                // สร้างรหัสอ้างอิง เช่น "vId123_0_0_0_0" หรือ "vId123_10_60_0_0"
                 const key = `${track.video_id}_${st}_${et}_${ss}_${se}`;
 
                 if (uniqueKeys.has(key)) {
-                    // ถ้ามีรหัสนี้แล้ว แปลว่าซ้ำ 100% -> เตรียมลบทิ้ง
                     tracksToDelete.push(track.id);
                 } else {
-                    // ถ้ารหัสนี้เพิ่งเจอครั้งแรก -> จดจำไว้ และเก็บเพลงนี้ไว้ใช้งาน
                     uniqueKeys.add(key);
                     tracksToKeep.push(track);
                 }
@@ -262,15 +282,9 @@ export default function DJManagerPage() {
                 return alert('✨ ไม่มีเพลงซ้ำที่ต้องเคลียร์ครับ คิวเพลงสะอาดเรียบร้อยดี!');
             }
 
-            // 3. สั่งลบเพลงที่ซ้ำทั้งหมดออกจาก Database
-            const { error: deleteError } = await supabase
-                .from('tracks')
-                .delete()
-                .in('id', tracksToDelete); // ลบทีละหลายๆ ID ได้ในคำสั่งเดียว
-
+            const { error: deleteError } = await supabase.from('tracks').delete().in('id', tracksToDelete);
             if (deleteError) throw deleteError;
 
-            // 4. อัปเดต order_index ใหม่ให้เพลงที่เหลือเรียงลำดับสวยงาม
             const updates = tracksToKeep.map((t, i) => ({
                 id: t.id,
                 playlist_id: t.playlist_id,
@@ -280,16 +294,13 @@ export default function DJManagerPage() {
             await supabase.from('tracks').upsert(updates);
 
             alert(`🧹 เคลียร์เพลงซ้ำสำเร็จ! ลบออกไปทั้งหมด ${tracksToDelete.length} รายการ`);
-            fetchAllData(); // โหลดหน้าจอใหม่
+            fetchAllData();
 
         } catch (err: any) {
             console.error('Error clearing duplicates:', err);
             alert('เกิดข้อผิดพลาดในการเคลียร์เพลงซ้ำ: ' + err.message);
         }
     };
-    // 🌟 [เพิ่มตรงนี้] ท่าไม้ตายตามที่คุณแนะนำ: จับคู่ ID กับข้อมูลเพลย์ลิสต์ให้เสร็จสรรพก่อน
-    const activePlaylist = allPlaylists.find(p => String(p.id) === String(playlistId));
-    const isPlaylistsLoaded = allPlaylists.length > 0;
 
     return (
         <div className="min-h-screen bg-[#0a0a0a] text-white p-4 font-sans max-w-5xl mx-auto relative overflow-hidden">
@@ -301,7 +312,6 @@ export default function DJManagerPage() {
                     <h2 className="text-sm text-gray-400 mt-1">จัดการคิวเพลงและตั้งค่าการเล่นเพลง (โหมด DJ เบื้องหลัง)</h2>
                 </div>
 
-                {/* 🌟 ปุ่มนำทางย้ายมาฝั่งขวา และจัดรูปแบบใหม่ */}
                 <div className="flex flex-wrap items-center gap-2 shrink-0">
                     <button onClick={() => router.push(`/playlist/${playlistId}`)} className="px-4 py-2.5 bg-gradient-to-r from-blue-700 to-cyan-600 hover:from-blue-600 hover:to-cyan-500 text-white rounded-xl text-xs font-bold transition-all shadow-[0_0_15px_rgba(6,182,212,0.4)] flex items-center gap-2">
                         <MonitorPlay size={16} /> ไปหน้าจอแสดงผล
@@ -309,12 +319,7 @@ export default function DJManagerPage() {
                     <button onClick={() => router.push(`/create-playlist`)} className="px-4 py-2.5 bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2">
                         <PlusCircle size={16} /> สร้างชุดเพลงใหม่
                     </button>
-                    {/* 🌟 [เพิ่มใหม่] ปุ่มล้างเพลงซ้ำ */}
-                    <button
-                        onClick={handleClearDuplicates}
-                        className="px-4 py-2 bg-orange-900/30 text-orange-400 border border-orange-500/40 rounded-xl text-xs font-bold hover:bg-orange-800/50 hover:text-orange-200 transition-all shadow-md ml-auto"
-                        title="ลบเพลงที่ซ้ำกัน (ยกเว้นเพลงที่มีการตั้งค่า S,M,E แตกต่างกัน)"
-                    >
+                    <button onClick={handleClearDuplicates} className="px-4 py-2 bg-orange-900/30 text-orange-400 border border-orange-500/40 rounded-xl text-xs font-bold hover:bg-orange-800/50 hover:text-orange-200 transition-all shadow-md ml-auto">
                         🧹 ล้างเพลงซ้ำ
                     </button>
                     <button onClick={() => setIsManualOpen(true)} className="p-2.5 bg-slate-800 border border-cyan-500/50 text-cyan-400 rounded-xl hover:bg-slate-700 transition-all shadow-[0_0_10px_rgba(34,211,238,0.2)]" title="คู่มือการใช้งาน">
@@ -325,26 +330,22 @@ export default function DJManagerPage() {
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-                {/* --- ซ้าย: QUEUE LIST (8 ส่วน) --- */}
+                {/* --- ซ้าย: QUEUE LIST --- */}
                 <div className="lg:col-span-8 flex flex-col h-full">
-                    {/* 🌟 [เพิ่มใหม่] ข้อความแจ้งเตือน */}
                     <div className="mb-2">
                         <span className="text-amber-400 text-[11px] sm:text-xs font-bold bg-amber-400/10 px-3 py-1.5 rounded-lg border border-amber-400/20 inline-flex items-center gap-2">
                             💡 โปรดตรวจสอบ เลือกอัลบั้ม หรือชุดสื่อที่ต้องการปรับปรุงก่อนเสมอ
                         </span>
                     </div>
 
-                    {/* ส่วนเลือก Playlist และค้นหา */}
                     <div className="flex flex-col sm:flex-row gap-2 mb-3">
-
-                        {/* 🌟 3. ผูกช่อง Select เข้ากับ State ตัวใหม่ของเรา */}
                         <select
                             value={currentSelectId}
                             onChange={(e) => {
                                 const newId = e.target.value;
                                 if (newId) {
-                                    setCurrentSelectId(newId); // เปลี่ยนชื่อที่หน้าจอทันที
-                                    router.push(`/dj/${newId}`); // สั่งเปลี่ยน URL
+                                    setCurrentSelectId(newId);
+                                    router.push(`/dj/${newId}`);
                                 }
                             }}
                             className="flex-1 bg-black/60 border border-cyan-500/50 p-3 rounded-xl text-cyan-300 font-bold outline-none text-sm cursor-pointer"
@@ -428,15 +429,9 @@ export default function DJManagerPage() {
 
                                         <div className="flex gap-1 shrink-0">
                                             <div className="flex items-center gap-1">
-                                                {track.start_time > 0 && (
-                                                    <span className="flex items-center justify-center w-4 h-4 bg-green-500 text-[9px] rounded-sm text-white font-black leading-none" title="ตั้งค่าจุดเริ่ม (Start) ไว้">S</span>
-                                                )}
-                                                {track.skip_start > 0 && (
-                                                    <span className="flex items-center justify-center w-4 h-4 bg-yellow-500 text-black text-[9px] rounded-sm font-black leading-none" title="ตั้งค่าข้ามท่อนกลาง (Skip) ไว้">M</span>
-                                                )}
-                                                {track.end_time > 0 && (
-                                                    <span className="flex items-center justify-center w-4 h-4 bg-red-500 text-[9px] rounded-sm text-white font-black leading-none" title="ตั้งค่าจุดตัดท้าย (Cut Tail) ไว้">E</span>
-                                                )}
+                                                {track.start_time > 0 && <span className="flex items-center justify-center w-4 h-4 bg-green-500 text-[9px] rounded-sm text-white font-black leading-none" title="ตั้งค่าจุดเริ่ม (Start) ไว้">S</span>}
+                                                {track.skip_start > 0 && <span className="flex items-center justify-center w-4 h-4 bg-yellow-500 text-black text-[9px] rounded-sm font-black leading-none" title="ตั้งค่าข้ามท่อนกลาง (Skip) ไว้">M</span>}
+                                                {track.end_time > 0 && <span className="flex items-center justify-center w-4 h-4 bg-red-500 text-[9px] rounded-sm text-white font-black leading-none" title="ตั้งค่าจุดตัดท้าย (Cut Tail) ไว้">E</span>}
                                             </div>
                                             <button onClick={() => setEditingTrack(track)} className="p-2 bg-white/5 hover:bg-cyan-600/30 text-cyan-400 rounded-xl transition-all" title="ตั้งค่าการเล่น (SME)">
                                                 <Settings size={16} />
@@ -452,7 +447,7 @@ export default function DJManagerPage() {
                     </div>
                 </div>
 
-                {/* --- ขวา: FORM SECTION (4 ส่วน) --- */}
+                {/* --- ขวา: FORM SECTION --- */}
                 <div className="lg:col-span-4 flex flex-col gap-4">
                     <div className="bg-[#121212] border border-cyan-500/30 rounded-[2rem] p-6 shadow-[0_0_20px_rgba(34,211,238,0.05)] space-y-4">
                         <div className="flex items-center gap-2 mb-4 border-b border-white/10 pb-3">
@@ -461,11 +456,22 @@ export default function DJManagerPage() {
                         </div>
 
                         <div>
-                            <label className="text-[10px] text-gray-400 font-bold block mb-1 uppercase">1. วาง URL YouTube</label>
-                            <input type="text" placeholder="https://www.youtube.com/watch?v=..." value={requestUrl} onChange={(e) => setRequestUrl(e.target.value)} className="w-full bg-black/60 border border-white/10 focus:border-cyan-500 p-3.5 rounded-xl text-white text-xs outline-none transition-all" />
+                            <div className="flex justify-between items-end mb-1">
+                                <label className="text-[10px] text-gray-400 font-bold uppercase">1. วาง URL YouTube</label>
+                                <span className="text-[9px] text-cyan-500/60 font-bold">วางหลายลิงก์ได้</span>
+                            </div>
+                            {/* 🌟 ปรับปรุงใหม่: เปลี่ยนเป็น Textarea ให้วางได้หลายบรรทัด */}
+                            <textarea 
+                                placeholder={`https://youtube.com/watch?v=...\nhttps://youtu.be/...`} 
+                                rows={3}
+                                value={requestUrl} 
+                                onChange={(e) => setRequestUrl(e.target.value)} 
+                                className="w-full bg-black/60 border border-white/10 focus:border-cyan-500 p-3.5 rounded-xl text-white text-xs outline-none transition-all resize-none custom-scrollbar" 
+                            />
                         </div>
 
-                        <div className={`text-center text-[11px] font-black tracking-wide py-1 ${isFetchingTitle ? 'text-yellow-400 animate-pulse' : fetchedTitle.startsWith('🎵') ? 'text-green-400' : fetchedTitle.startsWith('❌') ? 'text-red-400' : 'text-cyan-300'}`}>
+                        {/* 🌟 ปรับปรุงใหม่: สีและข้อความเตือนเมื่อมีหลายเพลง */}
+                        <div className={`text-center text-[11px] font-black tracking-wide py-1 ${isFetchingTitle ? 'text-yellow-400 animate-pulse' : fetchedTitle.includes('พร้อมเพิ่ม') ? 'text-green-400' : fetchedTitle.startsWith('❌') ? 'text-red-400' : 'text-cyan-300'}`}>
                             {fetchedTitle}
                         </div>
 
@@ -481,7 +487,7 @@ export default function DJManagerPage() {
 
                         <button
                             onClick={handleSaveRequest}
-                            disabled={!extractYouTubeVideoId(requestUrl) || isFetchingTitle}
+                            disabled={extractedVideos.length === 0 || isFetchingTitle}
                             className="w-full py-4 bg-cyan-600 hover:bg-cyan-500 disabled:bg-white/5 disabled:text-white/20 text-black font-black text-xs uppercase tracking-widest rounded-2xl transition-all mt-4 shadow-lg shadow-cyan-900/50"
                         >
                             บันทึกส่งเพลงเข้าต่อคิว
@@ -525,7 +531,6 @@ export default function DJManagerPage() {
                             </div>
                             <div className="grid grid-cols-3 gap-3">
                                 <div><label className="text-[10px] text-white/40 block mb-2 uppercase font-bold text-center">เริ่ม (วิ)</label><input type="number" name="start_time" defaultValue={editingTrack?.start_time || 0} className="w-full bg-black/40 border border-white/5 p-3 rounded-xl text-white outline-none focus:border-cyan-500 text-center" /></div>
-                                {/* 🌟 เปลี่ยน Label และปรับ Title ตรงนี้ ให้เข้ากับลอจิก "ตัดท้าย" หน้า Player */}
                                 <div><label className="text-[10px] text-red-400/80 block mb-2 uppercase font-bold text-center">✂️ ตัดท้าย(วิ)</label><input type="number" name="end_time" defaultValue={editingTrack?.end_time || 0} title="ระบุจำนวนวินาทีที่ต้องการตัดทิ้งก่อนจบ" className="w-full bg-black/40 border border-red-500/30 p-3 rounded-xl text-white outline-none focus:border-red-500 text-center" /></div>
                                 <div><label className="text-[10px] text-purple-400 block mb-2 uppercase font-bold text-center">🔁 ซ้ำ</label><input type="number" name="repeat_count" min="1" defaultValue={editingTrack?.repeat_count || 1} className="w-full bg-purple-900/20 border border-purple-500/30 p-3 rounded-xl text-purple-300 outline-none focus:border-purple-500 text-center font-black" /></div>
                             </div>

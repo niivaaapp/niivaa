@@ -8,6 +8,20 @@ import { Music, LayoutGrid, LogOut, ArrowRight, Sparkles, GraduationCap, BookOpe
 export default function LaunchpadPage() {
   const router = useRouter();
 
+  // 🌟 เพิ่มฟังก์ชันช่วยตรวจสอบล็อกอินก่อนเด้งไปแอปต่างๆ
+  const navigateToApp = async (appCode: string) => {
+    // 1. เช็คก่อนว่าเบราว์เซอร์นี้ล็อกอินค้างไว้หรือเปล่า
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (session) {
+      // 2. ถ้าล็อกอินค้างไว้แล้ว ให้วิ่งทะลุไปหน้า Welcome เพื่อเช็คแพ็กเกจ/เข้า Dashboard ทันที
+      router.push(`/welcome?status=returning_user&app=${appCode}`);
+    } else {
+      // 3. ถ้ายังไม่ได้ล็อกอิน ให้ไปที่หน้า Login ก่อน พร้อมบอกว่าต้องการเข้าแอปไหน
+      router.push(`/login?app=${appCode}`);
+    }
+  };
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push('/'); 
@@ -41,13 +55,13 @@ export default function LaunchpadPage() {
           </p>
         </div>
 
-        {/* 📦 แผงปุ่มทางเลือกบริการ (4 คอลัมน์สำหรับจอใหญ่ และ 2 คอลัมน์สำหรับแท็บเล็ต) */}
+        {/* 📦 แผงปุ่มทางเลือกบริการ */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto pt-4">
 
           {/* 🟢 การ์ดที่ 1: NiiVaa SmartMedia&Karaoke */}
           <div
-            // 🌟 ปรับปรุง: ชี้ไปที่ Welcome พร้อมระบุ app=media
-            onClick={() => router.push('/welcome?app=media')}
+            // 🌟 ปรับปรุง: ใช้ฟังก์ชัน navigateToApp แทน router.push ตรงๆ
+            onClick={() => navigateToApp('media')}
             className="p-6 bg-gradient-to-br from-cyan-500/10 to-blue-500/5 hover:from-cyan-500/20 hover:to-blue-500/10 border border-cyan-500/20 hover:border-cyan-400 rounded-3xl cursor-pointer flex flex-col justify-between items-start text-left gap-6 group hover:scale-[1.03] transition-all duration-300 shadow-lg shadow-cyan-500/5"
           >
             <div className="space-y-2">
@@ -68,8 +82,8 @@ export default function LaunchpadPage() {
 
           {/* 🟣 การ์ดที่ 2: NiiVaa SmartEvent */}
           <div
-            // 🌟 ปรับปรุง: ชี้ไปที่ Welcome พร้อมระบุ app=event
-            onClick={() => router.push('/welcome?app=event')}
+            // 🌟 ปรับปรุง: ใช้ฟังก์ชัน navigateToApp
+            onClick={() => navigateToApp('event')}
             className="p-6 bg-gradient-to-br from-purple-500/10 to-indigo-500/5 hover:from-purple-500/20 hover:to-indigo-500/10 border border-white/5 hover:border-purple-400 rounded-3xl cursor-pointer flex flex-col justify-between items-start text-left gap-6 group hover:scale-[1.03] transition-all duration-300 shadow-lg shadow-purple-500/5"
           >
             <div className="space-y-2">
@@ -114,8 +128,8 @@ export default function LaunchpadPage() {
 
           {/* 🟠 การ์ดที่ 4: NiiVaa SmartExam */}
           <div
-            // 🌟 ปรับปรุง: ชี้ไปที่ Welcome พร้อมระบุ app=exam
-            onClick={() => router.push('/welcome?app=exam')}
+            // 🌟 ปรับปรุง: ใช้ฟังก์ชัน navigateToApp
+            onClick={() => navigateToApp('exam')}
             className="p-6 bg-gradient-to-br from-orange-500/10 to-amber-500/5 hover:from-orange-500/20 hover:to-amber-500/10 border border-white/5 hover:border-orange-400 rounded-3xl cursor-pointer flex flex-col justify-between items-start text-left gap-6 group hover:scale-[1.03] transition-all duration-300 shadow-lg shadow-orange-500/5"
           >
             <div className="space-y-2">

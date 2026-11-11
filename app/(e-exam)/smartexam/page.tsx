@@ -221,85 +221,102 @@ export default function SmartExamDashboard() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#020617] via-[#0f172a] to-[#020617] text-white select-none pb-24 font-sans overflow-x-hidden">
 
-      {/* HEADER */}
-      <nav className="w-full border-b border-white/5 bg-slate-950/80 backdrop-blur-md sticky top-0 z-40 shadow-xl shadow-black/20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between">
-          <div className="flex items-center gap-1 sm:gap-3">
-            <button onClick={() => router.back()} className="p-1.5 sm:p-2 hover:bg-white/10 rounded-full text-gray-400 transition-colors hidden sm:block" title="ย้อนกลับ">
-              <ArrowLeft size={18} />
-            </button>
-            <button
-              onClick={() => router.push('/smart-exam-dashboard')}
-              className="p-1.5 sm:p-2 hover:bg-amber-500/10 rounded-full text-amber-500 hover:text-amber-400 transition-colors flex items-center gap-2"
-              title="กลับหน้าศูนย์กลาง"
-            >
-              <LayoutDashboard size={18} />
-              <span className="text-xs sm:text-sm font-bold hidden sm:inline">หน้าหลัก</span>
-            </button>
-            <div className="h-5 w-[1px] bg-white/10 ml-1 mr-2 hidden sm:block"></div>
+     {/* HEADER */}
+        <nav className="w-full border-b border-white/5 bg-slate-950/80 backdrop-blur-md sticky top-0 z-40 shadow-xl shadow-black/20">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between">
+            <div className="flex items-center gap-1 sm:gap-3">
+              <button onClick={() => router.back()} className="p-1.5 sm:p-2 hover:bg-white/10 rounded-full text-gray-400 transition-colors hidden sm:block" title="ย้อนกลับ">
+                <ArrowLeft size={18} />
+              </button>
+              <button
+                onClick={() => router.push('/smart-exam-dashboard')}
+                className="p-1.5 sm:p-2 hover:bg-amber-500/10 rounded-full text-amber-500 hover:text-amber-400 transition-colors flex items-center gap-2"
+                title="กลับหน้าศูนย์กลาง"
+              >
+                <LayoutDashboard size={18} />
+                <span className="text-xs sm:text-sm font-bold hidden sm:inline">หน้าหลัก</span>
+              </button>
+              <div className="h-5 w-[1px] bg-white/10 ml-1 mr-2 hidden sm:block"></div>
 
-            <h1 className="text-base sm:text-lg font-black tracking-tight text-white flex items-center gap-2">
-              <img src="/niivaasmartevent_logo.png" alt="NiiVaa SmartExam" className="h-4 sm:h-6 object-contain" />
-              SmartExam
-            </h1>
-            <span className="hidden lg:inline-block px-1.5 py-0.5 bg-amber-500/20 text-amber-400 text-[9px] font-bold uppercase tracking-widest rounded flex items-center border border-amber-500/30">
-              Workspace
-            </span>
-          </div>
-
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            <button
-              onClick={() => setIsManualOpen(true)}
-              className="p-1.5 text-gray-400 hover:text-amber-400 hover:bg-amber-400/10 rounded-full transition-colors hidden sm:block mr-1"
-              title="คู่มือการใช้งาน"
-            >
-              <BookOpen size={18} />
-            </button>
-
-            <button
-              onClick={() => router.push('/smartexam/image2exam')}
-              className="hidden lg:flex px-2.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg items-center gap-1 transition-all text-xs shadow-md active:scale-95"
-            >
-              <ImageIcon size={14} /> สร้างจากรูปภาพ
-            </button>
-            <button
-              onClick={() => router.push('/smartexam/import')}
-              className="hidden sm:flex px-2.5 py-1.5 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-lg items-center gap-1 transition-all text-xs shadow-md active:scale-95"
-            >
-              <FileText size={14} /> สร้างจาก PDF
-            </button>
-            <button
-              onClick={() => router.push('/smartexam/create')}
-              className="px-3 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:brightness-110 text-black font-black rounded-lg flex items-center gap-1 transition-all text-xs shadow-md shadow-amber-500/20 active:scale-95"
-            >
-              <Plus size={14} strokeWidth={3} /> สร้างด้วย AI
-            </button>
-          </div>
-        </div>
-      </nav>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 mt-5 space-y-5">
-
-        {/* โซนสรุปภาพรวม */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <h2 className="text-lg sm:text-xl font-black flex items-center gap-2 text-white mb-0">
-            คลังข้อสอบของคุณ
-            {isLoading && <Loader2 size={16} className="animate-spin text-amber-500" />}
-          </h2>
-
-          <div className="flex gap-3">
-            <div className="bg-slate-900/50 border border-white/10 rounded-xl px-4 py-2 shadow-sm backdrop-blur-sm min-w-[120px] flex flex-col justify-center">
-              <div className="text-gray-400 text-[11px] font-medium text-right">ข้อสอบทั้งหมด</div>
-              <div className="text-2xl font-black text-white text-right leading-none mt-1">{exams.length}</div>
+              <h1 className="text-base sm:text-lg font-black tracking-tight text-white flex items-center gap-2">
+                <img src="/niivaasmartevent_logo.png" alt="NiiVaa SmartExam" className="h-4 sm:h-6 object-contain" />
+                SmartExam
+              </h1>
+              <span className="hidden lg:inline-block px-1.5 py-0.5 bg-amber-500/20 text-amber-400 text-[9px] font-bold uppercase tracking-widest rounded flex items-center border border-amber-500/30">
+                Workspace
+              </span>
             </div>
-            <div className="bg-emerald-950/30 border border-emerald-500/20 rounded-xl px-4 py-2 shadow-sm backdrop-blur-sm min-w-[120px] flex flex-col justify-center">
-              <div className="text-emerald-400 text-[11px] font-medium text-right">เผยแพร่แล้ว</div>
-              <div className="text-2xl font-black text-emerald-400 text-right leading-none mt-1">
-                {exams.filter(e => e.status === 'published').length}
+
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <button
+                onClick={() => setIsManualOpen(true)}
+                className="p-1.5 text-gray-400 hover:text-amber-400 hover:bg-amber-400/10 rounded-full transition-colors hidden sm:block mr-1"
+                title="คู่มือการใช้งาน"
+              >
+                <BookOpen size={18} />
+              </button>
+
+              {/* 🌟 เพิ่มปุ่ม Explore บน Header สำหรับหน้าจอคอมพิวเตอร์ */}
+              <button
+                onClick={() => router.push('/smartexam/explore')}
+                className="hidden lg:flex px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-sky-400 border border-sky-500/30 font-bold rounded-lg items-center gap-1.5 transition-all text-xs shadow-md active:scale-95 mr-1"
+              >
+                <Globe size={14} /> คลังข้อสอบสาธารณะ
+              </button>
+
+              <button
+                onClick={() => router.push('/smartexam/image2exam')}
+                className="hidden lg:flex px-2.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg items-center gap-1 transition-all text-xs shadow-md active:scale-95"
+              >
+                <ImageIcon size={14} /> สร้างจากรูปภาพ
+              </button>
+              <button
+                onClick={() => router.push('/smartexam/import')}
+                className="hidden sm:flex px-2.5 py-1.5 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-lg items-center gap-1 transition-all text-xs shadow-md active:scale-95"
+              >
+                <FileText size={14} /> สร้างจาก PDF
+              </button>
+              <button
+                onClick={() => router.push('/smartexam/create')}
+                className="px-3 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:brightness-110 text-black font-black rounded-lg flex items-center gap-1 transition-all text-xs shadow-md shadow-amber-500/20 active:scale-95"
+              >
+                <Plus size={14} strokeWidth={3} /> สร้างด้วย AI
+              </button>
+            </div>
+          </div>
+        </nav>
+
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 mt-5 space-y-5">
+
+          {/* โซนสรุปภาพรวม */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex flex-col gap-2">
+              <h2 className="text-lg sm:text-xl font-black flex items-center gap-2 text-white mb-0">
+                คลังข้อสอบของคุณ
+                {isLoading && <Loader2 size={16} className="animate-spin text-amber-500" />}
+              </h2>
+              {/* 🌟 เพิ่มปุ่ม Explore ในหน้า Dashboard ให้เตะตา (แสดงผลดีบนมือถือด้วย) */}
+              <button 
+                onClick={() => router.push('/smartexam/explore')}
+                className="inline-flex items-center gap-2 text-xs font-bold text-sky-400 hover:text-sky-300 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 px-3 py-1.5 rounded-lg transition-colors w-fit"
+              >
+                <Search size={14} /> ค้นหาและฝึกทำข้อสอบจากสาธารณะ
+              </button>
+            </div>
+
+            <div className="flex gap-3">
+              <div className="bg-slate-900/50 border border-white/10 rounded-xl px-4 py-2 shadow-sm backdrop-blur-sm min-w-[120px] flex flex-col justify-center">
+                <div className="text-gray-400 text-[11px] font-medium text-right">ข้อสอบทั้งหมด</div>
+                <div className="text-2xl font-black text-white text-right leading-none mt-1">{exams.length}</div>
+              </div>
+              <div className="bg-emerald-950/30 border border-emerald-500/20 rounded-xl px-4 py-2 shadow-sm backdrop-blur-sm min-w-[120px] flex flex-col justify-center">
+                <div className="text-emerald-400 text-[11px] font-medium text-right">เผยแพร่แล้ว</div>
+                <div className="text-2xl font-black text-emerald-400 text-right leading-none mt-1">
+                  {exams.filter(e => e.status === 'published').length}
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
         {/* โซนตัวกรอง */}
         <div className="bg-slate-900/60 border border-white/10 rounded-2xl p-4 shadow-md backdrop-blur-sm">

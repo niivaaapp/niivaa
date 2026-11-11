@@ -1,28 +1,43 @@
 // app/auth/callback/route.ts
 import { NextResponse } from 'next/server'
-import { createClient } from '@/utils/supabase/server' // ตรวจสอบ path ให้ตรงกับโปรเจกต์ของคุณ
+import { createClient } from '@/utils/supabase/server'
 
 export async function GET(request: Request) {
-  // ดึง URL และพารามิเตอร์ที่ส่งกลับมาจาก Google
+  // ดึง URL และ Parameters ที่ Google ส่งกลับมา
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
   
-  // ดึงค่า next ที่เราตั้งไว้ในหน้า Signup (เช่น /welcome?source=signup...)
+  // ดึง parameter 'next' ที่เราพ่วงไปตอนกดปุ่ม Login (เช่น /welcome?app=media)
+  // ถ้าไม่มี ให้ตั้งค่าเริ่มต้นไปที่หน้าแรก
   const next = searchParams.get('next') ?? '/'
 
   if (code) {
     const supabase = await createClient()
     
-    // นำรหัส code ไปแลกเป็น Session ของผู้ใช้
+    // แลกเปลี่ยน 'code' เป็น 'session' (สร้าง Cookie)
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     
     if (!error) {
-      // 🌟 แลกสำเร็จ! ให้พาผู้ใช้ไปยังหน้า Welcome พร้อมแนบข้อมูลพารามิเตอร์ต่างๆ ไปด้วย
-      return NextResponse.redirect(`${origin}${next}`)
+      const forwardedHost = request.headers.get('x-forwarded-host') // เพื่อรองรับการใช้งานผ่าน Load Balancer
+      const isLocalEnv = process.env.NODE_ENV === 'development'
+      
+      // กำหนด URL ปลายทางหลังจากแปลง Token สำเร็จ
+      if (isLocalEnv) {
+        // สำหรับรันบน Localhost
+        return NextResponse.redirect(`${origin}${next}`)
+      } else if (forwardedHost) {
+        // สำหรับการใช้งานบน Production (Vercel)
+        return NextResponse.redirect(`https://${forwardedHost}${next}`)
+      } else {
+        return NextResponse.redirect(`${origin}${next}`)
+      }
+    } else {
+      // ถ้าแลก Token ไม่สำเร็จ ให้เตะกลับไปหน้า Login พร้อมส่ง Error ไปแสดง
+      console.error("Auth Callback Error:", error.message);
+      return NextResponse.redirect(`${origin}/login?error=auth_failed`)
     }
-    console.error("Callback Error:", error.message)
   }
 
-  // ถ้าแลกไม่สำเร็จ หรือไม่มี code กลับมา ให้ส่งไปหน้า Login
-  return NextResponse.redirect(`${origin}/login?error=auth_callback_failed`)
+  // หากไม่มี code ส่งมา (เกิดข้อผิดพลาดจาก Google)
+  return NextResponse.redirect(`${origin}/login?error=no_code`)
 }

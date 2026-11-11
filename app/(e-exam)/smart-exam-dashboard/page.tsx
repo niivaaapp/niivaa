@@ -2,14 +2,13 @@ import React from 'react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/utils/supabase/server';
-import { 
-  LogOut, Crown, Home, BrainCircuit, Database, Settings, 
-  PenTool, LayoutTemplate, MonitorCheck, Printer, BarChart4, 
-  Search, UserCircle, UploadCloud, CalendarDays, ShieldAlert, 
-  BookOpen, Award, Users 
+import {
+  LogOut, Crown, Home, BrainCircuit, Database, Settings,
+  PenTool, LayoutTemplate, MonitorCheck, Printer, BarChart4,
+  Search, UserCircle, UploadCloud, CalendarDays, ShieldAlert,
+  BookOpen, Award, Users, Edit3, Image as ImageIcon, Sparkles, Compass, PlayCircle
 } from 'lucide-react';
 
-// 🌟 ย้าย MenuCard มาไว้ด้านนอก เป็น Server Component ธรรมดา
 const MenuCard = ({ href, icon: Icon, title, desc, colorClass, disabled = false }: any) => (
   <Link href={disabled ? '#' : href} className={`block group ${disabled ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}>
     <div className="h-full bg-slate-900/50 hover:bg-slate-800/80 border border-slate-800 hover:border-slate-600 transition-all duration-300 rounded-2xl p-6 shadow-lg hover:shadow-[0_0_20px_rgba(0,0,0,0.3)] relative overflow-hidden">
@@ -32,24 +31,22 @@ const MenuCard = ({ href, icon: Icon, title, desc, colorClass, disabled = false 
 export default async function SmartExamDashboardPage() {
   const supabase = await createClient();
 
-  // 🌟 ด่านตรวจ 1: เช็ค Auth Session บน Server
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) {
-    redirect('/login?next=/smartexam/dashboard');
+    redirect('/login?next=/smart-exam-dashboard');
   }
 
-  // 🌟 ด่านตรวจ 2: ดึงข้อมูล Workspace และสิทธิ์ผู้ใช้ในองค์กร
   const { data: userRole } = await supabase
     .from('user_roles')
     .select('role, org_id')
     .eq('profile_id', user.id)
-    .eq('app_id', 'c3333333-3333-3333-3333-333333333333') // APP_ID ของ SmartExam
+    .eq('app_id', 'c3333333-3333-3333-3333-333333333333')
     .maybeSingle();
 
   const { data: workspace } = await supabase
     .from('workspaces')
     .select('workspace_name')
-    .eq('owner_id', user.id) // หรือใช้ org_id หากระบบ Workspace ผูกกับองค์กร
+    .eq('owner_id', user.id)
     .eq('service_code', 'SMART_EXAM')
     .maybeSingle();
 
@@ -57,7 +54,6 @@ export default async function SmartExamDashboardPage() {
     redirect('/welcome?source=dashboard&app=exam');
   }
 
-  // 🌟 ด่านตรวจ 3: เช็คแพ็กเกจการใช้งาน (Pricing Tier)
   const { data: subscription } = await supabase
     .from('subscriptions')
     .select('plans(tier, name)')
@@ -67,25 +63,22 @@ export default async function SmartExamDashboardPage() {
 
   const currentTier = (subscription?.plans as any)?.tier || 'free';
   const planName = (subscription?.plans as any)?.name || 'Freemium Plan';
-  
-  // 🌟 ดึงข้อมูลข้อสอบล่าสุด เพื่อไปทำ Dynamic Link
+
   const { data: examData } = await supabase.from('exams').select('id').order('created_at', { ascending: false }).limit(1).maybeSingle();
   const { data: sessionData } = await supabase.from('exam_sessions').select('id').eq('status', 'scheduled').order('created_at', { ascending: false }).limit(1).maybeSingle();
-  
+
   const targetExamId = examData?.id || "create-new";
   const targetSessionId = sessionData?.id || "create-new";
 
   return (
     <div className="min-h-screen bg-[#020617] text-slate-200 font-sans select-none relative overflow-x-hidden pb-12">
       <div className="fixed top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-900/20 blur-[120px] pointer-events-none z-0"></div>
-      
-      {/* 🚀 STICKY HEADER */}
+
       <header className="sticky top-0 z-50 bg-[#020617]/80 backdrop-blur-xl border-b border-white/5 px-6 py-4 shadow-xl">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-4 w-full sm:w-auto">
             <img src="/niivaa_smartexam_logo.png" alt="NiiVaa Logo" className="h-12 object-contain drop-shadow-md" />
             <div>
-              {/* 🌟 แสดงชื่อ Workspace ของโรงเรียน */}
               <h1 className="text-xl font-black tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400 drop-shadow-sm">
                 {workspace.workspace_name}
               </h1>
@@ -93,7 +86,6 @@ export default async function SmartExamDashboardPage() {
                 <p className="text-amber-500 font-bold tracking-widest uppercase text-[10px] drop-shadow-sm">
                   NiiVaa SmartExam
                 </p>
-                {/* 🌟 แสดงป้ายบอกสถานะแพ็กเกจ */}
                 <span className="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-[9px] text-slate-300 font-bold uppercase">
                   {planName}
                 </span>
@@ -107,13 +99,12 @@ export default async function SmartExamDashboardPage() {
                 <Crown size={14} /> อัปเกรดแพ็กเกจ
               </Link>
             )}
-            
+
             <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-900/50 border border-slate-800 rounded-lg">
               <UserCircle size={16} className="text-slate-400" />
               <span className="text-xs font-mono text-slate-300">ID: {user.id.substring(0, 8)}</span>
             </div>
 
-            {/* 🌟 เปลี่ยนปุ่ม Logout เป็น Server Action Form (ทำงานได้โดยไม่ต้องใช้ 'use client') */}
             <form action={async () => {
               'use server';
               const sb = await createClient();
@@ -128,8 +119,6 @@ export default async function SmartExamDashboardPage() {
         </div>
       </header>
 
-      {/* MAIN CONTENT */}
-      {/* MAIN CONTENT */}
       <main className="max-w-7xl mx-auto px-6 mt-10 relative z-10 space-y-12">
         <section className="bg-gradient-to-r from-indigo-950/40 to-cyan-950/40 border border-indigo-500/20 rounded-3xl p-6 md:p-8 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6">
           <div>
@@ -138,14 +127,13 @@ export default async function SmartExamDashboardPage() {
           </div>
           <Link href="/smartexam/create">
             <button className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl flex items-center gap-2 transition-all shadow-[0_0_20px_rgba(79,70,229,0.4)] hover:scale-105">
-              <BrainCircuit size={18} /> เริ่มสร้างข้อสอบด้วย AI
+              <Sparkles size={18} /> สร้างข้อสอบด้วย AI ด่วน!
             </button>
           </Link>
         </section>
 
         <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
-          
-          {/* 🌟 หมวดหมู่แอดมินองค์กร/โรงเรียน */}
+
           {userRole?.role === 'admin' && (
             <div className="md:col-span-12 space-y-4">
               <div className="flex items-center gap-2 border-b border-rose-900/50 pb-2 mb-4">
@@ -159,33 +147,34 @@ export default async function SmartExamDashboardPage() {
             </div>
           )}
 
-          {/* 🌟 หมวดหมู่ 1: จัดการคลังและแบบทดสอบ (Bank & Builder) */}
           <div className="md:col-span-12 space-y-4">
             <div className="flex items-center gap-2 border-b border-slate-800 pb-2 mb-4">
               <Database className="text-cyan-400" size={20} />
               <h2 className="text-lg font-bold text-slate-200">ระบบคลัง และ การจัดชุดสอบ (Bank & Builder)</h2>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <MenuCard href="/smartexam" icon={Search} title="หน้าหลักคลังข้อสอบ" desc="ภาพรวมการสร้างแบบทดสอบ จัดหมวดหมู่ และฝึกทดสอบ" colorClass="text-cyan-400" />
-              <MenuCard href="/smartexam/create" icon={BrainCircuit} title="AI สร้างข้อสอบ" desc="สร้างข้อสอบด้วย AI (เนื้อหา/ภาพ/หัวข้อ)" colorClass="text-indigo-400" />
-              <MenuCard href="/smartexam/import" icon={UploadCloud} title="อัปโหลดข้อสอบ PDF" desc="นำเข้าข้อสอบจากไฟล์ PDF หรือ รูปภาพข้อสอบเข้าสู่ระบบ" colorClass="text-blue-400" />
-              <MenuCard href="/smartexam/bank" icon={Database} title="จัดการคลังข้อสอบ" desc="เรียกดู จัดเรียง และกรองข้อสอบทั้งหมดในฐานข้อมูลของคุณ" colorClass="text-emerald-400" />
-              <MenuCard href={`/smartexam/edit/${targetExamId}`} icon={PenTool} title="แก้ไขชุดข้อสอบล่าสุด" desc="เพิ่ม ลบ แก้ไข ข้อสอบภายในชุดนี้ก่อนดำเนินการจัดสอบ" colorClass="text-orange-400" />
-              
-              <MenuCard 
-                href="/smartexam/builder" 
-                icon={LayoutTemplate} 
-                title="จัดชุดสนามสอบ" 
-                desc="จัดชุดสอบออนไลน์ (เฉพาะ Pro/Premium)" 
-                colorClass="text-amber-400" 
-                disabled={currentTier === 'free'} // ล็อกฟีเจอร์ถ้าเป็นสายฟรี
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <MenuCard href="/smartexam/create" icon={BrainCircuit} title="สร้างข้อสอบด้วย AI" desc="ให้ AI ช่วยแต่งโจทย์และเฉลยจากหัวข้อ หรือเนื้อหาที่กำหนด" colorClass="text-indigo-400" />
+              <MenuCard href="/smartexam/import-text" icon={Edit3} title="พิมพ์/คัดลอกข้อสอบมาลง" desc="สร้างข้อสอบกึ่งอัตโนมัติจากการพิมพ์โครงสร้าง หรือคัดลอกมาวาง" colorClass="text-amber-400" />
+              <MenuCard href="/smartexam/image2exam" icon={ImageIcon} title="สกัดข้อสอบจากภาพ" desc="ถ่ายภาพข้อสอบเก่าจากหนังสือ/เอกสาร ให้ AI แปลงเป็นข้อสอบดิจิทัล" colorClass="text-blue-400" />
+              <MenuCard href="/smartexam/splitter" icon={UploadCloud} title="จับภาพเอกสารบนจอ" desc="ตัดแบ่งภาพข้อสอบที่แสดงอยู่บนหน้าจอคอมพิวเตอร์เข้าสู่ระบบ" colorClass="text-cyan-400" />
+
+              <MenuCard href="/smartexam" icon={Search} title="หน้าหลักคลังข้อสอบ" desc="ภาพรวมการสร้างแบบทดสอบ จัดหมวดหมู่ของคุณ" colorClass="text-emerald-400" />
+              <MenuCard href="/smartexam/explore" icon={Compass} title="คลังข้อสอบสาธารณะ" desc="ค้นหาและฝึกทำข้อสอบจากคลังกลางที่แชร์โดยคุณครูท่านอื่น" colorClass="text-teal-400" />
+              <MenuCard href={`/smartexam/edit/${targetExamId}`} icon={PenTool} title="แก้ไขชุดข้อสอบล่าสุด" desc="เพิ่ม ลบ แก้ไข ข้อสอบภายในชุดล่าสุดก่อนดำเนินการจัดสอบ" colorClass="text-orange-400" />
+              <MenuCard href={`/smartexam/print/${targetExamId}`} icon={Printer} title="Print Preview ข้อสอบ" desc="หน้าจัดการสำหรับจัดรูปแบบข้อสอบเพื่อสั่งพิมพ์ลงกระดาษ (PDF)" colorClass="text-slate-300" />
+
+              <MenuCard
+                href="/smartexam/builder"
+                icon={LayoutTemplate}
+                title="จัดชุดสนามสอบออนไลน์"
+                desc="จัดชุดและตั้งค่าการสอบ (เฉพาะ Pro/Premium)"
+                colorClass="text-rose-400"
+                disabled={currentTier === 'free'}
               />
-              
-              <MenuCard href={`/smartexam/print/${targetExamId}`} icon={Printer} title="Print Preview ข้อสอบ" desc="หน้าจัดการสำหรับจัดหน้าข้อสอบเพื่อสั่งพิมพ์ลงกระดาษ (PDF)" colorClass="text-slate-300" />
             </div>
           </div>
 
-          {/* 🌟 หมวดหมู่ 2: ดำเนินการจัดสอบและควบคุมห้องสอบ (Sessions & Proctoring) */}
           <div className="md:col-span-12 space-y-4 mt-6">
             <div className="flex items-center gap-2 border-b border-slate-800 pb-2 mb-4">
               <Settings className="text-purple-400" size={20} />
@@ -194,14 +183,26 @@ export default async function SmartExamDashboardPage() {
                 Active ID: {targetSessionId !== "create-new" ? targetSessionId.substring(0, 8) : "N/A"}
               </span>
             </div>
+
+            {/* 🌟 ปรับปรุงการ์ดจำลองมุมมองนักเรียน แทนที่ระบบเข้าห้องสอบ Live ของเดิม */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <MenuCard href="/smartexam/sessions" icon={CalendarDays} title="ระบบจัดรอบการสอบ" desc="สร้างและจัดการตารางการสอบ กำหนด PIN Code สำหรับผู้สอบ" colorClass="text-fuchsia-400" />
-              <MenuCard href={`/smartexam/${targetSessionId}`} icon={MonitorCheck} title="ระบบเข้าห้องสอบ (Live)" desc="หน้านักเรียนระบุตัวตน เข้าสู่รอบสอบที่กำลังเปิดรับในขณะนี้" colorClass="text-blue-400" />
+
+              <MenuCard
+                // 🌟 แก้ไข href ตรงนี้ ตัดคำว่า /take ออก
+                href={`/smartexam/${targetExamId}?preview=true`}
+                icon={PlayCircle}
+                title="จำลองสอบ (Student Preview)"
+                desc="ทดลองทำข้อสอบล่าสุดเสมือนจริง เพื่อตรวจทานก่อนแจกลิงก์ให้นักเรียน"
+                colorClass="text-blue-400"
+                // ป้องกัน Error หากยังไม่มีข้อสอบในระบบ
+                disabled={targetExamId === "create-new"}
+              />
+
               <MenuCard href={`/smartexam/proctor/6767af28-4b46-4099-a010-08aa50b836fa`} icon={ShieldAlert} title="Proctoring Dashboard" desc="สำหรับกรรมการคุมสอบ ดูสถานะผู้เข้าสอบแบบ Real-time" colorClass="text-rose-400" />
             </div>
           </div>
 
-          {/* 🌟 หมวดหมู่ 3: ระบบประเมินและวิเคราะห์ผล (Analytics & Gradebook) */}
           <div className="md:col-span-12 space-y-4 mt-6">
             <div className="flex items-center gap-2 border-b border-slate-800 pb-2 mb-4">
               <BarChart4 className="text-emerald-400" size={20} />

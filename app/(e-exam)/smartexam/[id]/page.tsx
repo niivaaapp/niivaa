@@ -1,16 +1,19 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import {
   Clock, CheckCircle2, User, Send, Loader2, FileText,
   ChevronRight, Lock, AlertCircle, Hourglass,
-  ChevronLeft, Flag, LayoutGrid, Hash, Info
+  ChevronLeft, Flag, LayoutGrid, Hash, Info, AlertTriangle
 } from 'lucide-react';
+import Link from 'next/link';
 
 export default function StudentExamPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
+  const isPreview = searchParams.get('preview') === 'true'; // 🌟 ตรวจสอบโหมดจำลอง
   const router = useRouter();
   const examId = params.id as string;
 
@@ -163,6 +166,10 @@ export default function StudentExamPage() {
 
   useEffect(() => {
     if (examState !== 'taking') return;
+    
+    // 🌟 ถ้ายกเลิกการแจ้งเตือนสลับหน้าต่างในโหมดจำลอง (เพื่อความสะดวกครู) ให้ uncomment โค้ดนี้
+    // if (isPreview) return;
+
     const handleVisibilityChange = () => {
       if (document.hidden) {
         alert("⚠️ คำเตือน: คุณสลับหน้าต่างหรือย่อเบราว์เซอร์ระหว่างการสอบ!\nระบบได้บันทึกพฤติกรรมนี้ส่งให้กรรมการคุมสอบแล้ว");
@@ -184,7 +191,7 @@ export default function StudentExamPage() {
       document.removeEventListener('contextmenu', handleContextMenu);
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [examState]);
+  }, [examState, isPreview]);
 
   // ----------------------------------------------------
   // ฟังก์ชันการทำงาน
@@ -238,13 +245,25 @@ export default function StudentExamPage() {
     setFlagged(prev => prev.includes(questionId) ? prev.filter(id => id !== questionId) : [...prev, questionId]);
   };
 
+  // 🌟 ฟังก์ชันส่งข้อสอบ (อัปเดตลอจิก Preview)
   const handleSubmitExam = () => {
     const answeredCount = Object.values(answers).filter(val => val && val.trim() !== '').length;
-    if (answeredCount < questions.length) {
-      if (!confirm(`คุณทำไปเพียง ${answeredCount} จาก ${questions.length} ข้อ\nแน่ใจหรือไม่ว่าต้องการส่งข้อสอบ? (ข้อที่ไม่ได้ตอบจะไม่ได้คะแนน)`)) return;
+    const totalQuestions = questions.length;
+
+    if (answeredCount < totalQuestions) {
+      const confirmIncomplete = window.confirm(
+        `คุณทำไปเพียง ${answeredCount} จาก ${totalQuestions} ข้อ\nแน่ใจหรือไม่ว่าต้องการส่งข้อสอบ? (ข้อที่ไม่ได้ตอบจะไม่ได้คะแนน)`
+      );
+      if (!confirmIncomplete) return;
     } else {
-      if (!confirm("ตรวจสอบคำตอบเรียบร้อยแล้ว ยืนยันการส่งข้อสอบหรือไม่?")) return;
+      const confirmComplete = window.confirm("คุณทำข้อสอบครบทุกข้อแล้ว ยืนยันการส่งข้อสอบหรือไม่?");
+      if (!confirmComplete) return;
     }
+
+    if (isPreview) {
+      window.alert("โหมดจำลอง (Preview): ระบบจะประมวลผลคะแนนให้คุณตรวจสอบ แต่คะแนนนี้จะ 'ไม่ถูกบันทึก' ลงฐานข้อมูลครับ");
+    }
+
     processGrading();
   };
 
@@ -273,6 +292,11 @@ export default function StudentExamPage() {
 
     setScoreResult({ totalScore, earnedScore, correctCount });
     setExamState('submitted');
+
+    // 🌟 ป้องกันการบันทึกคะแนนถ้านี่คือโหมด Preview
+    if (isPreview) {
+      return; 
+    }
 
     try {
       const { error } = await supabase.from('exam_submissions').insert({
@@ -360,6 +384,17 @@ export default function StudentExamPage() {
   return (
     <div className={`w-full bg-[#0f172a] text-white font-sans ${examState === 'taking' && isPdfOrImage ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
 
+      {/* 🚨 แถบแจ้งเตือนโหมด Preview */}
+      {isPreview && (
+          <div className="bg-amber-500/20 border-b border-amber-500/50 text-amber-400 text-xs sm:text-sm font-bold p-3 flex justify-center items-center gap-2 sticky top-0 z-[100] backdrop-blur-md">
+              <AlertTriangle size={16} className="shrink-0" />
+              <span>นี่คือโหมดจำลองมุมมองนักเรียน (Preview Mode) การส่งคำตอบจะไม่ถูกบันทึก</span>
+              <Link href="/smart-exam-dashboard" className="ml-2 sm:ml-4 underline text-amber-200 hover:text-white shrink-0">
+                  กลับหน้า Dashboard
+              </Link>
+          </div>
+      )}
+
       {/* 🟢 STATE 1: ลงทะเบียนก่อนเริ่มสอบ */}
       {examState === 'intro' && accessStatus === 'open' && (
         <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-[#020617] to-[#0f172a]">
@@ -392,7 +427,6 @@ export default function StudentExamPage() {
                 </div>
               </div>
 
-              {/* 🌟 ส่วนแสดงคำชี้แจง */}
               <div className="mb-8">
                 <span className="font-bold block mb-2 text-amber-500 flex items-center gap-2">
                   <Info size={18} /> คำชี้แจงการทำแบบทดสอบ:
@@ -429,7 +463,7 @@ export default function StudentExamPage() {
       {examState === 'taking' && (
         <div className="flex flex-col h-full w-full">
 
-          <nav className="w-full bg-slate-950 border-b border-white/10 sticky top-0 z-50 shadow-xl shrink-0">
+          <nav className="w-full bg-slate-950 border-b border-white/10 sticky top-[48px] sm:top-[44px] z-40 shadow-xl shrink-0">
             {/* แถบเวลา */}
             <div className={`w-full py-1.5 sm:py-2 flex items-center justify-center gap-2 text-base sm:text-xl font-black transition-colors ${timeLeft < 300 ? 'bg-red-500 text-white' : 'bg-slate-900 text-white'}`}>
               <Clock size={18} className={timeLeft < 300 ? 'animate-bounce' : ''} />
@@ -438,15 +472,12 @@ export default function StudentExamPage() {
 
             <div className="max-w-7xl mx-auto px-4 py-2 sm:py-3 flex items-center justify-between gap-4">
 
-              {/* 🌟 ส่วนข้อมูลแบบทดสอบ และ ข้อมูลผู้สอบ (จัดเรียงใหม่ให้กะทัดรัด) */}
+              {/* 🌟 ส่วนข้อมูลแบบทดสอบ และ ข้อมูลผู้สอบ */}
               <div className="flex flex-col min-w-0 flex-1">
-
-                {/* 1. ชื่อแบบทดสอบ และ มาตรฐาน/ตัวชี้วัด */}
                 <div className="flex flex-col sm:flex-row sm:items-baseline gap-0 sm:gap-2 truncate">
                   <h2 className="text-sm sm:text-base font-black text-amber-400 truncate" title={examConfig?.title}>
                     {examConfig?.title || 'แบบทดสอบออนไลน์'}
                   </h2>
-                  {/* แสดงตัวชี้วัด (ใช้ฟ้อนต์ขนาด text-[10px]) */}
                   {examConfig?.topic && !examConfig.topic.trim().startsWith('{') && (
                     <span className="text-[10px] text-gray-400 truncate" title={examConfig.topic}>
                       <span className="hidden sm:inline">|</span> 📍 {examConfig.topic}
@@ -454,7 +485,6 @@ export default function StudentExamPage() {
                   )}
                 </div>
 
-                {/* 2. ข้อมูลผู้เข้าสอบ และ สรุปจำนวนข้อ */}
                 <div className="flex items-center gap-2 text-[11px] sm:text-xs text-gray-300 mt-1 sm:mt-0.5 truncate">
                   <span className="font-bold text-white truncate max-w-[120px] sm:max-w-xs">{studentInfo.name}</span>
                   <span className="text-gray-500 hidden sm:inline">({studentInfo.studentId})</span>
@@ -469,7 +499,6 @@ export default function StudentExamPage() {
 
               {/* 🌟 ปุ่มดำเนินการ (ฝั่งขวา) */}
               <div className="flex items-center gap-2 sm:gap-4 shrink-0">
-                {/* ปุ่มเปิดคำชี้แจงระหว่างทำข้อสอบ */}
                 <button
                   onClick={() => setShowInstructionsModal(true)}
                   className="p-2 sm:px-3 sm:py-2 bg-slate-800 hover:bg-slate-700 text-cyan-400 rounded-lg flex items-center gap-1.5 transition-colors border border-cyan-500/20 shadow-sm"
@@ -477,7 +506,6 @@ export default function StudentExamPage() {
                   <Info size={16} /> <span className="hidden sm:inline text-xs font-bold">คำชี้แจง</span>
                 </button>
 
-                {/* ปุ่มส่งคำตอบ */}
                 <button onClick={handleSubmitExam} className="px-3 py-2 sm:px-6 sm:py-2.5 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl flex items-center gap-2 transition-colors shadow-[0_0_15px_rgba(16,185,129,0.3)] active:scale-95">
                   <Send size={16} /> <span className="hidden sm:inline">ส่งคำตอบ</span>
                 </button>
@@ -497,22 +525,17 @@ export default function StudentExamPage() {
           </nav>
 
           {isPdfOrImage ? (
-            // ==========================================
-            // โหมด 2.1: PDF / รูปภาพ (Virtual OMR)
-            // ==========================================
             <div className="flex-1 relative flex overflow-hidden">
               <div className="flex-1 h-full bg-[#1e293b] relative">
                 {examConfig.exam_format === 'pdf' || (examConfig.file_url && examConfig.file_url.toLowerCase().includes('.pdf')) ? (
                   <iframe src={`${examConfig.file_url}#view=FitH&toolbar=0&navpanes=0`} className="w-full h-full border-none absolute inset-0" title="Exam Document" />
                 ) : (
                   <div className="w-full h-full overflow-y-auto custom-scrollbar flex flex-col items-center gap-6 bg-[#0f172a] p-4 pb-40">
-                    {/* กรณีมีหลายรูปภาพ (Multi-Image) */}
                     {examConfig.image_urls && examConfig.image_urls.length > 0 ? (
                       examConfig.image_urls.map((url: string, imgIndex: number) => (
                         <div key={imgIndex} className="relative w-full max-w-3xl shadow-2xl rounded-xl bg-white overflow-hidden shrink-0">
                           <img src={url} alt={`Page ${imgIndex + 1}`} className="w-full h-auto block pointer-events-none" />
 
-                          {/* เรนเดอร์ตรายางข้อสอบ */}
                           {questions.filter(q => q.image_index === imgIndex).map((q) => (
                             <div
                               key={q.id}
@@ -532,7 +555,6 @@ export default function StudentExamPage() {
                             </div>
                           ))}
 
-                          {/* 🌟 เรนเดอร์กล่องข้อความ (Annotations) บนภาพ */}
                           {examConfig.metadata?.annotations?.filter((a: any) => a.image_index === imgIndex).map((anno: any) => (
                             <div
                               key={anno.id}
@@ -550,7 +572,6 @@ export default function StudentExamPage() {
                         </div>
                       ))
                     ) : (
-                      /* กรณีมีรูปภาพเดียว (โหมดเก่า) */
                       <div className="relative w-full max-w-3xl shadow-2xl rounded-xl bg-white overflow-hidden shrink-0">
                         <img src={examConfig.file_url} alt="Exam" className="w-full h-auto block" />
                       </div>
@@ -573,7 +594,6 @@ export default function StudentExamPage() {
                     </button>
                   </div>
 
-                  {/* แสดง Input หรือปุ่ม กขคง ตามประเภทข้อสอบ */}
                   {isShortAnswerMode ? (
                     <div className="mb-6 relative z-50">
                       <label className="text-xs text-gray-400 mb-2 block flex items-center justify-center gap-1"><Hash size={12} /> พิมพ์คำตอบที่ถูกต้องด้านล่าง</label>
@@ -615,7 +635,7 @@ export default function StudentExamPage() {
               )}
 
               {showGrid && (
-                <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+                <div className="absolute inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
                   <div className="bg-slate-900 border border-white/10 rounded-[2rem] w-full max-w-3xl max-h-[85vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-200">
                     <div className="flex justify-between items-center p-6 border-b border-white/5">
                       <div>
@@ -714,20 +734,26 @@ export default function StudentExamPage() {
       {/* 🟢 STATE 3: ส่งข้อสอบแล้ว (Submitted) */}
       {examState === 'submitted' && (
         <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-t from-[#020617] to-[#0f172a]">
-          <div className="max-w-md w-full bg-slate-900 border border-white/10 rounded-3xl p-8 shadow-2xl text-center space-y-6 animate-in zoom-in-95 duration-500">
+          <div className="max-w-md w-full bg-slate-900 border border-white/10 rounded-3xl p-8 shadow-2xl text-center space-y-6 animate-in zoom-in-95 duration-500 mt-10">
             <div className="w-24 h-24 mx-auto bg-emerald-500/20 text-emerald-500 rounded-full flex items-center justify-center mb-6 ring-8 ring-emerald-500/10">
               <CheckCircle2 size={48} />
             </div>
             <h2 className="text-2xl font-black text-white">บันทึกคำตอบสำเร็จ!</h2>
-            <p className="text-gray-400 text-sm">ระบบได้บันทึกคำตอบของคุณ {studentInfo.name} ({studentInfo.studentId}) ส่งให้คุณครูเรียบร้อยแล้ว</p>
+            <p className="text-gray-400 text-sm">ระบบได้ประมวลผลคำตอบของคุณ {studentInfo.name} ({studentInfo.studentId}) เรียบร้อยแล้ว</p>
 
-            {settings?.scoreVisibility === 'immediate' ? (
+            {settings?.scoreVisibility === 'immediate' || isPreview ? (
               <div className="bg-black/50 p-6 rounded-2xl border border-white/5 mt-6">
                 <div className="text-sm text-gray-500 mb-2">คะแนนที่คุณทำได้</div>
                 <div className="text-5xl font-black flex items-baseline justify-center gap-2" style={{ color: branding.primaryColor }}>
                   {scoreResult.earnedScore} <span className="text-xl text-gray-500">/ {scoreResult.totalScore}</span>
                 </div>
                 <div className="text-xs text-gray-500 mt-4">ตอบถูก {scoreResult.correctCount} จาก {questions.length} ข้อ</div>
+                
+                {isPreview && (
+                    <div className="mt-4 text-xs text-amber-500/80 bg-amber-500/10 p-3 rounded-lg border border-amber-500/20">
+                        * นี่คือการจำลองสอบ คะแนนนี้ไม่ได้ถูกบันทึกลงระบบ
+                    </div>
+                )}
               </div>
             ) : settings?.scoreVisibility === 'delayed' ? (
               <div className="bg-black/50 p-6 rounded-2xl border border-white/5 mt-6 flex flex-col items-center gap-3">
@@ -743,8 +769,8 @@ export default function StudentExamPage() {
               </div>
             )}
 
-            <button onClick={() => window.close()} className="w-full py-4 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-2xl mt-4 transition-colors">
-              ออกจากระบบ / ปิดหน้าต่าง
+            <button onClick={() => isPreview ? router.push('/smart-exam-dashboard') : window.close()} className="w-full py-4 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-2xl mt-4 transition-colors">
+              {isPreview ? 'กลับสู่หน้าแดชบอร์ดครู' : 'ออกจากระบบ / ปิดหน้าต่าง'}
             </button>
           </div>
         </div>
