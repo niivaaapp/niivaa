@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter,useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Pause, ChevronUp, ChevronDown, Clock, Music, Image as ImageIcon, Settings, Timer, Sliders, Palette } from 'lucide-react';
@@ -40,6 +40,8 @@ const TRANSITIONS = [
 
 export default function LyricsPage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const playlistId = searchParams.get('playlist_id'); // ดึงรหัสห้องจาก URL
     const [song, setSong] = useState<any>(null);
     const [lyricsLines, setLyricsLines] = useState<string[]>([]);
     const [duration, setDuration] = useState(240);
@@ -333,19 +335,41 @@ export default function LyricsPage() {
     };
 
     useEffect(() => {
+        // 🌟 ป้องกันไม่ให้ทำงานถ้ายก URL มาโดยไม่ระบุห้อง
+        if (!playlistId) return;
+
         const init = async () => {
-            const { data } = await supabase.from('current_playing').select('video_id').eq('id', 1).maybeSingle();
+            const { data } = await supabase
+               .from('current_playing')
+               .select('video_id')
+               .eq('playlist_id', playlistId) // 🌟 ดึงข้อมูลเพลงล่าสุดของเพลย์ลิสต์นี้
+               .maybeSingle();
+            
             if (data?.video_id) fetchLyrics(data.video_id);
         };
         init();
 
-        const channel = supabase.channel('lyrics-reboot-secure')
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'current_playing', filter: 'id=eq.1' },
-                (payload) => { if (payload.new?.video_id) fetchLyrics(payload.new.video_id); })
+        // 🌟 เปลี่ยนชื่อ Channel เพื่อแยกห้องให้เด็ดขาด
+        const channelName = `lyrics-room-${playlistId}`;
+        const channel = supabase.channel(channelName)
+            .on('postgres_changes', 
+                { 
+                    event: '*', // แนะนำใช้ * เพราะบางทีเป็นการ Insert ห้องใหม่ (Upsert)
+                    schema: 'public', 
+                    table: 'current_playing', 
+                    filter: `playlist_id=eq.${playlistId}` // 🌟 ดักฟังเฉพาะสัญญาณจาก Playlist ของตัวเอง
+                },
+                (payload) => { 
+                    if (payload.new?.video_id) fetchLyrics(payload.new.video_id); 
+                }
+            )
             .subscribe();
 
-        return () => { supabase.removeChannel(channel); if (timerRef.current) clearTimeout(timerRef.current); };
-    }, [intermissionList]);
+        return () => { 
+            supabase.removeChannel(channel); 
+            if (timerRef.current) clearTimeout(timerRef.current); 
+        };
+    }, [intermissionList, playlistId]); // 🌟 อย่าลืมเพิ่ม playlistId เป็น Dependency
 
     // 🟢 [เอนจิ้นความเร็วสูงฉบับแผ่น v637R ดั้งเดิม 100%]: รันสายพานดันพิกเซลเพียว ๆ ไหลสมูท เนียนละมุนตาที่สุด ปราศจาก Logic แทรกแซง Re-render กวนใจ Ticker บอร์ดด้านบน
     useEffect(() => {
