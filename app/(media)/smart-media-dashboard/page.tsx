@@ -2,20 +2,19 @@
 
 import React, { Suspense, useState, useEffect } from 'react'; 
 import Link from 'next/link';
-import { useSearchParams, useRouter } from 'next/navigation'; // 🌟 1. เพิ่ม useRouter
+import { useSearchParams, useRouter } from 'next/navigation'; 
 import {
     Music, Mic2, PlusCircle, ListMusic, Video, Layers,
-    UploadCloud, FileEdit, MonitorPlay, Sparkles, GraduationCap, LogIn
+    UploadCloud, FileEdit, MonitorPlay, Sparkles, GraduationCap, LogIn, LogOut // 🌟 1. เพิ่ม LogOut icon
 } from 'lucide-react';
 
 import { createClient } from '@/utils/supabase/client';
 
 function SmartMediaDashboardContent() {
-    const router = useRouter(); // 🌟 2. เรียกใช้งาน router
+    const router = useRouter(); 
     const searchParams = useSearchParams();
     const eventId = searchParams.get('event_id') || '';
     
-    // 🌟 3. State สำหรับตรวจสอบสถานะการ Login (Auth Guard)
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [isCheckingAuth, setIsCheckingAuth] = useState(true);
     const [userDisplay, setUserDisplay] = useState<string>('');
@@ -27,7 +26,6 @@ function SmartMediaDashboardContent() {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
                 setIsAuthenticated(true);
-                // 🌟 4. รองรับทั้ง Email และ เบอร์โทรศัพท์ (ป้องกันกรณีสมัครด้วยเบอร์โทรแล้วบัค)
                 setUserDisplay(user.email || user.phone || user.user_metadata?.full_name || 'สมาชิก NiiVaa');
                 
                 const { data: playlist } = await supabase
@@ -47,13 +45,25 @@ function SmartMediaDashboardContent() {
         fetchUserDataAndPlaylist();
     }, []);
 
-    // 🌟 5. ปรับปรุง MenuCard ให้ดักจับการคลิก (หากยังไม่ล็อกอิน ให้เตือนและพาไปหน้า Login)
+    // 🌟 2. ฟังก์ชันออกจากระบบ
+    const handleLogout = async () => {
+        if (!confirm('ต้องการออกจากระบบใช่หรือไม่?')) return;
+        
+        await supabase.auth.signOut();
+        setIsAuthenticated(false);
+        setUserDisplay('');
+        
+        // สั่งเคลียร์แคชและพาเด้งกลับไปหน้าแรก (/)
+        router.push('/');
+        router.refresh(); 
+    };
+
     const MenuCard = ({ href, icon: Icon, title, desc, colorClass, badge, requireAuth = true }: any) => {
         const handleClick = (e: React.MouseEvent) => {
             if (requireAuth && !isAuthenticated && !isCheckingAuth) {
-                e.preventDefault(); // หยุดการเปลี่ยนหน้า
+                e.preventDefault(); 
                 alert('⚠️ กรุณาเข้าสู่ระบบ หรือ สมัครสมาชิก ก่อนเข้าใช้งานเมนูนี้ครับ');
-                router.push('/login?app=smartmedia'); // พาไปหน้าล็อกอินทันที
+                router.push('/login?app=smartmedia'); 
             }
         };
 
@@ -94,14 +104,14 @@ function SmartMediaDashboardContent() {
                         </div>
                     </div>
 
-                    {/* 🌟 6. ปุ่มมุมขวาบน จะเปลี่ยนเป็นปุ่ม Login ถ้าพบว่ายังไม่ได้เข้าสู่ระบบ */}
                     <div className="relative z-10 w-full md:w-auto flex justify-center md:justify-end">
                         {isCheckingAuth ? (
                             <div className="text-slate-400 text-sm animate-pulse">กำลังตรวจสอบสิทธิ์...</div>
                         ) : isAuthenticated ? (
-                            <div className="flex items-center gap-3 bg-slate-950/60 border border-cyan-500/30 px-5 py-2.5 rounded-full shadow-inner backdrop-blur-md shrink-0">
+                            // 🌟 3. ปรับปรุงกล่องสถานะผู้ใช้ และเพิ่มปุ่ม Log out
+                            <div className="flex items-center gap-3 bg-slate-950/60 border border-cyan-500/30 pl-5 pr-2 py-2 rounded-full shadow-inner backdrop-blur-md shrink-0">
                                 <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]"></div>
-                                <div className="flex flex-col">
+                                <div className="flex flex-col pr-2 border-r border-white/10">
                                     <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">
                                         Logged in as
                                     </span>
@@ -109,6 +119,13 @@ function SmartMediaDashboardContent() {
                                         {userDisplay}
                                     </span>
                                 </div>
+                                <button 
+                                    onClick={handleLogout}
+                                    title="ออกจากระบบ"
+                                    className="p-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 rounded-full transition-all border border-rose-500/20 hover:border-rose-500/50 flex items-center justify-center group"
+                                >
+                                    <LogOut size={16} className="group-hover:-translate-x-0.5 transition-transform" />
+                                </button>
                             </div>
                         ) : (
                             <button 
@@ -130,7 +147,7 @@ function SmartMediaDashboardContent() {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                         <MenuCard
                             href="/playlistdashboard"
-                            requireAuth={true} // 🌟 บังคับล็อกอินก่อนเข้าหน้าเทมเพลต เพื่อไม่ให้ไปสะดุดตอนกดบันทึก
+                            requireAuth={true} 
                             icon={Sparkles} title="ชุดสื่อแนะนำ (Templates)" colorClass="bg-cyan-400"
                             desc="เรียกดูชุดสื่อตัวอย่าง บทเรียน หรืออัลบั้มเพลงที่ระบบสร้างไว้ให้ เพื่อนำมาโคลนใช้งาน"
                         />
@@ -174,14 +191,6 @@ function SmartMediaDashboardContent() {
                             icon={MonitorPlay} title="จอแสดงเนื้อเพลง (Display)" colorClass="bg-purple-400"
                             desc="เปิดหน้าจอสไลด์เนื้อเพลงคาราโอเกะ ที่ซิงค์กับเครื่องเล่นหลัก"
                         />
-                        <MenuCard
-                            href={`/eventdashboard/media?event_id=${eventId}&source=smartmedia`}
-                            requireAuth={true}
-                            icon={MonitorPlay}
-                            title="คลังสื่อ SmartMedia"
-                            colorClass="bg-cyan-500"
-                            desc="อัปโหลดและจัดการไฟล์ภาพ วิดีโอ พื้นหลังในระบบ"
-                        />
                         
                         <MenuCard
                             href="/mykaraoke"
@@ -209,7 +218,6 @@ function SmartMediaDashboardContent() {
                             <h2 className="text-xl font-bold text-white">ต่อยอดสื่อการเรียนรู้ (Education Suite)</h2>
                         </div>
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                            {/* 🌟 7. ดักการกดปุ่ม NiiVaa SmartExam เช่นเดียวกัน */}
                             <Link 
                                 href="/smartexam" 
                                 onClick={(e) => {
