@@ -413,11 +413,11 @@ export default function CreatePlaylistPage() {
                 </div>
               </div>
 
-              {/* 🌟 2. จัดกลุ่มส่วนตกแต่งเพิ่มเติมให้อยู่ในกรอบ และเน้นย้ำว่า "ไม่ระบุให้ข้ามได้" */}
+              {/* 🌟 2. จัดกลุ่มส่วนตกแต่งเพิ่มเติมให้อยู่ในกรอบ โดยหากไม่ต้องการระบุ "ให้ข้ามได้" */}
               <div className="relative mt-6 bg-[#001122]/40 border border-white/5 rounded-2xl p-4 pt-5 space-y-4">
                 <div className="absolute -top-2.5 left-4 bg-[#001122] px-3 border border-white/10 rounded-full">
                   <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
-                    ส่วนตกแต่งเพิ่มเติม (ไม่ระบุให้ข้ามได้)
+                    ส่วนตกแต่งเพิ่มเติม (หากไม่ต้องการระบุ "ให้ข้ามได้")
                   </span>
                 </div>
 

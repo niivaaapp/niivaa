@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
-import { useRouter,useSearchParams } from 'next/navigation';
+import { useState, useEffect, useRef,Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Pause, ChevronUp, ChevronDown, Clock, Music, Image as ImageIcon, Settings, Timer, Sliders, Palette } from 'lucide-react';
@@ -38,7 +38,7 @@ const TRANSITIONS = [
     { initial: { opacity: 0, y: 15 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -15 } }
 ];
 
-export default function LyricsPage() {
+function LyricsContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const playlistId = searchParams.get('playlist_id'); // ดึงรหัสห้องจาก URL
@@ -305,7 +305,7 @@ export default function LyricsPage() {
                         setLineEffects(timings.map(() => Math.floor(Math.random() * 3)));
                     } else {
                         setIsUsingTimeMapping(false);
-                      setLyricTimings(linesArray.map((line: any, index: number) => ({ line_index: index, lyric_text: line, target_second: 0 })));
+                        setLyricTimings(linesArray.map((line: any, index: number) => ({ line_index: index, lyric_text: line, target_second: 0 })));
                         setLineEffects(linesArray.map(() => 0));
                     }
                 } else {
@@ -340,11 +340,11 @@ export default function LyricsPage() {
 
         const init = async () => {
             const { data } = await supabase
-               .from('current_playing')
-               .select('video_id')
-               .eq('playlist_id', playlistId) // 🌟 ดึงข้อมูลเพลงล่าสุดของเพลย์ลิสต์นี้
-               .maybeSingle();
-            
+                .from('current_playing')
+                .select('video_id')
+                .eq('playlist_id', playlistId) // 🌟 ดึงข้อมูลเพลงล่าสุดของเพลย์ลิสต์นี้
+                .maybeSingle();
+
             if (data?.video_id) fetchLyrics(data.video_id);
         };
         init();
@@ -352,22 +352,22 @@ export default function LyricsPage() {
         // 🌟 เปลี่ยนชื่อ Channel เพื่อแยกห้องให้เด็ดขาด
         const channelName = `lyrics-room-${playlistId}`;
         const channel = supabase.channel(channelName)
-            .on('postgres_changes', 
-                { 
+            .on('postgres_changes',
+                {
                     event: '*', // แนะนำใช้ * เพราะบางทีเป็นการ Insert ห้องใหม่ (Upsert)
-                    schema: 'public', 
-                    table: 'current_playing', 
+                    schema: 'public',
+                    table: 'current_playing',
                     filter: `playlist_id=eq.${playlistId}` // 🌟 ดักฟังเฉพาะสัญญาณจาก Playlist ของตัวเอง
                 },
-                (payload) => { 
-                    if (payload.new?.video_id) fetchLyrics(payload.new.video_id); 
+                (payload: any) => {
+                    if (payload.new?.video_id) fetchLyrics(payload.new.video_id);
                 }
             )
             .subscribe();
 
-        return () => { 
-            supabase.removeChannel(channel); 
-            if (timerRef.current) clearTimeout(timerRef.current); 
+        return () => {
+            supabase.removeChannel(channel);
+            if (timerRef.current) clearTimeout(timerRef.current);
         };
     }, [intermissionList, playlistId]); // 🌟 อย่าลืมเพิ่ม playlistId เป็น Dependency
 
@@ -762,5 +762,16 @@ export default function LyricsPage() {
                 }
             `}</style>
         </div>
+    );
+}
+export default function LyricsPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-black flex items-center justify-center text-cyan-400 font-bold">
+                ⏳ กำลังโหลดระบบเนื้อเพลง...
+            </div>
+        }>
+            <LyricsContent />
+        </Suspense>
     );
 }
