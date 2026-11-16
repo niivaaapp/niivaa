@@ -255,12 +255,14 @@ export default function SmartKaraokePage({ params }: { params: any }) {
         return;
       }
 
-      // 🌟 2. ดึง Playlist "ของ User คนนี้" หรือ "เทมเพลตส่วนกลาง (is_global=true)"
+      // 🌟 2. ดึงเฉพาะ Playlist "ส่วนตัวของ User คนนี้" เท่านั้น (ซ่อนเทมเพลต)
       const { data: allP, error: pError } = await supabase
         .from('playlists')
         .select('*, tracks(count)')
-        // 👇 ปรับปรุงจุดนี้: ใช้ .or() เพื่อดึงทั้งงานส่วนตัวและเทมเพลตส่วนกลาง
-        .or(`user_id.eq.${user.id},is_global.eq.true`);
+        // 👇 แก้ไขจุดนี้: บังคับให้ดึงเฉพาะของ User ปัจจุบัน และต้องไม่ใช่ Template
+        .eq('user_id', user.id)
+        .eq('is_global', false)
+        .order('created_at', { ascending: false }); // (แถม: เรียงสร้างล่าสุดไว้บนสุดให้ด้วยครับ)
 
       if (pError) throw pError;
 
@@ -530,23 +532,30 @@ export default function SmartKaraokePage({ params }: { params: any }) {
   const triggerAutoDJ = useCallback(async () => {
     if (!isAutoDJ || allMasterSongs.length === 0) return;
 
-    // 1. วิเคราะห์แนวเพลงปัจจุบันจากคิว (อิงจากเพลงสุดท้ายในคิวเป็นหลัก)
+    // 🛑 1. [เพิ่มใหม่] ประตูดักจับ ป้องกัน Auto DJ เติมเพลงไม่หยุด
+    // ถ้าวนตรวจสอบพบว่ามี 4 เพลง (หรือมากกว่า) ในคิว ให้หยุดการสุ่มเพลงทันที!
+    if (tracks.length >= 4) {
+      console.log("[AutoDJ] คิวเพลงมี 4 เพลงขึ้นไปแล้ว หยุดการทำงานชั่วคราว");
+      return; 
+    }
+
+    // 2. วิเคราะห์แนวเพลงปัจจุบันจากคิว (อิงจากเพลงสุดท้ายในคิวเป็นหลัก)
     const referenceTrack = tracks.length > 0 ? tracks[tracks.length - 1] : null;
     const targetCategory = referenceTrack?.master_songs?.category || referenceTrack?.category || '';
 
-    // 2. ค้นหาจากคลังส่วนกลาง (Local Database) ก่อน
+    // 3. ค้นหาจากคลังส่วนกลาง (Local Database) ก่อน
     let pool = allMasterSongs.filter(s => {
-      // 2.1 กรองตามโหมดร้อง/ฟัง (เรียกใช้ฟังก์ชันตัวช่วยที่เราเพิ่งสร้าง คลีนมาก!)
+      // 3.1 กรองตามโหมดร้อง/ฟัง (เรียกใช้ฟังก์ชันตัวช่วยที่เราเพิ่งสร้าง คลีนมาก!)
       if (!isValidMode(s.title)) return false;
 
-      // 2.2 🌟 กรองตามอารมณ์เพลง (หมวดหมู่) 
+      // 3.2 🌟 กรองตามอารมณ์เพลง (หมวดหมู่) 
       // ถ้าคิวเพลงมีหมวดหมู่กำกับไว้ เพลงที่จะสุ่มมาต่อก็ต้องมีหมวดหมู่ตรงกันเป๊ะๆ
       if (targetCategory && s.category && s.category !== targetCategory) return false;
 
       return true;
     });
 
-    // 3. 🚀 [YOUTUBE FALLBACK] ถ้าคลังในหมวดหมู่นี้แห้งสนิท ให้ดึงจาก YouTube ทันที
+    // 4. 🚀 [YOUTUBE FALLBACK] ถ้าคลังในหมวดหมู่นี้แห้งสนิท ให้ดึงจาก YouTube ทันที
     if (pool.length === 0 && targetCategory) {
       console.log(`[AutoDJ] คลังเพลงแนว '${targetCategory}' หมดแล้ว กำลังค้นหาจาก YouTube...`);
       const searchSuffix = isKaraokeMode ? "คาราโอเกะ" : isListeningMode ? "Official Audio" : "";
@@ -585,15 +594,15 @@ export default function SmartKaraokePage({ params }: { params: any }) {
       }
     }
 
-    // 4. กรณีหาในคลัง Local เจอ (หรือคิวว่างเปล่าไม่มีหมวดหมู่) ให้สุ่มตามปกติ
+    // 5. กรณีหาในคลัง Local เจอ (หรือคิวว่างเปล่าไม่มีหมวดหมู่) ให้สุ่มตามปกติ
     if (pool.length > 0) {
       const randomSong = pool[Math.floor(Math.random() * pool.length)];
       handleAddToQueue(randomSong);
 
       if (targetCategory) {
-        speakResponse(`ออโต้ดีเจจัดเพลง ${randomSong.title} ให้ต่อเลยครับ`);
+        speakResponse(`นีวาออโต้ดีเจจัดเพลง ${randomSong.title} ให้ต่อเลยครับ`);
       } else {
-        speakResponse(`ออโต้ดีเจสุ่มเพลง ${randomSong.title} ให้ฟังเพลินๆ ครับ`);
+        speakResponse(`นีวาออโต้ดีเจสุ่มเพลง ${randomSong.title} ให้ฟังเพลินๆ ครับ`);
       }
     } else {
       // แผนสำรองสุดท้าย: ถ้าไม่มีเพลงหมวดหมู่นั้นจริงๆ และหาจากเน็ตไม่เจอ ให้สุ่มเพลงอะไรก็ได้ที่ตรงโหมด

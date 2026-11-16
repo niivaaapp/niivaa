@@ -6,11 +6,12 @@ import Link from 'next/link'
 import {
   ArrowUpDown, Copy, Disc, Mic2, Headphones, Plus, Music, ArrowRight,
   Pencil, Trash2, Image, Library, Search, LayoutDashboard, SlidersHorizontal,
-  BookOpen, X, ChevronDown, Filter, HelpCircle
+  BookOpen, X, ChevronDown, Filter, HelpCircle, AlertCircle, CheckCircle, ArrowDown, Edit3
 } from 'lucide-react'
 
 export default function CreatePlaylistPage() {
   const [playlists, setPlaylists] = useState<any[]>([])
+  const [hasFetchedInitially, setHasFetchedInitially] = useState(false) // เช็คโหลดครั้งแรก
 
   const [searchQuery, setSearchQuery] = useState('')
   const [filterType, setFilterType] = useState('all')
@@ -21,7 +22,6 @@ export default function CreatePlaylistPage() {
   const [description, setDescription] = useState('')
   const [type, setType] = useState('music')
   const [isSaving, setIsSaving] = useState(false)
-
   const [editingId, setEditingId] = useState<string | null>(null)
 
   const [customBanner, setCustomBanner] = useState('')
@@ -33,6 +33,11 @@ export default function CreatePlaylistPage() {
   const router = useRouter();
   
   const [userEmail, setUserEmail] = useState<string>('');
+
+  // 🌟 1. States สำหรับจัดการ Pop-up UI/UX
+  const [showEmptyPopup, setShowEmptyPopup] = useState(false)
+  const [successPopupName, setSuccessPopupName] = useState<string | null>(null)
+  const [editPopupData, setEditPopupData] = useState<any | null>(null)
 
   const fetchPlaylists = async () => {
     try {
@@ -57,6 +62,12 @@ export default function CreatePlaylistPage() {
           song_count: p.tracks?.[0]?.count || 0
         }));
         setPlaylists(formattedPlaylists)
+        
+        // 🌟 เช็คกรณีโหลดครั้งแรกแล้วพบว่ายังไม่มีเพลย์ลิสต์เลย ให้แสดง Pop-up
+        if (formattedPlaylists.length === 0 && !hasFetchedInitially) {
+          setShowEmptyPopup(true)
+        }
+        setHasFetchedInitially(true)
       }
     } catch (err: any) { console.error("Error:", err.message) }
   }
@@ -111,8 +122,11 @@ export default function CreatePlaylistPage() {
 
       if (editingId) {
         await supabase.from('playlists').update(payload).eq('id', editingId)
+        alert('บันทึกการแก้ไขสำเร็จ')
       } else {
         await supabase.from('playlists').insert([payload])
+        // 🌟 เมื่อสร้างใหม่สำเร็จ ให้เรียกแสดง Pop-up สีขาว
+        setSuccessPopupName(name)
       }
       handleCancelEdit()
       fetchPlaylists()
@@ -120,16 +134,28 @@ export default function CreatePlaylistPage() {
     finally { setIsSaving(false) }
   }
 
+  // 🌟 2. เมื่อกดปุ่มแก้ไข ให้แสดง Pop-up ถามก่อนแทนการดึงฟอร์มทันที
   const handleEditClick = (item: any) => {
-    setEditingId(item.id)
-    setName(item.name)
-    setDescription(item.description || '')
-    setType(item.type || 'music')
-    setCustomBanner(item.custom_banner || '')
-    setShowNiivaaBadge(item.show_niivaa_badge ?? true)
-    setLogoUrl(item.logo_url || '')
+    setEditPopupData(item)
+  }
+
+  // 🌟 3. เมื่อกดยืนยันใน Pop-up แก้ไข ค่อยนำข้อมูลลงฟอร์มและเลื่อนจอไปหาฟอร์ม
+  const confirmEdit = () => {
+    if (!editPopupData) return;
+    setEditingId(editPopupData.id)
+    setName(editPopupData.name)
+    setDescription(editPopupData.description || '')
+    setType(editPopupData.type || 'music')
+    setCustomBanner(editPopupData.custom_banner || '')
+    setShowNiivaaBadge(editPopupData.show_niivaa_badge ?? true)
+    setLogoUrl(editPopupData.logo_url || '')
     setLogoFile(null)
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setEditPopupData(null)
+    
+    // เลื่อนจอไปที่ฟอร์ม (ID: playlist-form) อย่างนุ่มนวล
+    setTimeout(() => {
+      document.getElementById('playlist-form')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
   }
 
   const handleCancelEdit = () => {
@@ -193,8 +219,96 @@ export default function CreatePlaylistPage() {
     }
   };
 
+  // เลื่อนจอลงไปที่ฟอร์มตอนกดตกลง Popup อันแรก
+  const scrollToForm = () => {
+    setShowEmptyPopup(false);
+    setTimeout(() => {
+      document.getElementById('playlist-form')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
+  }
+
   return (
     <div className="min-h-screen bg-[#001122] text-white flex flex-col font-sans relative">
+
+      {/* ========================================== */}
+      {/* 🌟 1. Pop-up กรณีที่ยังไม่มี Playlist เลย (Empty State) */}
+      {/* ========================================== */}
+      {showEmptyPopup && (
+        <div className="fixed inset-0 z-[2000] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white text-black p-8 rounded-[2rem] max-w-sm w-full text-center space-y-6 animate-in zoom-in-95 duration-300 shadow-2xl border-4 border-cyan-400">
+            <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto shadow-inner border border-blue-100">
+              <AlertCircle size={40} />
+            </div>
+            <div className="space-y-3">
+              <h3 className="text-2xl font-black text-gray-800 tracking-tight">คุณยังไม่มีอัลบัมเลย</h3>
+              <p className="text-sm font-bold text-gray-600 leading-relaxed bg-gray-50 p-3 rounded-xl">
+                แตะปุ่มตกลง แล้ว <span className="text-blue-600 font-black flex items-center justify-center gap-1 inline-flex mx-1"><ArrowDown size={14}/> เลื่อนลงไปด้านล่างสุด</span> <br/>เพื่อเริ่มสร้างอัลบัมใหม่ของคุณครับ
+              </p>
+            </div>
+            <button onClick={scrollToForm} className="w-full bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white font-black text-lg py-4 rounded-2xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2">
+              <CheckCircle size={20} /> ตกลง / รับทราบ
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================== */}
+      {/* 🌟 2. Pop-up แจ้งเตือนเมื่อสร้าง Playlist สำเร็จ */}
+      {/* ========================================== */}
+      {successPopupName && (
+        <div className="fixed inset-0 z-[2000] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white text-black p-8 rounded-[2rem] max-w-sm w-full text-center space-y-6 animate-in zoom-in-95 duration-300 shadow-2xl border-4 border-emerald-400">
+            <div className="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto shadow-inner border border-emerald-100">
+              <CheckCircle size={44} />
+            </div>
+            <div className="space-y-4">
+              <h3 className="text-2xl font-black text-gray-800 tracking-tight">สร้างอัลบัมสำเร็จ!</h3>
+              <p className="text-[13px] font-bold text-gray-600 leading-relaxed bg-gray-50 p-4 rounded-xl border border-gray-100 text-left">
+                สร้างอัลบัม <span className="text-emerald-600 font-black text-base">"{successPopupName}"</span> เรียบร้อยแล้ว <br/><br/>
+                <span className="flex items-start gap-2">
+                  <span className="bg-blue-100 text-blue-600 p-1 rounded-md shrink-0"><ArrowRight size={16}/></span>
+                  <span>เลื่อนขึ้นบนเล็กน้อย แล้วแตะ <b>ปุ่มลูกศรสีฟ้า</b> ด้านขวาของชื่ออัลบัม เพื่อไปค้นหาและเพิ่มสื่อ/เพลงเข้าอัลบัมนั้นได้เลยครับ</span>
+                </span>
+              </p>
+            </div>
+            <button onClick={() => {
+              setSuccessPopupName(null);
+              window.scrollTo({ top: 0, behavior: 'smooth' }); // เลื่อนขึ้นไปดูรายการที่สร้างเสร็จ
+            }} className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-black text-lg py-4 rounded-2xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2">
+              ตกลง / เข้าใจแล้ว
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================== */}
+      {/* 🌟 3. Pop-up ยืนยันการแก้ไขและพาดึงฟอร์มมาให้ */}
+      {/* ========================================== */}
+      {editPopupData && (
+        <div className="fixed inset-0 z-[2000] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white text-black p-8 rounded-[2rem] max-w-sm w-full text-center space-y-6 animate-in zoom-in-95 duration-300 shadow-2xl border-4 border-amber-400">
+            <div className="w-20 h-20 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mx-auto shadow-inner border border-amber-100">
+              <Edit3 size={40} />
+            </div>
+            <div className="space-y-3">
+              <h3 className="text-2xl font-black text-gray-800 tracking-tight">ต้องการแก้ไขชุดสื่อ?</h3>
+              <p className="text-sm font-bold text-gray-600 leading-relaxed bg-amber-50/50 p-4 rounded-xl border border-amber-100/50">
+                คุณต้องการแก้ไขอัลบัม <span className="text-amber-600 font-black text-base block mt-1">"{editPopupData.name}"</span> ใช่หรือไม่?<br/><br/>
+                แตะ <b className="text-amber-600">ตกลง</b> เพื่อให้ระบบพาเลื่อนหน้าจอไปยังฟอร์มแก้ไข และพิมพ์แก้ไขข้อมูลได้เลยครับ
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setEditPopupData(null)} className="flex-1 bg-gray-100 text-gray-600 font-black py-4 rounded-2xl hover:bg-gray-200 transition-colors">
+                ยกเลิก
+              </button>
+              <button onClick={confirmEdit} className="flex-1 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white font-black py-4 rounded-2xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2">
+                <CheckCircle size={18}/> ตกลง
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
 
       {/* ========================================== */}
       {/* 🌟 คู่มือ Slide-over Drawer (Accordion) */}
@@ -357,12 +471,13 @@ export default function CreatePlaylistPage() {
         {/* คอลัมน์ซ้าย: ฟอร์มจัดการชุดเพลง */}
         {/* ========================================== */}
         <div className="lg:col-span-4 xl:col-span-4 order-2 lg:order-1">
-          <section className="bg-[#003366]/20 backdrop-blur-xl p-6 rounded-[2rem] border border-[#006666]/30 shadow-2xl sticky top-44">
+          {/* 🌟 เพิ่ม ID ให้ฟอร์มเพื่อให้ระบบ Auto-scroll พุ่งมาหาได้ถูกต้อง */}
+          <section id="playlist-form" className="bg-[#003366]/20 backdrop-blur-xl p-6 rounded-[2rem] border border-[#006666]/30 shadow-2xl sticky top-44 scroll-mt-48">
             
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
                 {editingId ? (
-                  <Pencil className="text-yellow-400 w-6 h-6 p-1 bg-yellow-500/20 rounded-lg" />
+                  <Pencil className="text-yellow-400 w-6 h-6 p-1 bg-yellow-500/20 rounded-lg animate-pulse" />
                 ) : (
                   <Plus className="text-[#CCFFFF] w-6 h-6 p-1 bg-[#006666]/40 rounded-lg" />
                 )}
@@ -370,7 +485,6 @@ export default function CreatePlaylistPage() {
                   {editingId ? 'แก้ไขชุดสื่อ' : 'สร้างชุดสื่อใหม่'}
                 </h3>
               </div>
-              {/* 🌟 1. เพิ่มปุ่มกดเปิดคู่มือให้หาง่ายขึ้นข้างๆ ฟอร์ม */}
               <button 
                 onClick={() => setIsGuideOpen(true)}
                 className="flex items-center gap-1.5 text-[10px] font-bold text-cyan-300 bg-cyan-900/40 hover:bg-cyan-800/60 border border-cyan-500/40 px-2.5 py-1.5 rounded-lg transition-all"
@@ -389,7 +503,7 @@ export default function CreatePlaylistPage() {
                 <input
                   type="text" placeholder="ระบุชื่อชุดเพลง..." value={name}
                   onChange={(e) => setName(e.target.value)} required
-                  className="w-full bg-[#001122]/80 border border-[#006666] p-3.5 rounded-xl focus:border-cyan-400 focus:shadow-[0_0_10px_rgba(34,211,238,0.2)] outline-none transition-all placeholder:text-gray-600 font-bold text-sm"
+                  className={`w-full border p-3.5 rounded-xl outline-none transition-all placeholder:text-gray-600 font-bold text-sm ${editingId ? 'bg-[#001122] border-yellow-500 focus:border-yellow-400 shadow-[0_0_15px_rgba(234,179,8,0.2)]' : 'bg-[#001122]/80 border-[#006666] focus:border-cyan-400 focus:shadow-[0_0_10px_rgba(34,211,238,0.2)]'}`}
                 />
               </div>
 
@@ -413,7 +527,6 @@ export default function CreatePlaylistPage() {
                 </div>
               </div>
 
-              {/* 🌟 2. จัดกลุ่มส่วนตกแต่งเพิ่มเติมให้อยู่ในกรอบ โดยหากไม่ต้องการระบุ "ให้ข้ามได้" */}
               <div className="relative mt-6 bg-[#001122]/40 border border-white/5 rounded-2xl p-4 pt-5 space-y-4">
                 <div className="absolute -top-2.5 left-4 bg-[#001122] px-3 border border-white/10 rounded-full">
                   <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
@@ -489,7 +602,7 @@ export default function CreatePlaylistPage() {
                 <button
                   type="submit" disabled={isSaving}
                   className={`flex-1 py-3.5 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-lg transition-all active:scale-95 ${editingId
-                    ? 'bg-gradient-to-r from-yellow-600 to-amber-500 hover:shadow-[0_0_20px_rgba(234,179,8,0.4)]'
+                    ? 'bg-gradient-to-r from-yellow-600 to-amber-500 hover:shadow-[0_0_20px_rgba(234,179,8,0.4)] border border-yellow-400'
                     : 'bg-gradient-to-r from-[#006666] to-[#3333FF] hover:shadow-[0_0_20px_rgba(51,51,255,0.4)]'
                     }`}
                 >
@@ -564,7 +677,7 @@ export default function CreatePlaylistPage() {
             <div className="overflow-y-auto overflow-x-hidden flex-1 custom-scrollbar pr-2">
               <div className="flex flex-col gap-2.5 pb-10">
                 {filteredPlaylists.map((item) => (
-                  <div key={item.id} className="group flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-2.5 bg-[#003366]/10 hover:bg-[#003366]/30 rounded-2xl border border-[#006666]/20 hover:border-[#3333FF]/50 transition-all duration-300 relative shadow-md">
+                  <div key={item.id} className={`group flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-2.5 rounded-2xl border transition-all duration-300 relative shadow-md ${editingId === item.id ? 'bg-amber-900/20 border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.2)]' : 'bg-[#003366]/10 hover:bg-[#003366]/30 border-[#006666]/20 hover:border-[#3333FF]/50'}`}>
 
                     <div className={`w-8 h-8 rounded-lg border flex items-center justify-center shrink-0 shadow-[0_0_8px_rgba(0,102,102,0.4)] ${item.type === 'karaoke' ? 'bg-[#002222] border-[#006666]/50' : 'bg-[#001133] border-[#3333FF]/30'}`}>
                       {item.type === 'karaoke' ? (
@@ -593,8 +706,8 @@ export default function CreatePlaylistPage() {
                       </button>
                       <div className="flex items-center gap-1 mr-1">
                         <button
-                          type="button" onClick={() => handleEditClick(item)}
-                          className="p-1.5 rounded-lg bg-yellow-500/10 hover:bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 transition-colors"
+                          type="button" onClick={() => handleEditClick(item)} // 🌟 เรียกเปิด Pop-up ยืนยันแก้ไข
+                          className={`p-1.5 rounded-lg border transition-colors ${editingId === item.id ? 'bg-amber-500 text-white border-amber-400' : 'bg-yellow-500/10 hover:bg-yellow-500/20 border-yellow-500/30 text-yellow-400'}`}
                           title="แก้ไข"
                         >
                           <Pencil size={12} />

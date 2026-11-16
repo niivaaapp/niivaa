@@ -60,7 +60,6 @@ export default function LaunchpadPage() {
 
           {/* 🟢 การ์ดที่ 1: NiiVaa SmartMedia&Karaoke */}
           <div
-            // 🌟 ปรับปรุง: ใช้ฟังก์ชัน navigateToApp แทน router.push ตรงๆ
             onClick={() => navigateToApp('media')}
             className="p-6 bg-gradient-to-br from-cyan-500/10 to-blue-500/5 hover:from-cyan-500/20 hover:to-blue-500/10 border border-cyan-500/20 hover:border-cyan-400 rounded-3xl cursor-pointer flex flex-col justify-between items-start text-left gap-6 group hover:scale-[1.03] transition-all duration-300 shadow-lg shadow-cyan-500/5"
           >
@@ -82,7 +81,6 @@ export default function LaunchpadPage() {
 
           {/* 🟣 การ์ดที่ 2: NiiVaa SmartEvent */}
           <div
-            // 🌟 ปรับปรุง: ใช้ฟังก์ชัน navigateToApp
             onClick={() => navigateToApp('event')}
             className="p-6 bg-gradient-to-br from-purple-500/10 to-indigo-500/5 hover:from-purple-500/20 hover:to-indigo-500/10 border border-white/5 hover:border-purple-400 rounded-3xl cursor-pointer flex flex-col justify-between items-start text-left gap-6 group hover:scale-[1.03] transition-all duration-300 shadow-lg shadow-purple-500/5"
           >
@@ -102,33 +100,30 @@ export default function LaunchpadPage() {
             </div>
           </div>
 
-          {/* 🟢 การ์ดที่ 3: ระบบบริหารสถานศึกษา (Coming Soon) */}
+          {/* 🟢 การ์ดที่ 3: ระบบบริหารสถานศึกษา */}
           <div
-            className="p-6 bg-gradient-to-br from-emerald-500/5 to-teal-500/5 border border-slate-800 rounded-3xl cursor-not-allowed flex flex-col justify-between items-start text-left gap-6 group relative overflow-hidden opacity-80"
+            onClick={() => router.push('/smartschool')} // เปลี่ยนให้คลิกแล้วลิงก์ไปหน้า /smartschool
+            className="p-6 bg-gradient-to-br from-emerald-500/10 to-teal-500/5 hover:from-emerald-500/20 hover:to-teal-500/10 border border-emerald-500/20 hover:border-emerald-400 rounded-3xl cursor-pointer flex flex-col justify-between items-start text-left gap-6 group hover:scale-[1.03] transition-all duration-300 shadow-lg shadow-emerald-500/5 relative overflow-hidden"
           >
-            <div className="absolute top-5 right-5 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-bold rounded-full flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              เร็วๆ นี้
-            </div>
-            <div className="space-y-2 opacity-70 grayscale-[20%]">
-              <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-emerald-400 w-fit">
+             {/* เอา Coming Soon ออกไปเลย หรือจะเก็บไว้แบบกำลังพัฒนาก็ได้ แต่ลบ opacity ออก */}
+            <div className="space-y-2">
+              <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-emerald-400 w-fit group-hover:bg-emerald-500 group-hover:text-black transition-all">
                 <GraduationCap size={20} />
               </div>
-              <h2 className="text-base font-black text-white">
+              <h2 className="text-base font-black text-white group-hover:text-emerald-300 transition-colors">
                 ระบบบริหารสถานศึกษา
               </h2>
               <p className="text-xs text-gray-400 leading-relaxed">
                 ระบบบริหารงานแผนงาน พัสดุ การเงิน บริหารวิชาการ และงานบุคคล แบบอัตโนมัติสมบูรณ์แบบ
               </p>
             </div>
-            <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 mt-auto">
-              กำลังอยู่ในระหว่างการพัฒนา...
+            <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-400 group-hover:translate-x-1 transition-transform mt-auto">
+              เข้าสู่ระบบ <ArrowRight size={12} strokeWidth={3} />
             </div>
           </div>
 
           {/* 🟠 การ์ดที่ 4: NiiVaa SmartExam */}
           <div
-            // 🌟 ปรับปรุง: ใช้ฟังก์ชัน navigateToApp
             onClick={() => navigateToApp('exam')}
             className="p-6 bg-gradient-to-br from-orange-500/10 to-amber-500/5 hover:from-orange-500/20 hover:to-amber-500/10 border border-white/5 hover:border-orange-400 rounded-3xl cursor-pointer flex flex-col justify-between items-start text-left gap-6 group hover:scale-[1.03] transition-all duration-300 shadow-lg shadow-orange-500/5"
           >

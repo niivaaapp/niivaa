@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
-import { LayoutDashboard,User,BookOpen, Languages, Heart, Wrench, Music, Copy, LogOut, Plus, X, ArrowRight, Library, Eye } from 'lucide-react';
+import { LayoutDashboard, User, BookOpen, Languages, Heart, Wrench, Music, Copy, LogOut, Plus, X, ArrowRight, Library, Eye } from 'lucide-react';
 
 // ฟังก์ชันแมปไอคอนตามชื่อหมวดหมู่เพื่อความสวยงามล้ำสมัย
 const getCategoryIcon = (catName: string) => {
@@ -34,7 +34,8 @@ export default function WelcomePlaylistDashboard() {
 
     // สร้าง State สำหรับเก็บอีเมล
     const [userEmail, setUserEmail] = useState<string | null>(null);
-
+    // ประกาศตัวแปรนี้เพื่อหลอก TypeScript ให้ยอมรับแท็ก marquee
+    const Marquee = 'marquee' as any;
     // ดึงข้อมูล User เมื่อโหลดหน้า
     useEffect(() => {
         const fetchUser = async () => {
@@ -148,109 +149,122 @@ export default function WelcomePlaylistDashboard() {
 
 
     return (
-        <div className="min-h-screen bg-gradient-to-b from-[#030914] via-[#091124] to-[#020712] text-white p-6 relative select-none">
-            {/* Header ส่วนบน */}
-            <div className="max-w-6xl mx-auto flex justify-between items-center border-b border-white/10 pb-4 mb-8">
-                <div className="flex items-center gap-3">
-                    <div className="p-2 bg-cyan-500/10 border border-cyan-500/30 rounded-xl text-cyan-400 font-mono font-black text-xs tracking-wider">NIIVAA HUB</div>
-                    <span className="text-sm font-bold text-gray-400">| คลังสื่อมัลติมีเดียและแม่แบบการสอนกลาง</span>
-                </div>
-                
-                {/* กลุ่มเมนูด้านขวา */}
-                <div className="flex items-center gap-3">
-                    {/* แสดง Email ผู้ใช้งาน */}
-                    {userEmail && (
-                        <div className="hidden sm:flex items-center gap-2 px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-gray-300 text-xs font-medium">
-                            <User size={14} className="text-cyan-400" />
-                            <span>{userEmail}</span>
-                        </div>
-                    )}
+        <div className="min-h-screen bg-gradient-to-b from-[#030914] via-[#091124] to-[#020712] text-white relative select-none flex flex-col">
 
-                    <Link
-                        href={`/smart-media-dashboard`}
-                        className="flex items-center justify-center gap-2 px-4 py-2 sm:px-5 sm:py-2.5 bg-[#003366]/40 hover:bg-[#003366]/80 text-[#CCFFFF] border border-[#006666]/50 rounded-xl text-[10px] sm:text-xs font-bold transition-all shadow-md"
-                    >
-                        <LayoutDashboard size={14} className="sm:w-4 sm:h-4" />
-                        <span className="hidden sm:inline">กลับศูนย์กลาง</span>
-                    </Link>
-                    
-                    <button onClick={() => supabase.auth.signOut().then(() => router.push('/'))} className="flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl text-xs font-bold transition-all">
-                        ออกจากระบบ
-                    </button>
-                </div>
+            {/* 🌟 เพิ่ม Marquee ข้อความต้อนรับและแนะนำการใช้งานด้านบนสุด */}
+            <div className="w-full bg-cyan-900/40 border-b border-cyan-500/30 text-cyan-300 py-1.5 px-4 overflow-hidden shrink-0">
+                <Marquee className="text-[11px] sm:text-xs font-medium tracking-wide flex items-center h-full">
+                    🎉 ยินดีต้อนรับคุณ <span className="font-bold text-white px-1">{userEmail || 'สมาชิก NiiVaa'}</span>
+                    คุณสามารถแวะชมตัวอย่างชุดสื่อหรืออัลบัม (Playlist) ที่เป็นเทมเพลตตัวอย่างด้านล่างนี้
+                    หากสนใจสามารถเลือก <span className="text-yellow-300 font-bold px-1">"หยิบเทมเพลตนี้ไปปรับใช้"</span>
+                    หรือ คุณอาจไปเริ่มต้นสร้าง Playlist ใหม่ของคุณเอง โดยแตะปุ่ม <span className="text-emerald-300 font-bold px-1">"ไปหน้าจัดการชุดสื่อส่วนตัว"</span> 🚀
+                </Marquee>
             </div>
 
-            <div className="max-w-4xl mx-auto text-center space-y-4 mb-12">
-                <h1 className="text-2xl md:text-4xl font-black tracking-tight bg-gradient-to-r from-white via-cyan-200 to-cyan-400 bg-clip-text text-transparent">
-                    ยินดีต้อนรับสู่ NIIVAA Online Smart Media!
-                </h1>
-                <p className="text-sm text-gray-400 max-w-2xl mx-auto">
-                    คลิกที่ชุดสื่อใด ๆ เพื่อเข้าชมรายการคิวงานและทดลองเปิดเล่น หรือคลิกปุ่มหยิบใช้เพื่อโคลนคลังเข้าสู่บัญชีของท่าน
-                </p>
-                <div className="pt-2">
-                    <button onClick={() => router.push('/create-playlist')} className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 text-black font-black text-xs uppercase tracking-widest rounded-xl hover:opacity-90 transition-all">
-                        <Plus size={16} /> ไปที่หน้าจัดการชุดสื่อส่วนตัว (Create Playlist)
-                    </button>
+            <div className="p-6 flex-1">
+                {/* Header ส่วนบน */}
+                <div className="max-w-6xl mx-auto flex justify-between items-center border-b border-white/10 pb-4 mb-8">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-cyan-500/10 border border-cyan-500/30 rounded-xl text-cyan-400 font-mono font-black text-xs tracking-wider">NIIVAA HUB</div>
+                        <span className="text-sm font-bold text-gray-400 hidden sm:inline">| คลังสื่อมัลติมีเดียและแม่แบบการสอนกลาง</span>
+                    </div>
+
+                    {/* กลุ่มเมนูด้านขวา */}
+                    <div className="flex items-center gap-3">
+                        {/* แสดง Email ผู้ใช้งาน */}
+                        {userEmail && (
+                            <div className="hidden sm:flex items-center gap-2 px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-gray-300 text-xs font-medium">
+                                <User size={14} className="text-cyan-400" />
+                                <span>{userEmail}</span>
+                            </div>
+                        )}
+
+                        <Link
+                            href={`/smart-media-dashboard`}
+                            className="flex items-center justify-center gap-2 px-4 py-2 sm:px-5 sm:py-2.5 bg-[#003366]/40 hover:bg-[#003366]/80 text-[#CCFFFF] border border-[#006666]/50 rounded-xl text-[10px] sm:text-xs font-bold transition-all shadow-md"
+                        >
+                            <LayoutDashboard size={14} className="sm:w-4 sm:h-4" />
+                            <span className="hidden sm:inline">กลับศูนย์กลาง</span>
+                        </Link>
+
+                        <button onClick={() => supabase.auth.signOut().then(() => router.push('/'))} className="flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl text-[10px] sm:text-xs font-bold transition-all">
+                            ออกจากระบบ
+                        </button>
+                    </div>
                 </div>
-            </div>
 
-            {/* ส่วนแสดงรายการแบ่งหมวดหมู่อัตโนมัติจากฐานข้อมูล */}
-            <div className="max-w-6xl mx-auto space-y-10 pb-24">
-                {loading ? (
-                    <div className="text-center py-12 text-cyan-400 font-bold animate-pulse text-sm">กำลังเชื่อมต่อคลังข้อมูลหลักฐานระบบ...</div>
-                ) : categories.length === 0 ? (
-                    <div className="text-center py-12 text-gray-500 text-sm">ยังไม่มีชุดสื่อกลางในระบบ (แอดมินสามารถสร้างได้ที่หน้า admin/create-template)</div>
-                ) : (
-                    categories.map((cat, idx) => {
-                        const IconComponent = cat.icon;
-                        return (
-                            <div key={idx} className="space-y-4">
-                                <div className="flex items-center gap-2 text-sm font-black tracking-wide text-gray-300 border-l-2 border-cyan-400 pl-2">
-                                    <IconComponent size={16} className="text-cyan-400" />
-                                    <h2>{cat.title}</h2>
-                                </div>
+                <div className="max-w-4xl mx-auto text-center space-y-4 mb-12">
+                    <h1 className="text-2xl md:text-4xl font-black tracking-tight bg-gradient-to-r from-white via-cyan-200 to-cyan-400 bg-clip-text text-transparent">
+                        ยินดีต้อนรับสู่ NIIVAA Online Smart Media!
+                    </h1>
+                    <p className="text-sm text-gray-400 max-w-2xl mx-auto">
+                        คลิกที่ชุดสื่อใด ๆ เพื่อเข้าชมรายการคิวงานและทดลองเปิดเล่น หรือคลิกปุ่มหยิบใช้เพื่อโคลนคลังเข้าสู่บัญชีของท่าน
+                    </p>
+                    <div className="pt-2">
+                        <button onClick={() => router.push('/create-playlist')} className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 text-black font-black text-[10px] sm:text-xs uppercase tracking-widest rounded-xl hover:opacity-90 transition-all shadow-lg">
+                            <Plus size={16} /> ไปที่หน้าจัดการชุดสื่อส่วนตัว (Create Playlist)
+                        </button>
+                    </div>
+                </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {cat.items.map((item: any) => (
-                                        <div
-                                            key={item.id}
-                                            onClick={() => handleViewPlaylist(item.id)} // 🟢 ส่ง id ไปหน้าเล่นคิวเพลงจริง
-                                            className={`p-5 rounded-2xl border bg-gradient-to-br ${cat.color} flex flex-col justify-between gap-4 group hover:scale-[1.02] cursor-pointer transition-all duration-300 hover:border-cyan-400/60 shadow-lg hover:shadow-[0_0_20px_rgba(6,182,212,0.15)]`}
-                                        >
-                                            <div className="space-y-2">
-                                                <div className="flex justify-between items-start gap-2">
-                                                    <h3 className="font-black text-sm text-white group-hover:text-cyan-300 transition-colors line-clamp-1">
-                                                        {item.name}
-                                                    </h3>
-                                                    <span className="text-[9px] bg-white/10 px-2 py-0.5 rounded-md shrink-0 text-gray-300 font-mono">
-                                                        {item.song_count} รายการ
+                {/* ส่วนแสดงรายการแบ่งหมวดหมู่อัตโนมัติจากฐานข้อมูล */}
+                <div className="max-w-6xl mx-auto space-y-10 pb-24">
+                    {loading ? (
+                        <div className="text-center py-12 text-cyan-400 font-bold animate-pulse text-sm">กำลังเชื่อมต่อคลังข้อมูลหลักฐานระบบ...</div>
+                    ) : categories.length === 0 ? (
+                        <div className="text-center py-12 text-gray-500 text-sm">ยังไม่มีชุดสื่อกลางในระบบ (แอดมินสามารถสร้างได้ที่หน้า admin/create-template)</div>
+                    ) : (
+                        categories.map((cat, idx) => {
+                            const IconComponent = cat.icon;
+                            return (
+                                <div key={idx} className="space-y-4">
+                                    <div className="flex items-center gap-2 text-sm font-black tracking-wide text-gray-300 border-l-2 border-cyan-400 pl-2">
+                                        <IconComponent size={16} className="text-cyan-400" />
+                                        <h2>{cat.title}</h2>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        {cat.items.map((item: any) => (
+                                            <div
+                                                key={item.id}
+                                                onClick={() => handleViewPlaylist(item.id)} // 🟢 ส่ง id ไปหน้าเล่นคิวเพลงจริง
+                                                className={`p-5 rounded-2xl border bg-gradient-to-br ${cat.color} flex flex-col justify-between gap-4 group hover:scale-[1.02] cursor-pointer transition-all duration-300 hover:border-cyan-400/60 shadow-lg hover:shadow-[0_0_20px_rgba(6,182,212,0.15)]`}
+                                            >
+                                                <div className="space-y-2">
+                                                    <div className="flex justify-between items-start gap-2">
+                                                        <h3 className="font-black text-sm text-white group-hover:text-cyan-300 transition-colors line-clamp-1">
+                                                            {item.name}
+                                                        </h3>
+                                                        <span className="text-[9px] bg-white/10 px-2 py-0.5 rounded-md shrink-0 text-gray-300 font-mono">
+                                                            {item.song_count} รายการ
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-xs text-gray-400 leading-relaxed line-clamp-2">
+                                                        {item.description || 'ไม่มีข้อมูลคำอธิบาย'}
+                                                    </p>
+                                                </div>
+
+                                                <div className="flex items-center justify-between gap-2 pt-2 border-t border-white/5 text-[10px] text-gray-500">
+                                                    <span>ถูกนำไปใช้: <b className="text-cyan-400 font-mono">{item.clone_count}</b> ครั้ง</span>
+                                                    <span className="text-cyan-400/60 group-hover:text-cyan-400 font-bold flex items-center gap-0.5 transition-colors">
+                                                        เข้าชมสื่อ <Eye size={10} />
                                                     </span>
                                                 </div>
-                                                <p className="text-xs text-gray-400 leading-relaxed line-clamp-2">
-                                                    {item.description || 'ไม่มีข้อมูลคำอธิบาย'}
-                                                </p>
-                                            </div>
 
-                                            <div className="flex items-center justify-between gap-2 pt-2 border-t border-white/5 text-[10px] text-gray-500">
-                                                <span>ถูกนำไปใช้: <b className="text-cyan-400 font-mono">{item.clone_count}</b> ครั้ง</span>
-                                                <span className="text-cyan-400/60 group-hover:text-cyan-400 font-bold flex items-center gap-0.5 transition-colors">
-                                                    เข้าชมสื่อ <Eye size={10} />
-                                                </span>
+                                                <button
+                                                    onClick={(e) => handleSelectTemplate(e, item)}
+                                                    className="w-full py-2 bg-white/5 hover:bg-cyan-500 hover:text-black border border-white/10 hover:border-cyan-400 rounded-xl text-xs font-black tracking-wide flex items-center justify-center gap-2 transition-all"
+                                                >
+                                                    <Copy size={12} /> หยิบเทมเพลตนี้ไปปรับใช้
+                                                </button>
                                             </div>
-
-                                            <button
-                                                onClick={(e) => handleSelectTemplate(e, item)}
-                                                className="w-full py-2 bg-white/5 hover:bg-cyan-500 hover:text-black border border-white/10 hover:border-cyan-400 rounded-xl text-xs font-black tracking-wide flex items-center justify-center gap-2 transition-all"
-                                            >
-                                                <Copy size={12} /> หยิบเทมเพลตนี้ไปปรับใช้
-                                            </button>
-                                        </div>
-                                    ))}
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
-                        );
-                    })
-                )}
+                            );
+                        })
+                    )}
+                </div>
             </div>
 
             {/* Popup Modal คงตามเดิม */}
