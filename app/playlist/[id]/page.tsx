@@ -245,6 +245,7 @@ export default function SmartKaraokePage({ params }: { params: any }) {
   };
 
   // --- [FETCH DATA - โหลดข้อมูลจาก Database] ---
+  // --- [FETCH DATA - โหลดข้อมูลจาก Database] ---
   const fetchAllData = useCallback(async () => {
     try {
       // 🌟 1. ดึงข้อมูลผู้ใช้ที่ล็อกอินอยู่ปัจจุบัน
@@ -255,15 +256,17 @@ export default function SmartKaraokePage({ params }: { params: any }) {
         return;
       }
 
-      // 🌟 2. ดึงเฉพาะ Playlist "ส่วนตัวของ User คนนี้" เท่านั้น (ซ่อนเทมเพลต)
+      // 🌟 2. ดึงเฉพาะ Playlist "ส่วนตัวของ User คนนี้" เท่านั้น เพื่อนำไปแสดงใน Dropdown
       const { data: allP, error: pError } = await supabase
         .from('playlists')
         .select('*, tracks(count)')
         .eq('user_id', user.id)
-        .eq('is_global', false) // ซ่อนเทมเพลตส่วนกลางออกจากระบบ Dropdown
-        .order('created_at', { ascending: false });
+        .eq('is_global', false) // ซ่อนเทมเพลตออกจาก Dropdown
+        .order('created_at', { ascending: false }); 
 
       if (pError) throw pError;
+
+      let currentPlay = null; // เตรียมตัวแปรไว้เก็บข้อมูลเพลย์ลิสต์ปัจจุบันที่จะเล่น
 
       if (allP) {
         const formattedPlaylists = allP.map(p => ({
@@ -272,36 +275,51 @@ export default function SmartKaraokePage({ params }: { params: any }) {
         }));
         setAllPlaylists(formattedPlaylists);
 
-        const currentPlay = formattedPlaylists.find(p => p.id === playlistId);
+        // ค้นหาว่า URL ที่เปิดอยู่ เป็นเพลย์ลิสต์ส่วนตัวของเราหรือไม่
+        currentPlay = formattedPlaylists.find(p => p.id === playlistId);
+      }
 
-        // 🌟 3. ป้องกันการแอบเอา URL (id) ของคนอื่นมาเปิด
-        if (!currentPlay && allP.length > 0) {
-          alert("คุณไม่มีสิทธิ์เข้าถึงเพลย์ลิสต์นี้ หรือไม่มีข้อมูลในระบบ!");
-          window.location.href = '/smart-media-dashboard';
-          return;
-        }
+      // 🌟🌟 3. [เพิ่มใหม่] ถ้าไม่เจอในรายการส่วนตัว ให้ตรวจสอบว่าเป็น "เทมเพลตระบบ (is_global=true)" หรือไม่
+      if (!currentPlay) {
+        const { data: globalP } = await supabase
+          .from('playlists')
+          .select('*, tracks(count)')
+          .eq('id', playlistId)
+          .eq('is_global', true)
+          .maybeSingle(); // ใช้ maybeSingle เพื่อไม่ให้เกิด Error แดงถ้าหาไม่เจอ
 
-        if (currentPlay) {
-          setPlaylistInfo(currentPlay);
-
-          // 🌟🌟 4. [ใหม่!] ตรวจสอบโหมดตอนสร้าง เพื่อเปิดโหมดในเครื่องเล่นให้ตรงกันอัตโนมัติ
-          if (currentPlay.type === 'karaoke') {
-            setKaraokeMode(true);
-            // ถ้าคุณมี state isListeningMode ด้วย ให้เซ็ตเป็น false ตรงนี้ครับ
-            // setIsListeningMode(false); 
-          } else {
-            // โหมดอื่นๆ หรือโหมด 'music' (สื่อ/เพลงฟัง)
-            setKaraokeMode(false);
-            // setIsListeningMode(true); 
-          }
+        if (globalP) {
+          currentPlay = {
+            ...globalP,
+            tracks_count: globalP.tracks?.[0]?.count || 0
+          };
         }
       }
 
-      // 5. ดึงคลังเพลงทั้งหมด (ส่วนกลาง)
+      // 🌟 4. ป้องกันการแอบเอา URL (id) ของคนอื่น (ที่ไม่ใช่เทมเพลต) มาเปิด
+      if (!currentPlay) {
+        alert("คุณไม่มีสิทธิ์เข้าถึงเพลย์ลิสต์นี้ หรือไม่มีข้อมูลในระบบ!");
+        window.location.href = '/playlistdashboard'; // เด้งกลับไปหน้า Dashboard แทน
+        return;
+      }
+
+      // ตั้งค่าข้อมูลอัลบั้มเพื่อแสดงผล
+      setPlaylistInfo(currentPlay);
+
+      // 🌟🌟 5. ตรวจสอบโหมดตอนสร้าง เพื่อเปิดโหมดในเครื่องเล่นให้ตรงกันอัตโนมัติ
+      if (currentPlay.type === 'karaoke') {
+        setKaraokeMode(true);
+        setListeningMode(false); 
+      } else {
+        setKaraokeMode(false);
+        setListeningMode(true); 
+      }
+
+      // 6. ดึงคลังเพลงทั้งหมด (ส่วนกลาง)
       const { data: mData } = await supabase.from('master_songs').select('*');
       if (mData) setAllMasterSongs(mData);
 
-      // 6. ดึงคิวเพลงใน Playlist
+      // 7. ดึงคิวเพลงใน Playlist
       const { data: tData, error } = await supabase
         .from('tracks')
         .select(`*, master_songs(*)`)
@@ -309,7 +327,7 @@ export default function SmartKaraokePage({ params }: { params: any }) {
         .order('order_index', { ascending: true });
       setTracks(tData || []);
 
-      // 7. ดึงวิดีโอโปรโมทจากคลังตารางส่วนกลางบน Supabase มาสุ่มเล่นแทนแบบ Dynamic
+      // 8. ดึงวิดีโอโปรโมทจากคลังตารางส่วนกลางบน Supabase มาสุ่มเล่นแทนแบบ Dynamic
       const { data: promoData } = await supabase.from('promo_videos').select('video_url');
       if (promoData && promoData.length > 0) {
         const globalUrls = promoData.map(v => v.video_url);
@@ -323,7 +341,7 @@ export default function SmartKaraokePage({ params }: { params: any }) {
     } catch (err) {
       console.error("Fetch Error:", err);
     }
-  }, [playlistId, currentVideoId, promoId]); // ⚠️ อย่าลืมเช็กว่า Dependency ครบตามของเก่าคุณหรือไม่
+  }, [playlistId, currentVideoId, promoId]);
 
 
   useEffect(() => {
