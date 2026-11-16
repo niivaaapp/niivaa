@@ -151,16 +151,33 @@ export default function WelcomePlaylistDashboard() {
     return (
         <div className="min-h-screen bg-gradient-to-b from-[#030914] via-[#091124] to-[#020712] text-white relative select-none flex flex-col">
 
-            {/* 🌟 เพิ่ม Marquee ข้อความต้อนรับและแนะนำการใช้งานด้านบนสุด */}
-            <div className="w-full bg-cyan-900/40 border-b border-cyan-500/30 text-cyan-300 py-1.5 px-4 overflow-hidden shrink-0">
-                <Marquee className="text-[11px] sm:text-xs font-medium tracking-wide flex items-center h-full">
-                    🎉 ยินดีต้อนรับคุณ <span className="font-bold text-white px-1">{userEmail || 'สมาชิก NiiVaa'}</span>
-                    คุณสามารถแวะชมตัวอย่างชุดสื่อหรืออัลบัม (Playlist) ที่เป็นเทมเพลตตัวอย่างด้านล่างนี้
-                    หากสนใจสามารถเลือก <span className="text-yellow-300 font-bold px-1">"หยิบเทมเพลตนี้ไปปรับใช้"</span>
-                    หรือ คุณอาจไปเริ่มต้นสร้าง Playlist ใหม่ของคุณเอง โดยแตะปุ่ม <span className="text-emerald-300 font-bold px-1">"ไปหน้าจัดการชุดสื่อส่วนตัว"</span> 🚀
-                </Marquee>
-            </div>
+          {/* 🌟 1. เพิ่ม CSS สำหรับ Animation ข้อความวิ่งให้ลื่นไหล (Smooth Marquee) */}
+            <style jsx>{`
+                @keyframes smoothMarquee {
+                    0% { transform: translateX(100%); }
+                    100% { transform: translateX(-100%); }
+                }
+                .marquee-container {
+                    display: inline-block;
+                    white-space: nowrap;
+                    animation: smoothMarquee 25s linear infinite;
+                    will-change: transform; /* เปิดใช้ Hardware Acceleration ให้มือถือไม่กระตุก */
+                }
+                /* หยุดเลื่อนเมื่อเอาเมาส์ชี้ (เฉพาะจอคอม) */
+                .marquee-wrapper:hover .marquee-container {
+                    animation-play-state: paused;
+                }
+            `}</style>
 
+            {/* 🌟 2. โครงสร้างข้อความวิ่งแบบใหม่ (เปลี่ยนจาก marquee เป็น div ล้วน) */}
+            <div className="w-full bg-cyan-900/40 border-b border-cyan-500/30 text-cyan-300 py-1.5 overflow-hidden shrink-0 marquee-wrapper relative h-8 flex items-center">
+                <div className="marquee-container text-[11px] sm:text-xs font-medium tracking-wide flex items-center h-full absolute">
+                    🎉 ยินดีต้อนรับคุณ <span className="font-bold text-white px-1">{userEmail || 'สมาชิก NiiVaa'}</span> 
+                    คุณสามารถแวะชมตัวอย่างชุดสื่อหรืออัลบัม (Playlist) ที่เป็นเทมเพลตตัวอย่างด้านล่างนี้ 
+                    หากสนใจสามารถเลือก <span className="text-yellow-300 font-bold px-1">"หยิบเทมเพลตนี้ไปปรับใช้"</span> 
+                    หรือ คุณอาจไปเริ่มต้นสร้าง Playlist ใหม่ของคุณเอง โดยแตะปุ่ม <span className="text-emerald-300 font-bold px-1">"ไปหน้าจัดการชุดสื่อส่วนตัว (Create Playlist)"</span> 🚀
+                </div>
+            </div>
             <div className="p-6 flex-1">
                 {/* Header ส่วนบน */}
                 <div className="max-w-6xl mx-auto flex justify-between items-center border-b border-white/10 pb-4 mb-8">
