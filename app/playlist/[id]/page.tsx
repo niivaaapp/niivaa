@@ -27,6 +27,7 @@ export default function SmartKaraokePage({ params }: { params: any }) {
   const isMutedRef = useRef(false);
   const hasInitializedRef = useRef(false);
 
+
   if (typeof window !== 'undefined' && !hasInitializedRef.current) {
     const params = new URLSearchParams(window.location.search);
 
@@ -251,7 +252,6 @@ export default function SmartKaraokePage({ params }: { params: any }) {
 
       if (authError || !user) {
         console.error("ไม่มีสิทธิ์เข้าถึง หรือเซสชันหมดอายุ");
-        // ถ้าจำเป็น สามารถเพิ่ม router.push('/login') ตรงนี้ได้ครับ
         return;
       }
 
@@ -259,10 +259,9 @@ export default function SmartKaraokePage({ params }: { params: any }) {
       const { data: allP, error: pError } = await supabase
         .from('playlists')
         .select('*, tracks(count)')
-        // 👇 แก้ไขจุดนี้: บังคับให้ดึงเฉพาะของ User ปัจจุบัน และต้องไม่ใช่ Template
         .eq('user_id', user.id)
-        .eq('is_global', false)
-        .order('created_at', { ascending: false }); // (แถม: เรียงสร้างล่าสุดไว้บนสุดให้ด้วยครับ)
+        .eq('is_global', false) // ซ่อนเทมเพลตส่วนกลางออกจากระบบ Dropdown
+        .order('created_at', { ascending: false });
 
       if (pError) throw pError;
 
@@ -276,21 +275,33 @@ export default function SmartKaraokePage({ params }: { params: any }) {
         const currentPlay = formattedPlaylists.find(p => p.id === playlistId);
 
         // 🌟 3. ป้องกันการแอบเอา URL (id) ของคนอื่นมาเปิด
-        // (ตอนนี้ currentPlay จะเจอทั้งเพลย์ลิสต์ของเรา และเพลย์ลิสต์แม่แบบส่วนกลางแล้ว)
         if (!currentPlay && allP.length > 0) {
           alert("คุณไม่มีสิทธิ์เข้าถึงเพลย์ลิสต์นี้ หรือไม่มีข้อมูลในระบบ!");
           window.location.href = '/smart-media-dashboard';
           return;
         }
 
-        if (currentPlay) setPlaylistInfo(currentPlay);
+        if (currentPlay) {
+          setPlaylistInfo(currentPlay);
+
+          // 🌟🌟 4. [ใหม่!] ตรวจสอบโหมดตอนสร้าง เพื่อเปิดโหมดในเครื่องเล่นให้ตรงกันอัตโนมัติ
+          if (currentPlay.type === 'karaoke') {
+            setKaraokeMode(true);
+            // ถ้าคุณมี state isListeningMode ด้วย ให้เซ็ตเป็น false ตรงนี้ครับ
+            // setIsListeningMode(false); 
+          } else {
+            // โหมดอื่นๆ หรือโหมด 'music' (สื่อ/เพลงฟัง)
+            setKaraokeMode(false);
+            // setIsListeningMode(true); 
+          }
+        }
       }
 
-      // 4. ดึงคลังเพลงทั้งหมด (ส่วนกลาง)
+      // 5. ดึงคลังเพลงทั้งหมด (ส่วนกลาง)
       const { data: mData } = await supabase.from('master_songs').select('*');
       if (mData) setAllMasterSongs(mData);
 
-      // 5. ดึงคิวเพลงใน Playlist (ปลอดภัยแล้ว เพราะดัก currentPlay ไว้ด้านบน)
+      // 6. ดึงคิวเพลงใน Playlist
       const { data: tData, error } = await supabase
         .from('tracks')
         .select(`*, master_songs(*)`)
@@ -298,8 +309,7 @@ export default function SmartKaraokePage({ params }: { params: any }) {
         .order('order_index', { ascending: true });
       setTracks(tData || []);
 
-      // ตั้งค่าเพลงโปรโมทตอนเริ่มต้น
-      // 🎯 [ปรับใหม่]: ดึงวิดีโอโปรโมทจากคลังตารางส่วนกลางบน Supabase มาสุ่มเล่นแทนแบบ Dynamic
+      // 7. ดึงวิดีโอโปรโมทจากคลังตารางส่วนกลางบน Supabase มาสุ่มเล่นแทนแบบ Dynamic
       const { data: promoData } = await supabase.from('promo_videos').select('video_url');
       if (promoData && promoData.length > 0) {
         const globalUrls = promoData.map(v => v.video_url);
@@ -313,7 +323,7 @@ export default function SmartKaraokePage({ params }: { params: any }) {
     } catch (err) {
       console.error("Fetch Error:", err);
     }
-  }, [playlistId, currentVideoId, promoId]);
+  }, [playlistId, currentVideoId, promoId]); // ⚠️ อย่าลืมเช็กว่า Dependency ครบตามของเก่าคุณหรือไม่
 
 
   useEffect(() => {
@@ -386,6 +396,19 @@ export default function SmartKaraokePage({ params }: { params: any }) {
 
     return () => { supabase.removeChannel(syncChannel); };
   }, [playlistId]);
+
+  // 🌟 1. ดักจับการเปลี่ยนอัลบั้ม (ทั้งจาก Dropdown และตอนเข้าเว็บ) เพื่อสลับโหมดร้อง/ฟัง อัตโนมัติ
+  useEffect(() => {
+    if (playlistInfo?.type) {
+      if (playlistInfo.type === 'karaoke') {
+        setKaraokeMode(true);
+        // setIsListeningMode(false); // ⚠️ ถ้าโค้ดคุณมี state นี้ให้เอา // ออก
+      } else {
+        setKaraokeMode(false);
+        // setIsListeningMode(true);  // ⚠️ ถ้าโค้ดคุณมี state นี้ให้เอา // ออก
+      }
+    }
+  }, [playlistInfo]);
 
   // --- [AI VOICE RESPONSE - ระบบเสียงตอบรับ] ---
   const speakResponse = (message: string) => {
@@ -528,92 +551,139 @@ export default function SmartKaraokePage({ params }: { params: any }) {
     }
   }, [playlistInfo]);
 
-  // --- [2. ระบบ Auto DJ Logic (อัปเกรด กรองอารมณ์เพลง + YouTube Fallback)] ---
+  // --- [2. ระบบ Auto DJ Logic (อัปเกรด คัดกรองคำว่า คาราโอเกะ ตามโหมดร้อง/ฟัง)] ---
   const triggerAutoDJ = useCallback(async () => {
-    if (!isAutoDJ || allMasterSongs.length === 0) return;
+    // 🛑 1. Guard Clause ระดับสูงสุด: ป้องกันการรันซ้ำซ้อน (Race Condition)
+    if (!isAutoDJ || allMasterSongs.length === 0 || (window as any).isAutoDJLock) return;
 
-    // 🛑 1. [เพิ่มใหม่] ประตูดักจับ ป้องกัน Auto DJ เติมเพลงไม่หยุด
-    // ถ้าวนตรวจสอบพบว่ามี 4 เพลง (หรือมากกว่า) ในคิว ให้หยุดการสุ่มเพลงทันที!
-    if (tracks.length >= 4) {
-      console.log("[AutoDJ] คิวเพลงมี 4 เพลงขึ้นไปแล้ว หยุดการทำงานชั่วคราว");
-      return; 
+    // 2. คำนวณจำนวนเพลงที่ "รอเล่นอยู่" (ถัดจากเพลงที่กำลังเล่น)
+    const foundIndex = tracks.findIndex(track => track.video_id === currentVideoId);
+    const activeIndex = foundIndex !== -1 ? foundIndex : 0;
+
+    const remainingTracks = tracks.length > 0 ? (tracks.length - 1 - activeIndex) : 0;
+
+    // 🛑 3. Guard Clause: ถ้ามีเพลงรอคิว 5 เพลงขึ้นไป ให้หยุดทำงาน
+    if (remainingTracks >= 5) {
+      return;
     }
 
-    // 2. วิเคราะห์แนวเพลงปัจจุบันจากคิว (อิงจากเพลงสุดท้ายในคิวเป็นหลัก)
-    const referenceTrack = tracks.length > 0 ? tracks[tracks.length - 1] : null;
-    const targetCategory = referenceTrack?.master_songs?.category || referenceTrack?.category || '';
+    // 🚀 4. Trigger Clause: เติมเพลงเฉพาะเมื่อเหลือน้อยกว่า 3 เพลง
+    if (remainingTracks < 3) {
 
-    // 3. ค้นหาจากคลังส่วนกลาง (Local Database) ก่อน
-    let pool = allMasterSongs.filter(s => {
-      // 3.1 กรองตามโหมดร้อง/ฟัง (เรียกใช้ฟังก์ชันตัวช่วยที่เราเพิ่งสร้าง คลีนมาก!)
-      if (!isValidMode(s.title)) return false;
+      // 🔒 สับกุญแจล็อกทันที! ป้องกัน useEffect เรียกฟังก์ชันนี้ซ้ำขณะกำลังดึงข้อมูล
+      (window as any).isAutoDJLock = true;
 
-      // 3.2 🌟 กรองตามอารมณ์เพลง (หมวดหมู่) 
-      // ถ้าคิวเพลงมีหมวดหมู่กำกับไว้ เพลงที่จะสุ่มมาต่อก็ต้องมีหมวดหมู่ตรงกันเป๊ะๆ
-      if (targetCategory && s.category && s.category !== targetCategory) return false;
+      console.log(`[AutoDJ] คิวเพลงเหลือน้อย (${remainingTracks} เพลง) กำลังสุ่มเพิ่มล่วงหน้า 5 เพลง...`);
 
-      return true;
-    });
+      // 🌟 อัปเกรด: ถ้าคิวว่างเปล่า (เพิ่งสร้างอัลบั้มใหม่) ให้เอา "ชื่ออัลบั้ม" มาเป็นคีย์เวิร์ดไปหาเพลงจากยูทูป
+      const referenceTrack = tracks.length > 0 ? tracks[tracks.length - 1] : null;
+      const targetCategory = referenceTrack?.master_songs?.category || referenceTrack?.category || playlistInfo?.name || 'เพลงฮิต';
 
-    // 4. 🚀 [YOUTUBE FALLBACK] ถ้าคลังในหมวดหมู่นี้แห้งสนิท ให้ดึงจาก YouTube ทันที
-    if (pool.length === 0 && targetCategory) {
-      console.log(`[AutoDJ] คลังเพลงแนว '${targetCategory}' หมดแล้ว กำลังค้นหาจาก YouTube...`);
-      const searchSuffix = isKaraokeMode ? "คาราโอเกะ" : isListeningMode ? "Official Audio" : "";
+      // 🌟🌟 ฟังก์ชันช่วยเช็กว่าเพลงนี้ตรงกับโหมดปัจจุบันหรือไม่ 🌟🌟
+      const isMatchCurrentMode = (title: string) => {
+        if (!title) return false;
+        const titleLower = title.toLowerCase();
+        // เช็กว่ามีคำที่สื่อถึงคาราโอเกะหรือไม่
+        const hasKaraokeKeyword = titleLower.includes('karaoke') || titleLower.includes('คาราโอเกะ');
 
-      // สร้างคำค้นหาอัจฉริยะ เช่น "เพลง ลูกทุ่งอีสาน คาราโอเกะ"
-      const query = `เพลง ${targetCategory} ${searchSuffix}`;
-
-      try {
-        const apiKey = "AIzaSyC3SFBRAazRzbkP1COhhkyQK2JTG6wHiTg"; // ⚠️ อย่าลืมใส่ API Key ของคุณที่นี่
-
-        // ใช้ videoCategoryId=10 เพื่อเน้นหมวดหมู่ Music ใน YouTube
-        const res = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=5&q=${encodeURIComponent(query)}&type=video&videoCategoryId=10&key=${apiKey}`);
-        const ytData = await res.json();
-
-        if (ytData.items && ytData.items.length > 0) {
-          // สุ่มเลือก 1 เพลงจากผลลัพธ์ที่ได้
-          const randomYt = ytData.items[Math.floor(Math.random() * ytData.items.length)];
-
-          const newSong = {
-            video_id: randomYt.id.videoId,
-            title: randomYt.snippet.title,
-            thumbnail_url: randomYt.snippet.thumbnails.default.url,
-            category: targetCategory // 🌟 ประทับตราหมวดหมู่เดียวกันเข้าไปด้วยเลย
-          };
-
-          // บันทึกลงคลัง Master_songs ก่อน
-          await supabase.from('master_songs').upsert(newSong, { onConflict: 'video_id' });
-
-          // นำเข้าคิว (tracks)
-          handleAddToQueue(newSong);
-          speakResponse(`คิวหมดแล้ว ออโต้ดีเจจัดเพลงแนว ${targetCategory} จากยูทูปให้ต่อเลยครับ`);
-          return; // จบการทำงาน
+        if (isKaraokeMode) {
+          // ถ้าเปิดไมค์ (โหมดร้อง): เพลงต้องมีคำว่าคาราโอเกะ
+          return hasKaraokeKeyword;
+        } else {
+          // ถ้าเปิดหูฟัง (โหมดฟัง): เพลงต้อง "ไม่มี" คำว่าคาราโอเกะเด็ดขาด
+          return !hasKaraokeKeyword;
         }
-      } catch (err) {
-        console.error("Auto DJ YouTube Error:", err);
+      };
+
+      // คัดกรองคลังเพลง (pool)
+      let pool = [...allMasterSongs.filter(s => {
+        if (!isMatchCurrentMode(s.title)) return false; // 👈 ใช้ลอจิกเช็กโหมดที่สร้างใหม่
+        if (targetCategory && s.category && s.category !== targetCategory) return false;
+        return true;
+      })];
+
+      let newSongsToAdd = [];
+      const TARGET_AMOUNT = 5;
+
+      // กรณีที่ 1: ดึงจาก YouTube (เมื่อคลัง Local หมวดหมู่นี้แห้งสนิท)
+      if (pool.length === 0 && targetCategory) {
+        console.log(`[AutoDJ] ค้นหาจาก YouTube ล่วงหน้า...`);
+
+        // 🌟🌟 สร้างคำค้นหาอัจฉริยะแบบแยกโหมดชัดเจน 🌟🌟
+        let query = '';
+        if (isKaraokeMode) {
+          // โหมดคาราโอเกะ: บังคับหาคำว่า คาราโอเกะ
+          query = `เพลง ${targetCategory} คาราโอเกะ`;
+        } else {
+          // โหมดฟังเพลง: ใช้เครื่องหมายลบ (-) นำหน้าคำ เพื่อสั่งให้ YouTube ตัดคลิปคาราโอเกะทิ้ง!
+          query = `เพลง ${targetCategory} Official Audio -karaoke -คาราโอเกะ`;
+        }
+
+        try {
+          const apiKey = "AIzaSyC3SFBRAazRzbkP1COhhkyQK2JTG6wHiTg";
+
+          const res = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=${TARGET_AMOUNT}&q=${encodeURIComponent(query)}&type=video&videoCategoryId=10&key=${apiKey}`);
+          const ytData = await res.json();
+
+          if (ytData.items && ytData.items.length > 0) {
+            for (const item of ytData.items) {
+              const newSong = {
+                video_id: item.id.videoId,
+                title: item.snippet.title,
+                thumbnail_url: item.snippet.thumbnails.default.url,
+                category: targetCategory
+              };
+              await supabase.from('master_songs').upsert(newSong, { onConflict: 'video_id' });
+              newSongsToAdd.push(newSong);
+            }
+          }
+        } catch (err) {
+          console.error("Auto DJ YouTube Error:", err);
+        }
       }
-    }
-
-    // 5. กรณีหาในคลัง Local เจอ (หรือคิวว่างเปล่าไม่มีหมวดหมู่) ให้สุ่มตามปกติ
-    if (pool.length > 0) {
-      const randomSong = pool[Math.floor(Math.random() * pool.length)];
-      handleAddToQueue(randomSong);
-
-      if (targetCategory) {
-        speakResponse(`นีวาออโต้ดีเจจัดเพลง ${randomSong.title} ให้ต่อเลยครับ`);
+      // กรณีที่ 2: สุ่มจาก Local Database
+      else if (pool.length > 0) {
+        const amountToAdd = Math.min(TARGET_AMOUNT, pool.length);
+        for (let i = 0; i < amountToAdd; i++) {
+          const randomIndex = Math.floor(Math.random() * pool.length);
+          newSongsToAdd.push(pool[randomIndex]);
+          pool.splice(randomIndex, 1);
+        }
       } else {
-        speakResponse(`นีวาออโต้ดีเจสุ่มเพลง ${randomSong.title} ให้ฟังเพลินๆ ครับ`);
+        // กรณีที่ 3: Fallback (เอาเพลงหมวดหมู่อื่นมาแทน แต่ต้องตรงโหมดร้อง/ฟัง!)
+        let backupPool = [...allMasterSongs.filter(s => isMatchCurrentMode(s.title))];
+        const amountToAdd = Math.min(TARGET_AMOUNT, backupPool.length);
+        for (let i = 0; i < amountToAdd; i++) {
+          const randomIndex = Math.floor(Math.random() * backupPool.length);
+          newSongsToAdd.push(backupPool[randomIndex]);
+          backupPool.splice(randomIndex, 1);
+        }
       }
-    } else {
-      // แผนสำรองสุดท้าย: ถ้าไม่มีเพลงหมวดหมู่นั้นจริงๆ และหาจากเน็ตไม่เจอ ให้สุ่มเพลงอะไรก็ได้ที่ตรงโหมด
-      const backupPool = allMasterSongs.filter(s => isValidMode(s.title));
-      if (backupPool.length > 0) {
-        const fallbackSong = backupPool[Math.floor(Math.random() * backupPool.length)];
-        handleAddToQueue(fallbackSong);
-        speakResponse(`หาเพลงแนวเดิมไม่เจอ ออโต้ดีเจขอเปลี่ยนบรรยากาศเป็น ${fallbackSong.title} นะครับ`);
+
+      // นำเพลงทั้งหมดที่หาได้ ลงคิว
+      if (newSongsToAdd.length > 0) {
+        newSongsToAdd.forEach(song => handleAddToQueue(song));
+
+        if (targetCategory) {
+          speakResponse(`นีว่าออโต้ดีเจ จัดเพลงแนว ${targetCategory} ล่วงหน้าให้ 5 เพลงรวดครับ`);
+        } else {
+          speakResponse(`นีว่าออโต้ดีเจ สุ่มเพลงให้ล่วงหน้า 5 เพลงครับ`);
+        }
       }
+
+      // 🔓 ปลดล็อกหลังจากผ่านไป 3 วินาที (ให้เวลา State หรือ Database จัดเรียงคิวเสร็จสมบูรณ์)
+      setTimeout(() => {
+        (window as any).isAutoDJLock = false;
+      }, 3000);
     }
-  }, [isAutoDJ, allMasterSongs, isKaraokeMode, isListeningMode, tracks, isValidMode]);
+  }, [isAutoDJ, allMasterSongs, isKaraokeMode, tracks, currentVideoId, playlistInfo]); // เอา isListeningMode และ isValidMode เดิมออกเพราะยุบรวมเข้าไปใน isMatchCurrentMode แล้ว
+  // คอยจับตาดูตลอดเวลา: ถ้าเราเปิด Auto DJ ไว้ และจำนวนเพลงมีการขยับ ระบบจะตรวจเช็กตรรกะทันที
+  useEffect(() => {
+    // ⚠️ ถ้า state ปัจจุบันของคุณชื่ออื่น ให้เปลี่ยนจาก currentTrackIndex เป็นชื่อนั้น
+    if (isAutoDJ) {
+      triggerAutoDJ();
+    }
+  }, [tracks.length, currentVideoId, isAutoDJ, triggerAutoDJ]);
 
   // --- [3. ปรับปรุง playNextSong ให้รองรับ Auto DJ และ Repeat Count] ---
   const playNextSong = useCallback(async () => {
@@ -845,6 +915,7 @@ export default function SmartKaraokePage({ params }: { params: any }) {
   // วางฟังก์ชันนี้ไว้ก่อนบรรทัด return (...)
   const updateTrackSettings = async (id: string, updates: any, videoId?: string) => {
     console.log("🔥 เริ่มบันทึกข้อมูล:", { id, updates, videoId });
+    if (!id) return;
 
     try {
       // 1. อัปเดตตาราง tracks
@@ -855,6 +926,7 @@ export default function SmartKaraokePage({ params }: { params: any }) {
 
       if (trackError) {
         console.error("❌ Tracks Error:", trackError);
+        throw trackError; // โยน error ออกไปเข้า catch
       } else {
         console.log("✅ บันทึก tracks สำเร็จ");
       }
@@ -873,10 +945,24 @@ export default function SmartKaraokePage({ params }: { params: any }) {
         }
       }
 
-      // 3. รีเฟรชข้อมูลคิวเพลงใหม่
-      fetchAllData();
-    } catch (err) {
-      console.error("❌ System Error:", err);
+      // 🌟 3. ปรับปรุงใหม่: อัปเดต React State ทันที (UI ไม่เด้งกลับ)
+      // อัปเดตในคิวเพลงหลัก
+      setTracks(prevTracks =>
+        prevTracks.map(track =>
+          track.id === id ? { ...track, ...updates } : track
+        )
+      );
+
+      // อัปเดตใน Modal ที่กำลังเปิดอยู่ (ถ้ามี State ชื่อ editingTrack)
+      if (typeof setEditingTrack !== 'undefined') {
+        setEditingTrack((prev: any) => prev && prev.id === id ? { ...prev, ...updates } : prev);
+      }
+
+      // หมายเหตุ: เอา fetchAllData() ออกเพื่อลดภาระเซิร์ฟเวอร์ และป้องกันบั๊กโหลดข้อมูลเก่ามาทับ
+
+    } catch (err: any) {
+      console.error("❌ System Error:", err.message);
+      alert("เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาลองอีกครั้งครับ");
     }
   };
 
@@ -913,22 +999,30 @@ export default function SmartKaraokePage({ params }: { params: any }) {
 
           {/* 🚀 เปลี่ยนมาใช้ <form> เพื่อรวบรวมข้อมูลทั้งหมดตอนกดปุ่มทีเดียว */}
           <form
-            onSubmit={(e) => {
+            onSubmit={async (e) => { // 🌟 1. เพิ่มคำว่า async ตรงนี้
               e.preventDefault();
               const formData = new FormData(e.currentTarget);
 
               // 🌟 ดึงค่า end_time จาก Input ที่ถูกซ่อนและคำนวณไว้ให้แล้วส่งไป
               const finalEndTime = parseInt(formData.get('end_time')?.toString() || '0') || 0;
+              const categoryVal = formData.get('category')?.toString();
 
-              updateTrackSettings(editingTrack.id, {
+              const updates: any = {
                 alias_name: formData.get('alias_name')?.toString() || '',
                 start_time: parseInt(formData.get('start_time')?.toString() || '0') || 0,
                 end_time: finalEndTime,
                 repeat_count: parseInt(formData.get('repeat_count')?.toString() || '1') || 1,
                 skip_start: parseInt(formData.get('skip_start')?.toString() || '0') || 0,
                 skip_end: parseInt(formData.get('skip_end')?.toString() || '0') || 0,
-                category: formData.get('category')?.toString() || ''
-              }, editingTrack.video_id);
+              };
+
+              // ใส่ category เข้าไปเฉพาะถ้ามีช่อง category อยู่ในฟอร์มเท่านั้น
+              if (categoryVal !== undefined) {
+                updates.category = categoryVal;
+              }
+
+              // 🌟 2. เพิ่มคำว่า await รอให้ฟังก์ชันบันทึกจนเสร็จ 100% ก่อนปิด Modal
+              await updateTrackSettings(editingTrack.id, updates, editingTrack.video_id);
 
               setEditingTrack(null);
             }}
@@ -943,10 +1037,10 @@ export default function SmartKaraokePage({ params }: { params: any }) {
               <div className="flex items-center gap-2">
                 <input
                   type="number"
-                  value={vidDuration}
+                  defaultValue={vidDuration} // 🌟 3. เปลี่ยนจาก value เป็น defaultValue
                   onChange={(e) => {
                     setVidDuration(parseInt(e.target.value) || 0);
-                    setCutTail(0); // ล้างค่าตัดท้ายถ้าระยะเวลารวมเปลี่ยน
+                    setCutTail(0);
                   }}
                   className="w-16 bg-black/60 border border-cyan-800 p-2 rounded-lg text-emerald-400 outline-none focus:border-cyan-500 text-center font-bold"
                 />
@@ -988,8 +1082,9 @@ export default function SmartKaraokePage({ params }: { params: any }) {
                     = จบที่วิฯ: {vidDuration - cutTail}
                   </p>
                 )}
+
                 {/* ซ่อนค่า end_time ที่ผ่านการคำนวณแล้ว เพื่อส่งไปกับ Submit ฟอร์ม */}
-                <input type="hidden" name="end_time" value={vidDuration > 0 ? Math.max(0, vidDuration - cutTail) : (editingTrack?.end_time || 0)} />
+                <input type="hidden" name="end_time" value={cutTail > 0 && vidDuration > 0 ? Math.max(0, vidDuration - cutTail) : (editingTrack?.end_time || 0)} />
               </div>
 
               <div>
@@ -1770,7 +1865,7 @@ export default function SmartKaraokePage({ params }: { params: any }) {
                     <button
                       onClick={() => {
                         setIsAutoDJ(!isAutoDJ);
-                        speakResponse(isAutoDJ ? "ปิดระบบออโต้ดีเจ" : "เปิดระบบออโต้ดีเจ เตรียมสนุกต่อเนื่องครับ");
+                        speakResponse(isAutoDJ ? "นีว่าปิดระบบออโต้ดีเจ" : "นีว่าเปิดระบบออโต้ดีเจ เตรียมสนุกต่อเนื่องครับ");
                       }}
                       className={`p-3 rounded-xl border-2 transition-all flex items-center justify-center shrink-0 ${isAutoDJ ? 'border-amber-500 text-amber-400 bg-amber-950/50 shadow-[0_0_15px_#f59e0b]' : 'border-amber-500/50 text-amber-400/50 bg-amber-950/30'}`} style={{ height: '48px', minWidth: '48px' }}>
                       <span className="text-[8px] font-black leading-tight text-center">AUTO<br />DJ</span>

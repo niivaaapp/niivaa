@@ -233,15 +233,29 @@ export default function DJManagerPage() {
     };
 
     // --- [5. ฟังก์ชันตั้งค่า SME] ---
+    // --- [5. ฟังก์ชันตั้งค่า SME] ---
     const updateTrackSettings = async (id: string, updates: any, videoId?: string) => {
         try {
-            await supabase.from('tracks').update(updates).eq('id', id);
+            const { error } = await supabase.from('tracks').update(updates).eq('id', id);
+            if (error) throw error;
+
             if (updates.category !== undefined && videoId) {
                 await supabase.from('master_songs').update({ category: updates.category }).eq('video_id', videoId);
             }
-            fetchAllData();
+            
+            // 🌟 แก้ไขใหม่: ให้อัปเดต State ตัวแปร tracks บนหน้าจอทันที 
+            // วิธีนี้ UI จะเปลี่ยนเลขทันทีโดยไม่ต้องรอโหลดหน้าเว็บใหม่ (ป้องกันค่าเด้งกลับเป็น 0)
+            setTracks(prevTracks => 
+                prevTracks.map(track => 
+                    track.id === id ? { ...track, ...updates } : track
+                )
+            );
+
+            // หมายเหตุ: เอา fetchAllData() ออก เพราะเราอัปเดต State ไปแล้ว 
+            // และระบบ Realtime channel ด้านบนจะคอยทำงานแบ็คอัปให้อีกชั้นอยู่แล้วครับ
         } catch (err) {
-            console.error(err);
+            console.error("Save SME Error:", err);
+            alert("เกิดข้อผิดพลาดในการบันทึกค่า กรุณาลองใหม่อีกครั้ง");
         }
     };
 
@@ -504,10 +518,12 @@ export default function DJManagerPage() {
                             ⚙️ ตั้งค่า: {editingTrack?.master_songs?.title || 'ไม่ทราบชื่อเพลง'}
                         </h3>
                         <form
-                            onSubmit={(e) => {
+                            onSubmit={async (e) => { // 🌟 1. เติมคำว่า async ตรงนี้
                                 e.preventDefault();
                                 const formData = new FormData(e.currentTarget);
-                                updateTrackSettings(editingTrack.id, {
+                                
+                                // 🌟 2. เติมคำว่า await เพื่อสั่งให้ระบบ "รอ" จนกว่าการเซฟจะเสร็จสมบูรณ์ 100%
+                                await updateTrackSettings(editingTrack.id, {
                                     singer_name: formData.get('singer_name')?.toString() || '',
                                     alias_name: formData.get('alias_name')?.toString() || '',
                                     start_time: parseInt(formData.get('start_time')?.toString() || '0') || 0,
@@ -517,6 +533,8 @@ export default function DJManagerPage() {
                                     skip_end: parseInt(formData.get('skip_end')?.toString() || '0') || 0,
                                     category: formData.get('category')?.toString() || ''
                                 }, editingTrack.video_id);
+                                
+                                // 🌟 3. เมื่อบันทึกเสร็จแล้ว จึงค่อยสั่งปิดหน้าต่าง Modal
                                 setEditingTrack(null);
                             }}
                             className="space-y-6"
