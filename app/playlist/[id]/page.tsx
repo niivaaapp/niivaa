@@ -431,26 +431,26 @@ export default function SmartKaraokePage({ params }: { params: any }) {
 
   // --- [AI VOICE RESPONSE - ระบบเสียงตอบรับ] ---
   // 🌟 ฟังก์ชันเสียงพูด AI (อัปเกรด: ดักจับการปิดเสียง และลดความดังบนมือถือ)
+  // 🌟 ฟังก์ชันเสียงพูด AI
   const speakResponse = useCallback((text: string) => {
-    // 1. ถ้าปุ่มเสียงปิดอยู่ (isDjVoiceOn = false) ให้โชว์แค่ข้อความ Pop-up แล้วหยุดทำงานทันที!
     if (!isDjVoiceOn) {
       setAnnouncement(text);
       setShowAnnouncement(true);
-      setTimeout(() => setShowAnnouncement(false), 8000); // โชว์ 8 วิแล้วดับ
-      return;
+      setTimeout(() => setShowAnnouncement(false), 8000); 
+      return; 
     }
 
-    // 2. ถ้าเปิดเสียงอยู่ ให้ทำงานต่อตามปกติ
     if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel(); // ล้างคิวเสียงเก่าทิ้งก่อน
+      window.speechSynthesis.cancel(); 
       const utterance = new SpeechSynthesisUtterance(text);
-
-      utterance.lang = 'th-TH'; // เสียงภาษาไทย
-
-      // 🌟 สำคัญมาก: บังคับลดระดับเสียง AI ลงเหลือครึ่งหนึ่ง (0.5) หรือต่ำกว่า เพื่อไม่ให้ดังกลบเพลง
-      // ค่าปรับได้ตั้งแต่ 0.1 (เบาสุด) ถึง 1.0 (ดังสุด)
-      utterance.volume = 0.5;
-
+      
+      utterance.lang = 'th-TH'; 
+      utterance.volume = 0.5; // ระดับเสียงที่ทะลุลำโพง
+      
+      // 🌟🌟 [เพิ่มใหม่] ตั้งค่าความเร็วและระดับเสียงให้เป็นธรรมชาติ 🌟🌟
+      utterance.rate = 1.2;  // ความเร็ว: 1.0 คือปกติ (1.1 - 1.3 จะกระชับ ไม่หน่วง)
+      utterance.pitch = 1.1; // ระดับเสียง: 1.0 คือปกติ (เพิ่มนิดๆ ให้เสียงดูตื่นตัว ไม่ยานคาง)
+      
       window.speechSynthesis.speak(utterance);
     }
   }, [isDjVoiceOn]);
@@ -636,7 +636,7 @@ export default function SmartKaraokePage({ params }: { params: any }) {
       })];
 
       let newSongsToAdd = [];
-      const TARGET_AMOUNT = 5;
+      const TARGET_AMOUNT = 2;
 
       // กรณีที่ 1: ดึงจาก YouTube (เมื่อคลัง Local หมวดหมู่นี้แห้งสนิท)
       if (pool.length === 0 && targetCategory) {
