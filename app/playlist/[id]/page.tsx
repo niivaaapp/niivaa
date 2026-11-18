@@ -430,17 +430,31 @@ export default function SmartKaraokePage({ params }: { params: any }) {
   }, [playlistInfo]);
 
   // --- [AI VOICE RESPONSE - ระบบเสียงตอบรับ] ---
-  const speakResponse = (message: string) => {
-    if (isPreview) return; // 🌟 ถ้าเป็นจอ Preview (จอจิ๋ว) สั่งให้ AI เงียบทันที ห้ามพูด!
+  // 🌟 ฟังก์ชันเสียงพูด AI (อัปเกรด: ดักจับการปิดเสียง และลดความดังบนมือถือ)
+  const speakResponse = useCallback((text: string) => {
+    // 1. ถ้าปุ่มเสียงปิดอยู่ (isDjVoiceOn = false) ให้โชว์แค่ข้อความ Pop-up แล้วหยุดทำงานทันที!
+    if (!isDjVoiceOn) {
+      setAnnouncement(text);
+      setShowAnnouncement(true);
+      setTimeout(() => setShowAnnouncement(false), 8000); // โชว์ 8 วิแล้วดับ
+      return;
+    }
 
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-      window.speechSynthesis.cancel(); // หยุดเสียงเก่าก่อนพูดใหม่
-      const utterance = new SpeechSynthesisUtterance(message);
-      utterance.lang = 'th-TH';
-      utterance.rate = 1.1;
+    // 2. ถ้าเปิดเสียงอยู่ ให้ทำงานต่อตามปกติ
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel(); // ล้างคิวเสียงเก่าทิ้งก่อน
+      const utterance = new SpeechSynthesisUtterance(text);
+
+      utterance.lang = 'th-TH'; // เสียงภาษาไทย
+
+      // 🌟 สำคัญมาก: บังคับลดระดับเสียง AI ลงเหลือครึ่งหนึ่ง (0.5) หรือต่ำกว่า เพื่อไม่ให้ดังกลบเพลง
+      // ค่าปรับได้ตั้งแต่ 0.1 (เบาสุด) ถึง 1.0 (ดังสุด)
+      utterance.volume = 0.5;
+
       window.speechSynthesis.speak(utterance);
     }
-  };
+  }, [isDjVoiceOn]);
+  // ⚠️ อย่าลืมวงเล็บล่างนี้ ต้องมี isDjVoiceOn เพื่อให้ระบบอัปเดตสถานะปุ่มตลอดเวลา
 
   // --- [LOGIC - ระบบการเล่นเพลง] ---
   const startApp = (videoId: string, isFast = false) => {
@@ -1916,8 +1930,8 @@ export default function SmartKaraokePage({ params }: { params: any }) {
                     <button
                       onClick={() => setIsDjVoiceOn(!isDjVoiceOn)}
                       className={`p-2 rounded-xl transition-all shadow-md flex items-center gap-2 ${isDjVoiceOn
-                          ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/50 hover:bg-cyan-500/30'
-                          : 'bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20'
+                        ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/50 hover:bg-cyan-500/30'
+                        : 'bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20'
                         }`}
                       title={isDjVoiceOn ? "ปิดเสียงพูด AI (เปลี่ยนเป็นข้อความแทน)" : "เปิดเสียงพูด AI"}
                     >
