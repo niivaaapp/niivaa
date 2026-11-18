@@ -9,7 +9,7 @@ import {
   LayoutGrid,
   Play, Search, Info, Mic, Trash2, Maximize, Settings, Music, Zap, Plus,
   CheckCircle2, ToggleLeft, ToggleRight, ListMusic, X, SkipForward,
-  Headphones, Mic2, Minimize, ChevronDown, Save, Globe, User, RefreshCw
+  Headphones, Mic2, Minimize, ChevronDown, Save, Globe, User, RefreshCw, Volume2, VolumeX
 } from 'lucide-react';
 
 // --- [PRE-INITIALIZATION] ---
@@ -26,7 +26,8 @@ export default function SmartKaraokePage({ params }: { params: any }) {
   const isPreview = searchParams.get('preview') === 'true';
   const isMutedRef = useRef(false);
   const hasInitializedRef = useRef(false);
-
+  // 🌟 State สำหรับเปิด/ปิดเสียงพูดของ Auto DJ
+  const [isDjVoiceOn, setIsDjVoiceOn] = useState(true);
 
   if (typeof window !== 'undefined' && !hasInitializedRef.current) {
     const params = new URLSearchParams(window.location.search);
@@ -262,7 +263,7 @@ export default function SmartKaraokePage({ params }: { params: any }) {
         .select('*, tracks(count)')
         .eq('user_id', user.id)
         .eq('is_global', false) // ซ่อนเทมเพลตออกจาก Dropdown
-        .order('created_at', { ascending: false }); 
+        .order('created_at', { ascending: false });
 
       if (pError) throw pError;
 
@@ -309,10 +310,10 @@ export default function SmartKaraokePage({ params }: { params: any }) {
       // 🌟🌟 5. ตรวจสอบโหมดตอนสร้าง เพื่อเปิดโหมดในเครื่องเล่นให้ตรงกันอัตโนมัติ
       if (currentPlay.type === 'karaoke') {
         setKaraokeMode(true);
-        setListeningMode(false); 
+        setListeningMode(false);
       } else {
         setKaraokeMode(false);
-        setListeningMode(true); 
+        setListeningMode(true);
       }
 
       // 6. ดึงคลังเพลงทั้งหมด (ส่วนกลาง)
@@ -682,19 +683,32 @@ export default function SmartKaraokePage({ params }: { params: any }) {
       if (newSongsToAdd.length > 0) {
         newSongsToAdd.forEach(song => handleAddToQueue(song));
 
-        if (targetCategory) {
-          speakResponse(`นีว่าออโต้ดีเจ จัดเพลงแนว ${targetCategory} ล่วงหน้าให้ 5 เพลงรวดครับ`);
+        // 🌟 ตรรกะใหม่: ตรวจสอบว่าเปิดหรือปิดเสียงพูดไว้
+        const msg = targetCategory
+          ? `นีว่าออโต้ดีเจ จัดเพลงแนว ${targetCategory} ล่วงหน้าให้ 5 เพลงรวดครับ`
+          : `นีว่าออโต้ดีเจ สุ่มเพลงให้ล่วงหน้า 5 เพลงครับ`;
+
+        if (isDjVoiceOn) {
+          // กรณีเปิดเสียง: ให้ AI พูด
+          speakResponse(msg);
         } else {
-          speakResponse(`นีว่าออโต้ดีเจ สุ่มเพลงให้ล่วงหน้า 5 เพลงครับ`);
+          // กรณีปิดเสียง (โหมดเงียบ): ส่งข้อความเข้าจอเป็น Pop-up / Marquee แทน
+          setAnnouncement(msg);
+          setShowAnnouncement(true);
+
+          // ตั้งเวลาให้ซ่อนข้อความอัตโนมัติหลังผ่านไป 10 วินาที (เหมือน SMS)
+          setTimeout(() => {
+            setShowAnnouncement(false);
+          }, 10000);
         }
       }
 
-      // 🔓 ปลดล็อกหลังจากผ่านไป 3 วินาที (ให้เวลา State หรือ Database จัดเรียงคิวเสร็จสมบูรณ์)
+      // 🔓 ปลดล็อกหลังจากผ่านไป 3 วินาที
       setTimeout(() => {
         (window as any).isAutoDJLock = false;
       }, 3000);
     }
-  }, [isAutoDJ, allMasterSongs, isKaraokeMode, tracks, currentVideoId, playlistInfo]); // เอา isListeningMode และ isValidMode เดิมออกเพราะยุบรวมเข้าไปใน isMatchCurrentMode แล้ว
+  }, [isAutoDJ, allMasterSongs, isKaraokeMode, tracks, currentVideoId, playlistInfo, isDjVoiceOn]); // เอา isListeningMode และ isValidMode เดิมออกเพราะยุบรวมเข้าไปใน isMatchCurrentMode แล้ว
   // คอยจับตาดูตลอดเวลา: ถ้าเราเปิด Auto DJ ไว้ และจำนวนเพลงมีการขยับ ระบบจะตรวจเช็กตรรกะทันที
   useEffect(() => {
     // ⚠️ ถ้า state ปัจจุบันของคุณชื่ออื่น ให้เปลี่ยนจาก currentTrackIndex เป็นชื่อนั้น
@@ -1774,7 +1788,17 @@ export default function SmartKaraokePage({ params }: { params: any }) {
                       <Zap size={22} className="mb-0.5" />
                       <span className="text-[7.5px] font-black uppercase leading-none">Auto DJ</span>
                     </button>
-
+                    {/* 🌟 ปุ่มเปิด-ปิด เสียง AI */}
+<button
+                      onClick={() => setIsDjVoiceOn(!isDjVoiceOn)}
+                      className={`p-2 rounded-xl transition-all shadow-md flex items-center gap-2 ${isDjVoiceOn
+                          ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/50 hover:bg-cyan-500/30'
+                          : 'bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20'
+                        }`}
+                      title={isDjVoiceOn ? "ปิดเสียงพูด AI (เปลี่ยนเป็นข้อความแทน)" : "เปิดเสียงพูด AI"}
+                    >
+                      {isDjVoiceOn ? <Volume2 size={18} /> : <VolumeX size={18} />}
+                    </button>
                     <div className="flex gap-3 shrink-0">
                       {/* 🎛️ ปุ่ม Toggle สลับโหมด */}
                       <button
@@ -1888,7 +1912,8 @@ export default function SmartKaraokePage({ params }: { params: any }) {
                       className={`p-3 rounded-xl border-2 transition-all flex items-center justify-center shrink-0 ${isAutoDJ ? 'border-amber-500 text-amber-400 bg-amber-950/50 shadow-[0_0_15px_#f59e0b]' : 'border-amber-500/50 text-amber-400/50 bg-amber-950/30'}`} style={{ height: '48px', minWidth: '48px' }}>
                       <span className="text-[8px] font-black leading-tight text-center">AUTO<br />DJ</span>
                     </button>
-
+                    
+                   
                     <button
                       onClick={() => { isKaraokeMode ? (setKaraokeMode(false), setListeningMode(true)) : (setKaraokeMode(true), setListeningMode(false)) }}
                       className={`relative p-3 rounded-xl border-2 transition-all flex items-center justify-center shrink-0 ${isKaraokeMode ? 'border-cyan-400 text-cyan-300 shadow-[0_0_15px_#22d3ee] bg-cyan-950/30' : 'border-blue-500 text-blue-400 shadow-[0_0_15px_#3b82f6] bg-blue-950/30'}`}
@@ -1897,7 +1922,7 @@ export default function SmartKaraokePage({ params }: { params: any }) {
                       {isKaraokeMode ? <Mic2 size={20} strokeWidth={2.5} /> : <Headphones size={20} strokeWidth={2.5} />}
                       <RefreshCw size={8} className="absolute top-1 right-1 opacity-60" />
                     </button>
-
+ 
                     <button onClick={startSpeechRecognition} className={`p-3 rounded-xl border-2 transition-all flex items-center justify-center shrink-0 ${isListening ? 'border-red-500 text-white bg-red-500 animate-bounce shadow-[0_0_15px_#ef4444]' : 'border-red-500/70 text-red-400 bg-red-950/20 hover:bg-red-900/50'}`} style={{ height: '48px', minWidth: '48px' }}>
                       <Mic size={20} strokeWidth={2.5} />
                     </button>

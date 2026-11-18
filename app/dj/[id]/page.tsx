@@ -30,7 +30,8 @@ export default function DJManagerPage() {
     
     // 🌟 ปรับปรุงใหม่: เพิ่ม State สำหรับเก็บข้อมูลวิดีโอหลายตัว
     const [extractedVideos, setExtractedVideos] = useState<{id: string, title: string}[]>([]);
-
+// 🌟 State สำหรับระบบลบหลายรายการ (Bulk Delete)
+    const [selectedTracks, setSelectedTracks] = useState<string[]>([]);
     // --- [1. ดึงข้อมูลคิวเพลง และตั้งค่าการเลือกอัตโนมัติ] ---
     const fetchAllData = useCallback(async () => {
         try {
@@ -121,10 +122,49 @@ export default function DJManagerPage() {
     };
 
     // --- [3. ฟังก์ชันลบเพลง] ---
+    // ลบเพลงเดียว (เมื่อกดไอคอนถังขยะ)
     const deleteTrack = async (id: string) => {
         if (!confirm('ยืนยันการลบคิวเพลงนี้?')) return;
-        await supabase.from('tracks').delete().eq('id', id);
-        fetchAllData();
+        
+        try {
+            const { error } = await supabase.from('tracks').delete().eq('id', id);
+            if (error) throw error;
+            
+            // 🌟 อัปเดตหน้าจอทันที
+            setTracks(prev => prev.filter(t => t.id !== id));
+            setSelectedTracks(prev => prev.filter(tId => tId !== id)); // ล้างค่าติ๊กถูกถ้าเผลอติ๊กไว้
+        } catch (err: any) {
+            console.error("Delete Error:", err.message);
+            alert("ลบเพลงไม่สำเร็จ กรุณาลองใหม่");
+        }
+    };
+
+    // เลือกลบหลายเพลง (Bulk Delete)
+    const handleBulkDelete = async () => {
+        if (selectedTracks.length === 0) return;
+        if (!confirm(`ยืนยันการลบเพลงที่เลือกจำนวน ${selectedTracks.length} เพลง ออกจากคิว?`)) return;
+
+        try {
+            const { error } = await supabase.from('tracks').delete().in('id', selectedTracks);
+            if (error) throw error;
+
+            // 🌟 อัปเดตหน้าจอทันที
+            setTracks(prev => prev.filter(t => !selectedTracks.includes(t.id)));
+            setSelectedTracks([]); // ล้างค่าที่เลือกทั้งหมด
+            alert(`ลบสำเร็จ ${selectedTracks.length} เพลง`);
+        } catch (err: any) {
+            console.error("Bulk Delete Error:", err.message);
+            alert("เกิดข้อผิดพลาดในการลบหลายรายการ");
+        }
+    };
+
+    // ฟังก์ชันช่วยจัดการ Checkbox (ติ๊กเลือกทั้งหมด)
+    const toggleSelectAll = () => {
+        if (selectedTracks.length === tracks.length) {
+            setSelectedTracks([]); // เอาออกทั้งหมด
+        } else {
+            setSelectedTracks(tracks.map(t => t.id)); // เลือกทั้งหมด
+        }
     };
 
     // --- [4. ระบบฟอร์มดึงชื่อเพลงอัตโนมัติ (รองรับหลายลิงก์)] ---
@@ -385,79 +425,119 @@ export default function DJManagerPage() {
                         </div>
                     </div>
 
-                    <div className="flex-1 h-[40vh] sm:h-[60vh] overflow-y-auto space-y-2 pr-2 custom-scrollbar bg-white/5 p-3 rounded-2xl border border-white/5">
-                        {tracks.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center h-full text-gray-500 space-y-2">
-                                <ListMusic size={40} className="opacity-20" />
-                                <p className="text-xs">ยังไม่มีคิวเพลงในรายการนี้</p>
+                    <div className="flex-1 flex flex-col min-h-0 bg-white/5 p-3 rounded-2xl border border-white/5">
+                        
+                        {/* 🌟 แถบเมนูด้านบนคิวเพลง (แสดงเมื่อมีเพลงในคิว) */}
+                        {tracks.length > 0 && (
+                            <div className="flex items-center justify-between bg-black/40 p-2.5 rounded-xl mb-3 border border-white/10 shrink-0">
+                                <label className="flex items-center gap-2 cursor-pointer text-sm text-cyan-400 font-bold hover:text-cyan-300 transition-colors">
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedTracks.length === tracks.length && tracks.length > 0}
+                                        onChange={toggleSelectAll}
+                                        className="w-4 h-4 accent-cyan-500 rounded cursor-pointer"
+                                    />
+                                    <span>เลือกทั้งหมด</span>
+                                </label>
+
+                                {selectedTracks.length > 0 && (
+                                    <button
+                                        onClick={handleBulkDelete}
+                                        className="px-3 py-1.5 bg-red-900/40 text-red-400 hover:bg-red-600 hover:text-white border border-red-500/30 rounded-lg text-xs font-bold transition-all flex items-center gap-1 shadow-md animate-in fade-in"
+                                    >
+                                        🗑️ ลบที่เลือก ({selectedTracks.length})
+                                    </button>
+                                )}
                             </div>
-                        ) : (
-                            tracks.map((track, i) => {
-                                const query = searchQuery.toLowerCase();
-                                const title = track.master_songs?.title?.toLowerCase() || '';
-                                const alias = track.alias_name?.toLowerCase() || '';
-                                const singer = track.singer_name?.toLowerCase() || '';
-                                const isMatch = title.includes(query) || alias.includes(query) || singer.includes(query);
-
-                                if (searchQuery && !isMatch) return null;
-
-                                return (
-                                    <div key={track.id} className="flex items-center gap-3 bg-[#121212] border border-white/5 p-2 rounded-2xl hover:border-cyan-500/30 transition-all group">
-                                        <input
-                                            type="number"
-                                            min="1"
-                                            max={tracks.length}
-                                            defaultValue={i + 1}
-                                            key={`q-${track.id}-${i}`}
-                                            title="พิมพ์เลขใหม่เพื่อย้ายคิว"
-                                            className="w-10 bg-black/40 border border-white/10 hover:border-cyan-500/50 focus:border-cyan-400 focus:bg-cyan-950/40 text-center font-black text-xs text-cyan-400 rounded-lg outline-none transition-all py-1.5 shrink-0"
-                                            onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
-                                            onBlur={(e) => {
-                                                const newVal = parseInt(e.target.value);
-                                                if (!isNaN(newVal) && newVal !== i + 1) {
-                                                    let newIndex = newVal - 1;
-                                                    if (newIndex < 0) newIndex = 0;
-                                                    if (newIndex >= tracks.length) newIndex = tracks.length - 1;
-                                                    handleReorder(i, newIndex);
-                                                } else {
-                                                    e.target.value = (i + 1).toString();
-                                                }
-                                            }}
-                                        />
-
-                                        <div className="relative w-12 h-10 shrink-0 rounded-lg overflow-hidden border border-white/10">
-                                            <img src={track.master_songs?.thumbnail_url} alt="ปกเพลง" className="object-cover w-full h-full opacity-80" />
-                                        </div>
-
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-xs font-bold truncate text-white/90">{track.master_songs?.title}</p>
-                                            <div className="flex items-center gap-1 mt-1 flex-wrap">
-                                                {track.alias_name && (
-                                                    <span className="text-[9px] bg-cyan-500/25 text-cyan-300 px-1.5 py-0.5 rounded font-black tracking-tighter truncate max-w-[80px]">{track.alias_name}</span>
-                                                )}
-                                                {track.singer_name && (
-                                                    <span className="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded font-bold truncate max-w-[100px]">🎤 {track.singer_name}</span>
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        <div className="flex gap-1 shrink-0">
-                                            <div className="flex items-center gap-1">
-                                                {track.start_time > 0 && <span className="flex items-center justify-center w-4 h-4 bg-green-500 text-[9px] rounded-sm text-white font-black leading-none" title="ตั้งค่าจุดเริ่ม (Start) ไว้">S</span>}
-                                                {track.skip_start > 0 && <span className="flex items-center justify-center w-4 h-4 bg-yellow-500 text-black text-[9px] rounded-sm font-black leading-none" title="ตั้งค่าข้ามท่อนกลาง (Skip) ไว้">M</span>}
-                                                {track.end_time > 0 && <span className="flex items-center justify-center w-4 h-4 bg-red-500 text-[9px] rounded-sm text-white font-black leading-none" title="ตั้งค่าจุดตัดท้าย (Cut Tail) ไว้">E</span>}
-                                            </div>
-                                            <button onClick={() => setEditingTrack(track)} className="p-2 bg-white/5 hover:bg-cyan-600/30 text-cyan-400 rounded-xl transition-all" title="ตั้งค่าการเล่น (SME)">
-                                                <Settings size={16} />
-                                            </button>
-                                            <button onClick={() => deleteTrack(track.id)} className="p-2 bg-white/5 hover:bg-red-600/30 text-red-400 rounded-xl transition-all" title="ลบเพลง">
-                                                🗑️
-                                            </button>
-                                        </div>
-                                    </div>
-                                );
-                            })
                         )}
+
+                        {/* พื้นที่รายการเพลง */}
+                        <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                            {tracks.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center h-full text-gray-500 space-y-2 py-10">
+                                    <ListMusic size={40} className="opacity-20" />
+                                    <p className="text-xs">ยังไม่มีคิวเพลงในรายการนี้</p>
+                                </div>
+                            ) : (
+                                tracks.map((track, i) => {
+                                    const query = searchQuery.toLowerCase();
+                                    const title = track.master_songs?.title?.toLowerCase() || '';
+                                    const alias = track.alias_name?.toLowerCase() || '';
+                                    const singer = track.singer_name?.toLowerCase() || '';
+                                    const isMatch = title.includes(query) || alias.includes(query) || singer.includes(query);
+
+                                    if (searchQuery && !isMatch) return null;
+
+                                    return (
+                                        <div key={track.id} className={`flex items-center gap-3 bg-[#121212] border p-2 rounded-2xl transition-all group ${selectedTracks.includes(track.id) ? 'border-cyan-500/50 shadow-[0_0_10px_rgba(34,211,238,0.2)]' : 'border-white/5 hover:border-cyan-500/30'}`}>
+                                            
+                                            {/* 🌟 Checkbox เลือกลบ */}
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedTracks.includes(track.id)}
+                                                onChange={() => {
+                                                    setSelectedTracks(prev => 
+                                                        prev.includes(track.id) ? prev.filter(id => id !== track.id) : [...prev, track.id]
+                                                    )
+                                                }}
+                                                className="w-4 h-4 accent-cyan-500 shrink-0 cursor-pointer ml-1"
+                                            />
+
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                max={tracks.length}
+                                                defaultValue={i + 1}
+                                                key={`q-${track.id}-${i}`}
+                                                className="w-10 bg-black/40 border border-white/10 hover:border-cyan-500/50 focus:border-cyan-400 focus:bg-cyan-950/40 text-center font-black text-xs text-cyan-400 rounded-lg outline-none transition-all py-1.5 shrink-0"
+                                                onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+                                                onBlur={(e) => {
+                                                    const newVal = parseInt(e.target.value);
+                                                    if (!isNaN(newVal) && newVal !== i + 1) {
+                                                        let newIndex = newVal - 1;
+                                                        if (newIndex < 0) newIndex = 0;
+                                                        if (newIndex >= tracks.length) newIndex = tracks.length - 1;
+                                                        handleReorder(i, newIndex);
+                                                    } else {
+                                                        e.target.value = (i + 1).toString();
+                                                    }
+                                                }}
+                                            />
+
+                                            <div className="relative w-12 h-10 shrink-0 rounded-lg overflow-hidden border border-white/10">
+                                                <img src={track.master_songs?.thumbnail_url} alt="ปกเพลง" className="object-cover w-full h-full opacity-80" />
+                                            </div>
+
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-xs font-bold truncate text-white/90">{track.master_songs?.title}</p>
+                                                <div className="flex items-center gap-1 mt-1 flex-wrap">
+                                                    {track.alias_name && (
+                                                        <span className="text-[9px] bg-cyan-500/25 text-cyan-300 px-1.5 py-0.5 rounded font-black tracking-tighter truncate max-w-[80px]">{track.alias_name}</span>
+                                                    )}
+                                                    {track.singer_name && (
+                                                        <span className="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded font-bold truncate max-w-[100px]">🎤 {track.singer_name}</span>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            <div className="flex gap-1 shrink-0">
+                                                <div className="flex items-center gap-1">
+                                                    {track.start_time > 0 && <span className="flex items-center justify-center w-4 h-4 bg-green-500 text-[9px] rounded-sm text-white font-black leading-none" title="Start">S</span>}
+                                                    {track.skip_start > 0 && <span className="flex items-center justify-center w-4 h-4 bg-yellow-500 text-black text-[9px] rounded-sm font-black leading-none" title="Skip">M</span>}
+                                                    {track.end_time > 0 && <span className="flex items-center justify-center w-4 h-4 bg-red-500 text-[9px] rounded-sm text-white font-black leading-none" title="End">E</span>}
+                                                </div>
+                                                <button onClick={() => setEditingTrack(track)} className="p-2 bg-white/5 hover:bg-cyan-600/30 text-cyan-400 rounded-xl transition-all" title="ตั้งค่าการเล่น (SME)">
+                                                    <Settings size={16} />
+                                                </button>
+                                                <button onClick={() => deleteTrack(track.id)} className="p-2 bg-white/5 hover:bg-red-600/30 text-red-400 rounded-xl transition-all" title="ลบเพลง">
+                                                    🗑️
+                                                </button>
+                                            </div>
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </div>
                     </div>
                 </div>
 
