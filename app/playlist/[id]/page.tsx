@@ -1789,11 +1789,11 @@ export default function SmartKaraokePage({ params }: { params: any }) {
                       <span className="text-[7.5px] font-black uppercase leading-none">Auto DJ</span>
                     </button>
                     {/* 🌟 ปุ่มเปิด-ปิด เสียง AI */}
-<button
+                    <button
                       onClick={() => setIsDjVoiceOn(!isDjVoiceOn)}
                       className={`p-2 rounded-xl transition-all shadow-md flex items-center gap-2 ${isDjVoiceOn
-                          ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/50 hover:bg-cyan-500/30'
-                          : 'bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20'
+                        ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/50 hover:bg-cyan-500/30'
+                        : 'bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20'
                         }`}
                       title={isDjVoiceOn ? "ปิดเสียงพูด AI (เปลี่ยนเป็นข้อความแทน)" : "เปิดเสียงพูด AI"}
                     >
@@ -1912,8 +1912,18 @@ export default function SmartKaraokePage({ params }: { params: any }) {
                       className={`p-3 rounded-xl border-2 transition-all flex items-center justify-center shrink-0 ${isAutoDJ ? 'border-amber-500 text-amber-400 bg-amber-950/50 shadow-[0_0_15px_#f59e0b]' : 'border-amber-500/50 text-amber-400/50 bg-amber-950/30'}`} style={{ height: '48px', minWidth: '48px' }}>
                       <span className="text-[8px] font-black leading-tight text-center">AUTO<br />DJ</span>
                     </button>
-                    
-                   
+                    {/* 🌟 ปุ่มเปิด-ปิด เสียง AI */}
+                    <button
+                      onClick={() => setIsDjVoiceOn(!isDjVoiceOn)}
+                      className={`p-2 rounded-xl transition-all shadow-md flex items-center gap-2 ${isDjVoiceOn
+                          ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/50 hover:bg-cyan-500/30'
+                          : 'bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20'
+                        }`}
+                      title={isDjVoiceOn ? "ปิดเสียงพูด AI (เปลี่ยนเป็นข้อความแทน)" : "เปิดเสียงพูด AI"}
+                    >
+                      {isDjVoiceOn ? <Volume2 size={18} /> : <VolumeX size={18} />}
+                    </button>
+
                     <button
                       onClick={() => { isKaraokeMode ? (setKaraokeMode(false), setListeningMode(true)) : (setKaraokeMode(true), setListeningMode(false)) }}
                       className={`relative p-3 rounded-xl border-2 transition-all flex items-center justify-center shrink-0 ${isKaraokeMode ? 'border-cyan-400 text-cyan-300 shadow-[0_0_15px_#22d3ee] bg-cyan-950/30' : 'border-blue-500 text-blue-400 shadow-[0_0_15px_#3b82f6] bg-blue-950/30'}`}
@@ -1922,7 +1932,7 @@ export default function SmartKaraokePage({ params }: { params: any }) {
                       {isKaraokeMode ? <Mic2 size={20} strokeWidth={2.5} /> : <Headphones size={20} strokeWidth={2.5} />}
                       <RefreshCw size={8} className="absolute top-1 right-1 opacity-60" />
                     </button>
- 
+
                     <button onClick={startSpeechRecognition} className={`p-3 rounded-xl border-2 transition-all flex items-center justify-center shrink-0 ${isListening ? 'border-red-500 text-white bg-red-500 animate-bounce shadow-[0_0_15px_#ef4444]' : 'border-red-500/70 text-red-400 bg-red-950/20 hover:bg-red-900/50'}`} style={{ height: '48px', minWidth: '48px' }}>
                       <Mic size={20} strokeWidth={2.5} />
                     </button>
