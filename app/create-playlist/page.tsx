@@ -1,12 +1,14 @@
 'use client'
+
 import { useEffect, useState, useMemo } from 'react'
+import ShareSettingsModal, { PlaylistShareTarget } from '@/components/ShareSettingsModal';
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   ArrowUpDown, Copy, Disc, Mic2, Headphones, Plus, Music, ArrowRight,
   Pencil, Trash2, Image, Library, Search, LayoutDashboard, SlidersHorizontal,
-  BookOpen, X, ChevronDown, Filter, HelpCircle, AlertCircle, CheckCircle, ArrowDown, Edit3
+  BookOpen, X, ChevronDown, Filter, HelpCircle, AlertCircle, CheckCircle, ArrowDown, Edit3, Share2
 } from 'lucide-react'
 
 export default function CreatePlaylistPage() {
@@ -31,8 +33,9 @@ export default function CreatePlaylistPage() {
 
   const [userId, setUserId] = useState<string | null>(null);
   const router = useRouter();
-  
+
   const [userEmail, setUserEmail] = useState<string>('');
+  const [shareModalPlaylist, setShareModalPlaylist] = useState<PlaylistShareTarget | null>(null);
 
   // 🌟 1. States สำหรับจัดการ Pop-up UI/UX
   const [showEmptyPopup, setShowEmptyPopup] = useState(false)
@@ -43,8 +46,8 @@ export default function CreatePlaylistPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-         router.push('/smart-media-dashboard');
-         return;
+        router.push('/smart-media-dashboard');
+        return;
       }
       setUserId(user.id);
       setUserEmail(user.email || 'ไม่พบอีเมล');
@@ -62,7 +65,7 @@ export default function CreatePlaylistPage() {
           song_count: p.tracks?.[0]?.count || 0
         }));
         setPlaylists(formattedPlaylists)
-        
+
         // 🌟 เช็คกรณีโหลดครั้งแรกแล้วพบว่ายังไม่มีเพลย์ลิสต์เลย ให้แสดง Pop-up
         if (formattedPlaylists.length === 0 && !hasFetchedInitially) {
           setShowEmptyPopup(true)
@@ -151,7 +154,7 @@ export default function CreatePlaylistPage() {
     setLogoUrl(editPopupData.logo_url || '')
     setLogoFile(null)
     setEditPopupData(null)
-    
+
     // เลื่อนจอไปที่ฟอร์ม (ID: playlist-form) อย่างนุ่มนวล
     setTimeout(() => {
       document.getElementById('playlist-form')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -171,8 +174,8 @@ export default function CreatePlaylistPage() {
 
   const handleClonePlaylist = async (playlist: any) => {
     const newName = window.prompt(`ตั้งชื่อชุดสื่อใหม่ (สำเนาจาก: ${playlist.name})`, `${playlist.name} (Copy)`);
-    if (!newName) return; 
-    if (!userId) return alert('กรุณาล็อกอินก่อนทำสำเนา'); 
+    if (!newName) return;
+    if (!userId) return alert('กรุณาล็อกอินก่อนทำสำเนา');
     try {
       const payload = {
         name: newName,
@@ -181,7 +184,7 @@ export default function CreatePlaylistPage() {
         custom_banner: playlist.custom_banner,
         show_niivaa_badge: playlist.show_niivaa_badge,
         logo_url: playlist.logo_url,
-        user_id: userId 
+        user_id: userId
       };
 
       const { data: newPlaylist, error: pError } = await supabase
@@ -213,7 +216,7 @@ export default function CreatePlaylistPage() {
       }
 
       alert('ทำสำเนาชุดสื่อ และคัดลอกคิวเพลงเรียบร้อยแล้ว!');
-      fetchPlaylists(); 
+      fetchPlaylists();
     } catch (err: any) {
       alert('เกิดข้อผิดพลาดในการทำสำเนา: ' + err.message);
     }
@@ -242,7 +245,7 @@ export default function CreatePlaylistPage() {
             <div className="space-y-3">
               <h3 className="text-2xl font-black text-gray-800 tracking-tight">คุณยังไม่มีอัลบัมเลย</h3>
               <p className="text-sm font-bold text-gray-600 leading-relaxed bg-gray-50 p-3 rounded-xl">
-                แตะปุ่มตกลง แล้ว <span className="text-blue-600 font-black flex items-center justify-center gap-1 inline-flex mx-1"><ArrowDown size={14}/> เลื่อนลงไปด้านล่างสุด</span> <br/>เพื่อเริ่มสร้างอัลบัมใหม่ของคุณครับ
+                แตะปุ่มตกลง แล้ว <span className="text-blue-600 font-black flex items-center justify-center gap-1 inline-flex mx-1"><ArrowDown size={14} /> เลื่อนลงไปด้านล่างสุด</span> <br />เพื่อเริ่มสร้างอัลบัมใหม่ของคุณครับ
               </p>
             </div>
             <button onClick={scrollToForm} className="w-full bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white font-black text-lg py-4 rounded-2xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2">
@@ -264,9 +267,9 @@ export default function CreatePlaylistPage() {
             <div className="space-y-4">
               <h3 className="text-2xl font-black text-gray-800 tracking-tight">สร้างอัลบัมสำเร็จ!</h3>
               <p className="text-[13px] font-bold text-gray-600 leading-relaxed bg-gray-50 p-4 rounded-xl border border-gray-100 text-left">
-                สร้างอัลบัม <span className="text-emerald-600 font-black text-base">"{successPopupName}"</span> เรียบร้อยแล้ว <br/><br/>
+                สร้างอัลบัม <span className="text-emerald-600 font-black text-base">"{successPopupName}"</span> เรียบร้อยแล้ว <br /><br />
                 <span className="flex items-start gap-2">
-                  <span className="bg-blue-100 text-blue-600 p-1 rounded-md shrink-0"><ArrowRight size={16}/></span>
+                  <span className="bg-blue-100 text-blue-600 p-1 rounded-md shrink-0"><ArrowRight size={16} /></span>
                   <span>เลื่อนขึ้นบนเล็กน้อย แล้วแตะ <b>ปุ่มลูกศรสีฟ้า</b> ด้านขวาของชื่ออัลบัม เพื่อไปค้นหาและเพิ่มสื่อ/เพลงเข้าอัลบัมนั้นได้เลยครับ</span>
                 </span>
               </p>
@@ -293,7 +296,7 @@ export default function CreatePlaylistPage() {
             <div className="space-y-3">
               <h3 className="text-2xl font-black text-gray-800 tracking-tight">ต้องการแก้ไขชุดสื่อ?</h3>
               <p className="text-sm font-bold text-gray-600 leading-relaxed bg-amber-50/50 p-4 rounded-xl border border-amber-100/50">
-                คุณต้องการแก้ไขอัลบัม <span className="text-amber-600 font-black text-base block mt-1">"{editPopupData.name}"</span> ใช่หรือไม่?<br/><br/>
+                คุณต้องการแก้ไขอัลบัม <span className="text-amber-600 font-black text-base block mt-1">"{editPopupData.name}"</span> ใช่หรือไม่?<br /><br />
                 แตะ <b className="text-amber-600">ตกลง</b> เพื่อให้ระบบพาเลื่อนหน้าจอไปยังฟอร์มแก้ไข และพิมพ์แก้ไขข้อมูลได้เลยครับ
               </p>
             </div>
@@ -302,7 +305,7 @@ export default function CreatePlaylistPage() {
                 ยกเลิก
               </button>
               <button onClick={confirmEdit} className="flex-1 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white font-black py-4 rounded-2xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2">
-                <CheckCircle size={18}/> ตกลง
+                <CheckCircle size={18} /> ตกลง
               </button>
             </div>
           </div>
@@ -349,7 +352,7 @@ export default function CreatePlaylistPage() {
                     <Image size={16} className="text-purple-400 shrink-0 mt-0.5" />
                     <div>
                       <b className="text-purple-300 block mb-1">การแสดงผลหน่วยงาน (Branding)</b>
-                      กรณีเป็นหน่วยงาน สามารถอัปโหลด <b>รูปโลโก้</b> และเพิ่ม <b>ชื่อหน่วยงาน</b> ลงในช่องป้ายแสดงบนบอร์ด เพื่อให้ข้อมูลไปแสดงผลอย่างสวยงามบนจอเครื่องเล่นได้ <br/><span className="text-gray-400 italic">*ส่วนนี้ไม่ระบุให้ข้ามได้</span>
+                      กรณีเป็นหน่วยงาน สามารถอัปโหลด <b>รูปโลโก้</b> และเพิ่ม <b>ชื่อหน่วยงาน</b> ลงในช่องป้ายแสดงบนบอร์ด เพื่อให้ข้อมูลไปแสดงผลอย่างสวยงามบนจอเครื่องเล่นได้ <br /><span className="text-gray-400 italic">*ส่วนนี้ไม่ระบุให้ข้ามได้</span>
                     </div>
                   </li>
                   <li className="flex items-start gap-2.5">
@@ -382,14 +385,24 @@ export default function CreatePlaylistPage() {
               <div className="p-4 pt-0 text-cyan-100/80 border-t border-[#006666]/30 bg-[#001122]/50 space-y-3 text-xs leading-relaxed">
                 <p className="mb-2 text-cyan-300/80">เมื่อสร้างอัลบั้มเสร็จแล้ว ข้อมูลจะมาปรากฏที่รายการทางด้านขวามือ:</p>
                 <ul className="space-y-4">
-                  {/* 🌟 3. เพิ่มคำอธิบายปุ่ม DJ ตามที่ผู้ใช้รีเควส */}
+                  {/* 🌟 ปุ่ม DJ (จัดการคิว) */}
                   <li className="flex items-start gap-3 bg-purple-900/10 p-2.5 rounded-xl border border-purple-500/20">
                     <span className="bg-purple-500/20 text-purple-400 border border-purple-500/30 w-8 h-8 flex items-center justify-center rounded-lg shrink-0 shadow-sm"><SlidersHorizontal size={14} /></span>
                     <span className="flex-1">
-                      <b className="text-purple-300">ปุ่ม DJ (จัดการคิว):</b><br/> 
+                      <b className="text-purple-300">ปุ่ม DJ (จัดการคิว):</b><br />
                       เปิดหน้าวาง URL YouTube เพิ่มสื่อเข้าคิว จัดลำดับคิว ตั้งค่าข้ามการเล่นข้ามส่วนต้นคลิป กลางคลิป ท้ายคลิปตามต้องการ ระบุชื่อเฉพาะ ระบุผู้จองคิวร้องเพลง
                     </span>
                   </li>
+
+                  {/* 🌟 เพิ่มใหม่: ปุ่มแชร์สาธารณะ */}
+                  <li className="flex items-start gap-3 bg-cyan-900/10 p-2.5 rounded-xl border border-cyan-500/20">
+                    <span className="bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 w-8 h-8 flex items-center justify-center rounded-lg shrink-0 shadow-sm"><Share2 size={14} /></span>
+                    <span className="flex-1">
+                      <b className="text-cyan-300">ปุ่มแชร์ (แชร์ชุดสื่อสาธารณะ):</b><br />
+                      เปิด/ปิดการแชร์อัลบั้มให้บุคคลภายนอกรับชมได้ทันทีโดยไม่ต้องสมัครสมาชิก กำหนดรหัสชุดสื่อ (เช่น NSP001) ชื่อผู้จัดทำ คำอธิบายสั้นๆ และคัดลอกลิงก์ส่งต่อทาง LINE ได้ (ปิดแชร์ภายหลังได้ทุกเมื่อโดยข้อมูลไม่หาย)
+                    </span>
+                  </li>
+
                   <li className="flex items-center gap-3">
                     <span className="bg-gradient-to-tr from-[#006666] to-[#3333FF] text-white w-8 h-8 flex items-center justify-center rounded-lg shadow-md shrink-0 border border-cyan-400/30"><ArrowRight size={16} /></span>
                     <span className="flex-1"><b>ปุ่มลูกศรสีฟ้า (ท้ายชื่ออัลบั้ม):</b><br /> กดเพื่อ <b>เปิดจอเล่นสื่อ/เปิดเพลง</b> ในอัลบั้มนั้นๆ</span>
@@ -407,6 +420,7 @@ export default function CreatePlaylistPage() {
                     <span><b>การลบ:</b> คลิกลบชุดสื่อนั้นทิ้งออกจากระบบ (ข้อมูลเพลงในคิวจะหายไปด้วย)</span>
                   </li>
                 </ul>
+
               </div>
             </details>
           </div>
@@ -432,8 +446,8 @@ export default function CreatePlaylistPage() {
           <div className="flex items-center gap-3 shrink-0">
             {userEmail && (
               <div className="hidden md:flex items-center gap-2 bg-[#003366]/40 border border-cyan-500/30 px-3 py-1.5 rounded-full shadow-inner">
-                 <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
-                 <span className="text-xs font-bold text-cyan-300">{userEmail}</span>
+                <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
+                <span className="text-xs font-bold text-cyan-300">{userEmail}</span>
               </div>
             )}
             <Link
@@ -444,11 +458,11 @@ export default function CreatePlaylistPage() {
             </Link>
           </div>
           <button
-              onClick={() => setIsGuideOpen(true)}
-              className="flex items-center justify-center gap-2 px-4 py-2 sm:px-5 sm:py-2.5 bg-cyan-900/30 hover:bg-cyan-800/60 text-cyan-300 border border-cyan-500/40 rounded-xl text-[10px] sm:text-xs font-bold transition-all shadow-md"
-            >
-              <BookOpen size={14} className="sm:w-4 sm:h-4" /> <span className="hidden sm:inline">คู่มือ</span>
-            </button>
+            onClick={() => setIsGuideOpen(true)}
+            className="flex items-center justify-center gap-2 px-4 py-2 sm:px-5 sm:py-2.5 bg-cyan-900/30 hover:bg-cyan-800/60 text-cyan-300 border border-cyan-500/40 rounded-xl text-[10px] sm:text-xs font-bold transition-all shadow-md"
+          >
+            <BookOpen size={14} className="sm:w-4 sm:h-4" /> <span className="hidden sm:inline">คู่มือ</span>
+          </button>
         </div>
 
         <div className="flex items-center gap-3 w-full">
@@ -473,7 +487,7 @@ export default function CreatePlaylistPage() {
         <div className="lg:col-span-4 xl:col-span-4 order-2 lg:order-1">
           {/* 🌟 เพิ่ม ID ให้ฟอร์มเพื่อให้ระบบ Auto-scroll พุ่งมาหาได้ถูกต้อง */}
           <section id="playlist-form" className="bg-[#003366]/20 backdrop-blur-xl p-6 rounded-[2rem] border border-[#006666]/30 shadow-2xl sticky top-44 scroll-mt-48">
-            
+
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
                 {editingId ? (
@@ -485,7 +499,7 @@ export default function CreatePlaylistPage() {
                   {editingId ? 'แก้ไขชุดสื่อ' : 'สร้างชุดสื่อใหม่'}
                 </h3>
               </div>
-              <button 
+              <button
                 onClick={() => setIsGuideOpen(true)}
                 className="flex items-center gap-1.5 text-[10px] font-bold text-cyan-300 bg-cyan-900/40 hover:bg-cyan-800/60 border border-cyan-500/40 px-2.5 py-1.5 rounded-lg transition-all"
               >
@@ -698,6 +712,21 @@ export default function CreatePlaylistPage() {
 
                     <div className="flex items-center justify-end gap-2 w-full sm:w-auto border-t border-[#006666]/20 sm:border-none pt-3 sm:pt-0 shrink-0">
                       <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShareModalPlaylist(item);
+                        }}
+                        className={`px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all flex items-center gap-1 ${item.is_public
+                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50 hover:bg-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.25)]'
+                          : 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30 hover:bg-cyan-500/25'
+                          }`}
+                        title="ตั้งค่าการแชร์สาธารณะ"
+                      >
+                        <Share2 size={14} />
+                        <span>{item.is_public ? (item.share_code || 'แชร์อยู่') : 'แชร์'}</span>
+                      </button>
+                      <button
                         type="button" onClick={() => handleClonePlaylist(item)}
                         className="p-1.5 rounded-lg hover:bg-emerald-500/20 text-emerald-500 hover:text-emerald-400 transition-colors"
                         title="ทำสำเนา (Clone)"
@@ -755,6 +784,16 @@ export default function CreatePlaylistPage() {
         </div>
 
       </main>
+      <ShareSettingsModal
+        isOpen={Boolean(shareModalPlaylist)}
+        playlist={shareModalPlaylist}
+        onClose={() => setShareModalPlaylist(null)}
+        onSaved={(updated) => {
+          setPlaylists((prev) =>
+            prev.map((p) => (p.id === updated.id ? { ...p, ...updated } : p))
+          );
+        }}
+      />
     </div>
   )
 }

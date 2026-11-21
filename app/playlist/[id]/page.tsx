@@ -699,8 +699,8 @@ export default function SmartKaraokePage({ params }: { params: any }) {
 
         // 🌟 ตรรกะใหม่: ตรวจสอบว่าเปิดหรือปิดเสียงพูดไว้
         const msg = targetCategory
-          ? `นีว่าออโต้ดีเจ จัดเพลงแนว ${targetCategory} ล่วงหน้าให้ 5 เพลงรวดครับ`
-          : `นีว่าออโต้ดีเจ สุ่มเพลงให้ล่วงหน้า 5 เพลงครับ`;
+          ? `นีว่าออโต้ดีเจ จัดเพลงแนว ${targetCategory} ล่วงหน้าให้ 2 เพลงรวดครับ`
+          : `นีว่าออโต้ดีเจ สุ่มเพลงให้ล่วงหน้า 2 เพลงครับ`;
 
         if (isDjVoiceOn) {
           // กรณีเปิดเสียง: ให้ AI พูด
@@ -779,6 +779,19 @@ export default function SmartKaraokePage({ params }: { params: any }) {
       } else {
         setIsAppStarted(false);
         setCurrentVideoId(null);
+        setPromoLoopCount(0); // 🌟 รีเซ็ตเพื่อให้ Promo รอบแรกมีเสียง
+
+        // 🌟 ล้างค่า current_playing ใน Supabase ป้องกันระบบ Sync ดึงเพลงเดิมกลับมาเล่นซ้ำ
+        if (playlistId) {
+          supabase.from('current_playing')
+            .upsert({
+              playlist_id: playlistId,
+              video_id: null,
+              title: 'Standby'
+            }, { onConflict: 'playlist_id' })
+            .then();
+        }
+
         speakResponse("จบการเล่นคิวเพลงแล้วครับ");
       }
     }
