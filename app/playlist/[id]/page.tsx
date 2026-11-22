@@ -26,6 +26,11 @@ export default function SmartKaraokePage({ params }: { params: any }) {
   const isPreview = searchParams.get('preview') === 'true';
   const isMutedRef = useRef(false);
   const hasInitializedRef = useRef(false);
+  // วางไว้ด้านบนคู่กับ Ref ตัวอื่นๆ
+  const isTransitioningRef = useRef<boolean>(false); // ล็อคกันยิงซ้ำทั้งตอนวนรอบและตอนเปลี่ยนเพลง
+  const currentRepeatRef = useRef<number>(1);        // นับรอบที่กำลังเล่นอยู่ (เริ่มที่รอบ 1)
+  const [remainingRepeats, setRemainingRepeats] = useState<number>(0); // 🌟 เก็บจำนวนรอบที่เหลือไว้โชว์บน Pop-up
+  const [currentRepeatRound, setCurrentRepeatRound] = useState<number>(1); // 👈 เพิ่มบรรทัดนี้
   // 🌟 State สำหรับเปิด/ปิดเสียงพูดของ Auto DJ
   const [isDjVoiceOn, setIsDjVoiceOn] = useState(true);
 
@@ -436,21 +441,21 @@ export default function SmartKaraokePage({ params }: { params: any }) {
     if (!isDjVoiceOn) {
       setAnnouncement(text);
       setShowAnnouncement(true);
-      setTimeout(() => setShowAnnouncement(false), 8000); 
-      return; 
+      setTimeout(() => setShowAnnouncement(false), 8000);
+      return;
     }
 
     if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel(); 
+      window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
-      
-      utterance.lang = 'th-TH'; 
+
+      utterance.lang = 'th-TH';
       utterance.volume = 0.5; // ระดับเสียงที่ทะลุลำโพง
-      
+
       // 🌟🌟 [เพิ่มใหม่] ตั้งค่าความเร็วและระดับเสียงให้เป็นธรรมชาติ 🌟🌟
       utterance.rate = 1.2;  // ความเร็ว: 1.0 คือปกติ (1.1 - 1.3 จะกระชับ ไม่หน่วง)
       utterance.pitch = 1.1; // ระดับเสียง: 1.0 คือปกติ (เพิ่มนิดๆ ให้เสียงดูตื่นตัว ไม่ยานคาง)
-      
+
       window.speechSynthesis.speak(utterance);
     }
   }, [isDjVoiceOn]);
@@ -978,17 +983,20 @@ export default function SmartKaraokePage({ params }: { params: any }) {
 
     try {
       // 1. อัปเดตตาราง tracks
-      const { error: trackError } = await supabase
+      const { data: updatedRows, error: trackError } = await supabase
         .from('tracks')
         .update(updates)
-        .eq('id', id);
+        .eq('id', id)
+        .select('id');
 
       if (trackError) {
         console.error("❌ Tracks Error:", trackError);
-        throw trackError; // โยน error ออกไปเข้า catch
-      } else {
-        console.log("✅ บันทึก tracks สำเร็จ");
+        throw trackError;
       }
+      if (!updatedRows || updatedRows.length === 0) {
+        throw new Error("ไม่มีสิทธิ์แก้ไขรายการนี้ หรือไม่พบข้อมูลในฐานข้อมูล (ติด RLS)");
+      }
+      console.log("✅ บันทึก tracks สำเร็จ");
 
       // 2. อัปเดตตาราง master_songs (ถ้ามีการส่ง category และ videoId มา)
       if (updates.category !== undefined && videoId) {
@@ -1367,73 +1375,91 @@ export default function SmartKaraokePage({ params }: { params: any }) {
     }
   }, [currentVideoId, promoId, isTransitioning]); // 👈 5. สังเกตว่าเราเอาตัวแปรเรื่องเสียง (Preview) ออกจาก Array นี้ทั้งหมดแล้ว เพื่อกันลอจิกตีกัน
 
+  // รีเซ็ตตัวนับรอบทุกครั้งที่เปลี่ยนเพลงใหม่
+  // 1. รีเซ็ตตัวนับรอบทุกครั้งที่เปลี่ยนเพลงใหม่
   useEffect(() => {
-    let isRepeating = false; // 🔒 ตัวแปรล็อค ป้องกันไม่ให้คำสั่งทำงานรัวๆ ในเสี้ยววินาที
+    currentRepeatRef.current = 1;
+    isTransitioningRef.current = false;
+    marqueeTriggerRef.current = false;
+    setCurrentRepeatRound(1);
+  }, [currentVideoId]);
 
-    const interval = setInterval(async () => {
-      if (playerRef.current?.getCurrentTime) {
-        const time = playerRef.current.getCurrentTime();
-        const duration = playerRef.current.getDuration();
-        const track = tracks.find(t => t.video_id === currentVideoId);
+  // 2. คำนวณจำนวนรอบที่เหลือ (ทำงานตอนเปลี่ยนเพลง หรือตอนแก้ค่า repeat_count)
+  useEffect(() => {
+    const track =
+      tracks.find(t => t.video_id === currentVideoId && !t.is_played) ||
+      tracks.find(t => t.video_id === currentVideoId);
 
-        if (!track || duration === 0) return;
+    const targetRepeat = Math.max(1, Number(track?.repeat_count) || 1);
+    setRemainingRepeats(Math.max(0, targetRepeat - currentRepeatRef.current));
+  }, [currentVideoId, tracks]);
 
-        const endTime = track.end_time || duration;
+  // 3. ลูปตรวจสอบเวลาเล่นเพลง, S/M/E, แจ้งเตือน และวนรอบเล่นซ้ำ
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (!playerRef.current?.getCurrentTime) return;
 
-        // โชว์กล่อง Next Queue ตอน 20 วิสุดท้าย
-        setShowNextQueue(endTime - time <= 20 && isAppStarted);
+      const time = playerRef.current.getCurrentTime();
+      const duration = playerRef.current.getDuration();
 
-        // =======================================================
-        // 🌟 [เจาะเกราะ] ลอจิก: 30 วินาทีสุดท้าย
-        // =======================================================
-        if (time >= (endTime - 30) && time < (endTime - 1) && isAppStarted) {
-          if (!marqueeTriggerRef.current) {
-            marqueeTriggerRef.current = true; // ล็อคทันที ป้องกันทำงานซ้ำ
-            setIsQueueMarquee(true); // สับสวิตช์เปิดข้อความคิว
+      // 🌟 หาเพลงที่ยังไม่ถูกเล่นก่อน (กันชนกับเพลงซ้ำที่เล่นไปแล้ว)
+      const track =
+        tracks.find(t => t.video_id === currentVideoId && !t.is_played) ||
+        tracks.find(t => t.video_id === currentVideoId);
 
-            if (marqueeTimeoutRef.current) clearTimeout(marqueeTimeoutRef.current);
-            marqueeTimeoutRef.current = setTimeout(() => {
-              setIsQueueMarquee(false); // 🌟 เปลี่ยนเป็น 40 วินาที เพื่อให้มีเวลาวิ่งจบ 1 รอบแบบชิลๆ
-            }, 40000);
-          }
+      if (!track || duration === 0) return;
+
+      const startTime = Number(track.start_time) || 0;
+      const skipStart = Number(track.skip_start) || 0;
+      const skipEnd = Number(track.skip_end) || 0;
+      const endTime = Number(track.end_time) > 0 ? Number(track.end_time) : duration;
+      const targetRepeat = Math.max(1, Number(track.repeat_count) || 1);
+
+      // โชว์กล่อง Next Queue ตอน 20 วิสุดท้าย
+      setShowNextQueue(endTime - time <= 20 && isAppStarted);
+
+      // 🌟 ลอจิก: 30 วินาทีสุดท้าย (Marquee)
+      if (time >= endTime - 30 && time < endTime - 1 && isAppStarted) {
+        if (!marqueeTriggerRef.current) {
+          marqueeTriggerRef.current = true;
+          setIsQueueMarquee(true);
+
+          if (marqueeTimeoutRef.current) clearTimeout(marqueeTimeoutRef.current);
+          marqueeTimeoutRef.current = setTimeout(() => {
+            setIsQueueMarquee(false);
+          }, 40000);
         }
-        // =======================================================
+      }
 
+      // --- [LOGIC: ข้ามท่อนกลาง (M)] ---
+      if (skipStart > 0 && skipEnd > skipStart && time >= skipStart && time < skipEnd) {
+        playerRef.current.seekTo(skipEnd, true);
+        return;
+      }
 
-        // --- [LOGIC: จัดการตอนจบเพลง หรือ เล่นซ้ำ] ---
-        // ตรวจสอบว่าเวลาปัจจุบันถึง "จุดสิ้นสุด" (หรือก่อนจบฉิวเฉียด 0.5 วิ เพื่อชิงตัดหน้า onEnd)
-        if (time >= (endTime - 0.5) && isAppStarted) {
+      // --- [LOGIC: จัดการตอนจบเพลง (E) หรือ เล่นซ้ำ (Repeat)] ---
+      if (time >= endTime - 0.5 && isAppStarted && !isTransitioningRef.current) {
+        isTransitioningRef.current = true; // 🔒 ล็อคทันที ไม่ให้ยิงซ้ำ
 
-          if (track.repeat_count > 1 && !isRepeating) {
-            isRepeating = true; // ล็อคทันทีไม่ให้ลูปเข้าซ้ำ
+        if (currentRepeatRef.current < targetRepeat) {
+          // ⏪ ยังไม่ครบรอบ -> เพิ่มตัวนับรอบ แล้วกระชากกลับไปจุดเริ่ม (S) โดยไม่ล้างค่าใน DB
+          currentRepeatRef.current += 1;
+          setCurrentRepeatRound(currentRepeatRef.current); // 🌟 ขยับตัวเลขรอบปัจจุบัน (รอบที่ 2, 3...)
+          setRemainingRepeats(Math.max(0, targetRepeat - currentRepeatRef.current)); // 🌟 ลดจำนวนรอบที่เหลือบน Pop-up/Marquee
+          marqueeTriggerRef.current = false; // 🌟 ปลดล็อคให้ Marquee วิ่งแจ้งเตือนรอบถัดไปได้อีก
 
-            // 1. ⏪ กระชากเวลากลับไปจุดเริ่มต้น (Start Time) ทันที วิดีโอจะเล่นต่อไม่สะดุด
-            playerRef.current.seekTo(track.start_time || 0);
+          playerRef.current.seekTo(startTime, true);
+          playerRef.current.playVideo?.();
 
-            // 2. 📝 อัปเดต Database ลดจำนวนรอบลง 1
-            try {
-              await supabase
-                .from('tracks')
-                .update({ repeat_count: track.repeat_count - 1 })
-                .eq('id', track.id);
-
-              if (typeof fetchAllData === 'function') fetchAllData();
-            } catch (err) {
-              console.error("Repeat Update Error:", err);
-            }
-
-            // 3. ปลดล็อคหลังจากผ่านไป 1.5 วินาที เพื่อให้แถบเวลาวิ่งพ้นจุดอันตรายไปแล้ว
-            setTimeout(() => { isRepeating = false; }, 1500);
-
-          } else if (track.repeat_count <= 1 && !isRepeating) {
-            // ถ้าเล่นซ้ำจนครบ 1 รอบแล้ว ให้เลื่อนไปเล่นเพลงถัดไป
-            playNextSong();
-          }
-        }
-
-        // --- [LOGIC: ข้ามท่อนกลาง (SME)] ---
-        if (track.skip_start && time >= track.skip_start && time < (track.skip_end || 0)) {
-          playerRef.current.seekTo(track.skip_end);
+          setTimeout(() => {
+            isTransitioningRef.current = false;
+          }, 1500);
+        } else {
+          // ⏭️ ครบรอบแล้ว -> ไปเพลงถัดไป
+          playNextSong();
+          setTimeout(() => {
+            isTransitioningRef.current = false;
+          }, 2000);
         }
       }
     }, 500);
