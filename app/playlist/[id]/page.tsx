@@ -2297,34 +2297,26 @@ export default function SmartKaraokePage({ params }: { params: any }) {
                         </div>
 
                         {/* 4. S M E Status และ ปุ่มจัดการ (Settings + Inline Delete) */}
+                        {/* 4. S M E Status และ ปุ่มจัดการ (Settings + Inline Delete) */}
                         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto">
-                          <div className="flex gap-0.5 pointer-events-none">
-                            {track.start_time > 0 && <span className="bg-green-500 text-[7px] px-1 rounded text-white font-black">S</span>}
-                            {track.skip_start > 0 && <span className="bg-yellow-500 text-black text-[7px] px-1 rounded font-black">M</span>}
-                            {track.end_time > 0 && <span className="bg-red-500 text-[7px] px-1 rounded text-white font-black">E</span>}
+                          <div className="flex items-center gap-0.5 pointer-events-none">
+                            {track.start_time > 0 && (
+                              <span className="bg-green-500 text-[7px] px-1 rounded text-white font-black">S</span>
+                            )}
+                            {track.skip_start > 0 && (
+                              <span className="bg-yellow-500 text-black text-[7px] px-1 rounded font-black">M</span>
+                            )}
+                            {track.end_time > 0 && (
+                              <span className="bg-red-500 text-[7px] px-1 rounded text-white font-black">E</span>
+                            )}
+                            {Number(track.repeat_count) > 1 && (
+                              <span className="bg-purple-500 text-[7px] px-1 rounded text-white font-black">
+                                x{track.repeat_count}
+                              </span>
+                            )}
                           </div>
-
-                          <button
-                            onClick={(e) => { e.stopPropagation(); setEditingTrack(track); }}
-                            className="text-white/20 hover:text-cyan-400 p-1 transition-colors shrink-0"
-                            title="ตั้งค่า SME และชื่อเวอร์ชัน"
-                          >
-                            <Settings size={14} />
-                          </button>
-
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (window.confirm(`ต้องการลบ "${track.master_songs?.title || 'เพลงนี้'}" ออกจากคิวใช่หรือไม่?`)) {
-                                handleRemoveTrack(track.id);
-                              }
-                            }}
-                            className="text-red-400/40 hover:text-red-400 p-1 transition-colors shrink-0"
-                            title="ลบเพลงนี้ออกจากคิว"
-                          >
-                            <Trash2 size={14} />
-                          </button>
                         </div>
+
                       </div>
                     );
                   })}

@@ -1,5 +1,6 @@
 'use client';
 
+import { supabase } from '@/lib/supabase';
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -21,6 +22,7 @@ import {
   Check,
   Zap,
   BookmarkPlus,
+  Copy
 } from 'lucide-react';
 
 export interface ShareTrack {
@@ -111,9 +113,8 @@ export default function ShareClient({ playlist }: { playlist: SharePlaylistData 
 
     if (isLineBrowser) {
       // บังคับเด้งออกไปเปิดใน Chrome / Safari ภายนอก
-      const fullUrl = `${window.location.origin}${targetPath}${
-        targetPath.includes('?') ? '&' : '?'
-      }openExternalBrowser=1`;
+      const fullUrl = `${window.location.origin}${targetPath}${targetPath.includes('?') ? '&' : '?'
+        }openExternalBrowser=1`;
       window.location.href = fullUrl;
       return;
     }
@@ -173,7 +174,7 @@ export default function ShareClient({ playlist }: { playlist: SharePlaylistData 
       setShowSignupModal(true);
     }
   };
-// 🌟 เล่นรายการก่อนหน้า
+  // 🌟 เล่นรายการก่อนหน้า
   const handlePrev = () => {
     setShowUpNextPopup(false);
     isEndingRef.current = false;
@@ -299,6 +300,84 @@ export default function ShareClient({ playlist }: { playlist: SharePlaylistData 
     }
   };
 
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [isCloning, setIsCloning] = useState(false);
+
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUser(user);
+    };
+    checkUser();
+  }, []);
+
+  const handleCloneToMyAccount = async () => {
+    // ถ้ายังไม่ล็อกอิน -> พาไปหน้า Login (ดัก LINE Browser)
+    if (!currentUser) {
+      const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+      const loginPath = `/login?next=${encodeURIComponent(window.location.pathname)}`;
+      if (/Line/i.test(ua)) {
+        window.location.href = `${window.location.origin}${loginPath}&openExternalBrowser=1`;
+        return;
+      }
+      router.push(loginPath);
+      return;
+    }
+
+    if (isCloning) return;
+    setIsCloning(true);
+
+    try {
+      // 1. สร้างเพลย์ลิสต์ใหม่ในบัญชีของผู้รับ (ตั้งเป็นส่วนตัว และไม่ก๊อป share_code กันซ้ำ)
+      const { data: newPlaylist, error: plError } = await supabase
+        .from('playlists')
+        .insert({
+          user_id: currentUser.id,
+          name: `${playlist.name} (สำเนา)`,
+          description: playlist.description || null,
+          is_public: false,
+        })
+        .select()
+        .single();
+
+      if (plError || !newPlaylist) throw plError;
+
+   // 2. เตรียมคิวเพลงทั้งหมด (ไม่เอาคลิปแนะนำแอป is_app_intro) พร้อมค่า S/M/E และจำนวนรอบ
+      const tracksToCopy = playlist.tracks
+        .filter((t: any) => !t.is_app_intro)
+        .map((t: any, index: number) => ({
+          playlist_id: newPlaylist.id,
+          video_id: t.video_id,
+          position: t.position ?? index + 1,
+          start_time: Number(t.start_time) || 0,
+          skip_start: Number(t.skip_start) || 0,
+          skip_end: Number(t.skip_end) || 0,
+          end_time: Number(t.end_time) || 0,
+          repeat_count: Math.max(1, Number(t.repeat_count) || 1),
+          alias_name: t.alias_name || null,
+          singer_name: t.singer_name || null,
+          is_played: false,
+        }));
+
+      if (tracksToCopy.length > 0) {
+        const { error: trError } = await supabase
+          .from('tracks')
+          .insert(tracksToCopy);
+
+        if (trError) throw trError;
+      }
+
+      // 3. พาไปยังหน้าเพลย์ลิสต์ใหม่ของผู้ใช้ เพื่อแก้ไขหรือเปิดเล่นทันที
+      alert('บันทึกเป็นเพลย์ลิสต์ของคุณเรียบร้อยแล้ว!');
+      router.push(`/playlist/${newPlaylist.id}`);
+    } catch (err: any) {
+      console.error('Clone Error:', err);
+      alert(`ไม่สามารถบันทึกเพลย์ลิสต์ได้: ${err?.message || 'กรุณาลองใหม่'}`);
+    } finally {
+      setIsCloning(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#0a1128] text-white font-sans flex flex-col">
       <style>{`
@@ -351,6 +430,20 @@ export default function ShareClient({ playlist }: { playlist: SharePlaylistData 
             >
               <UserPlus size={14} />
               <span>สมัครฟรี</span>
+            </button>
+            <button
+              onClick={handleCloneToMyAccount}
+              disabled={isCloning}
+              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold text-xs rounded-xl border border-emerald-400/40 shadow-lg transition-all flex items-center gap-1.5"
+            >
+              <Copy size={14} />
+              <span>
+                {isCloning
+                  ? 'กำลังบันทึก...'
+                  : currentUser
+                    ? 'บันทึกเป็นของฉัน'
+                    : 'ล็อกอินเพื่อบันทึกไปแก้ไข'}
+              </span>
             </button>
           </div>
         </div>
@@ -506,11 +599,10 @@ export default function ShareClient({ playlist }: { playlist: SharePlaylistData 
                 <button
                   onClick={handlePrev}
                   disabled={currentIndex === 0}
-                  className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
-                    currentIndex === 0
-                      ? 'bg-white/5 text-slate-600 border-white/5 cursor-not-allowed'
-                      : 'bg-white/10 hover:bg-cyan-500/20 hover:text-cyan-300 text-white border-white/10'
-                  }`}
+                  className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${currentIndex === 0
+                    ? 'bg-white/5 text-slate-600 border-white/5 cursor-not-allowed'
+                    : 'bg-white/10 hover:bg-cyan-500/20 hover:text-cyan-300 text-white border-white/10'
+                    }`}
                 >
                   <SkipBack size={15} />
                   <span>รายการก่อนหน้า</span>
@@ -539,7 +631,9 @@ export default function ShareClient({ playlist }: { playlist: SharePlaylistData 
               </p>
             </div>
           )}
+
         </div>
+
 
         {/* ฝั่งขวา: รายการคิวแบบจำกัดสิทธิ์ (Read-only) */}
         <div className="lg:col-span-4 flex flex-col gap-3">
@@ -566,13 +660,12 @@ export default function ShareClient({ playlist }: { playlist: SharePlaylistData 
                       setCurrentIndex(idx);
                       setHasStarted(true);
                     }}
-                    className={`w-full text-left flex items-center gap-3 p-2.5 rounded-xl border transition-all ${
-                      isActive
-                        ? 'bg-cyan-500/15 border-cyan-400/60 shadow-[0_0_15px_rgba(34,211,238,0.15)]'
-                        : isPromo
+                    className={`w-full text-left flex items-center gap-3 p-2.5 rounded-xl border transition-all ${isActive
+                      ? 'bg-cyan-500/15 border-cyan-400/60 shadow-[0_0_15px_rgba(34,211,238,0.15)]'
+                      : isPromo
                         ? 'bg-emerald-950/30 border-emerald-500/40 hover:border-emerald-400'
                         : 'bg-black/30 border-white/5 hover:border-white/20'
-                    }`}
+                      }`}
                   >
                     <div className="relative w-14 h-10 rounded-lg overflow-hidden shrink-0 border border-white/10">
                       <img

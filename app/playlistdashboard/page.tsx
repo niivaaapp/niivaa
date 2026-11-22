@@ -4,7 +4,22 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
-import { LayoutDashboard, User, BookOpen, Languages, Heart, Wrench, Music, Copy, LogOut, Plus, X, ArrowRight, Library, Eye } from 'lucide-react';
+import {
+    LayoutDashboard,
+    User,
+    BookOpen,
+    Languages,
+    Heart,
+    Wrench,
+    Copy,
+    Plus,
+    X,
+    ArrowRight,
+    Eye,
+    HelpCircle,
+    Sparkles,
+    CheckCircle2
+} from 'lucide-react';
 
 // ฟังก์ชันแมปไอคอนตามชื่อหมวดหมู่เพื่อความสวยงามล้ำสมัย
 const getCategoryIcon = (catName: string) => {
@@ -32,10 +47,12 @@ export default function WelcomePlaylistDashboard() {
     const [newDesc, setNewDesc] = useState('');
     const [isCloning, setIsCloning] = useState(false);
 
+    // State สำหรับ Slide-over Drawer คู่มือการใช้งาน
+    const [showManual, setShowManual] = useState(false);
+
     // สร้าง State สำหรับเก็บอีเมล
     const [userEmail, setUserEmail] = useState<string | null>(null);
-    // ประกาศตัวแปรนี้เพื่อหลอก TypeScript ให้ยอมรับแท็ก marquee
-    const Marquee = 'marquee' as any;
+
     // ดึงข้อมูล User เมื่อโหลดหน้า
     useEffect(() => {
         const fetchUser = async () => {
@@ -109,15 +126,21 @@ export default function WelcomePlaylistDashboard() {
         setNewDesc(item.description || `คัดลอกมาจากชุดสื่อแนะนำ: ${item.name}`);
     };
 
+    // 🎯 4. โคลนเพลย์ลิสต์พร้อมรายการสื่อ/เพลง และค่า S/M/E + รอบเล่นซ้ำทั้งหมด
     const handleCloneSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!selectedTemplate) return;
         setIsCloning(true);
+
         try {
             const { data: { user } } = await supabase.auth.getUser();
-            if (!user) { alert('กรุณาเข้าสู่ระบบก่อนครับ'); return; }
+            if (!user) {
+                alert('กรุณาเข้าสู่ระบบก่อนครับ');
+                return;
+            }
 
-            // บันทึกสร้างชุดสื่อใหม่ให้สมาชิก
-            const { error: plError } = await supabase
+            // 1. บันทึกสร้างชุดสื่อใหม่ให้สมาชิก พร้อมรับ ID ของเพลย์ลิสต์ใหม่กลับมา
+            const { data: newPlaylist, error: plError } = await supabase
                 .from('playlists')
                 .insert([{
                     name: newTitle,
@@ -125,20 +148,56 @@ export default function WelcomePlaylistDashboard() {
                     user_id: user.id,
                     is_global: false,
                     is_featured: false,
+                    is_public: false,
                     category: selectedTemplate.category,
                     type: selectedTemplate.type || 'music'
-                }]);
+                }])
+                .select()
+                .single();
 
-            if (plError) throw plError;
+            if (plError || !newPlaylist) throw plError;
 
-            // บันทึกยอดสะสมจำนวนครั้งที่ถูกเลือกนำไปใช้จริงในแถวแม่แบบตัวนั้น
-            await supabase
-                .from('playlists')
-                .update({ clone_count: selectedTemplate.clone_count + 1 })
-                .eq('id', selectedTemplate.id);
+            // 2. ดึงรายการเพลง/สื่อทั้งหมดจากเทมเพลตต้นฉบับ
+            // 2. ดึงรายการเพลง/สื่อทั้งหมดจากเทมเพลตต้นฉบับ (เรียงตาม created_at แทน position)
+            const { data: sourceTracks, error: fetchTracksError } = await supabase
+                .from('tracks')
+                .select('*')
+                .eq('playlist_id', selectedTemplate.id)
+                .order('created_at', { ascending: true });
+
+            if (fetchTracksError) throw fetchTracksError;
+
+            // 3. คัดลอกเพลงทั้งหมด (ตัด id และ created_at เดิมออก เพื่อสร้างแถวใหม่ในเพลย์ลิสต์ใหม่)
+            if (sourceTracks && sourceTracks.length > 0) {
+                const tracksToInsert = sourceTracks
+                    .filter((t: any) => !t.is_app_intro)
+                    .map(({ id, created_at, playlist_id, ...rest }: any) => ({
+                        ...rest,
+                        playlist_id: newPlaylist.id,
+                        is_played: false
+                    }));
+
+                if (tracksToInsert.length > 0) {
+                    const { error: insertTracksError } = await supabase
+                        .from('tracks')
+                        .insert(tracksToInsert);
+
+                    if (insertTracksError) throw insertTracksError;
+                }
+            }
+
+            // 4. บันทึกยอดสะสมจำนวนครั้งที่ถูกเลือกนำไปใช้ (ไม่ให้ขัดจังหวะหากติดสิทธิ์ RLS)
+            try {
+                await supabase
+                    .from('playlists')
+                    .update({ clone_count: (selectedTemplate.clone_count || 0) + 1 })
+                    .eq('id', selectedTemplate.id);
+            } catch (countErr) {
+                console.warn('อัปเดตยอด clone_count ไม่สำเร็จ:', countErr);
+            }
 
             setSelectedTemplate(null);
-            alert(`🎉 บันทึกชุดสื่อ "${newTitle}" เข้าสตูดิโอส่วนตัวของท่านเรียบร้อยแล้วครับ!`);
+            alert(`🎉 บันทึกชุดสื่อ "${newTitle}" พร้อมรายการสื่อทั้งหมด (${sourceTracks?.length || 0} รายการ) เข้าสตูดิโอส่วนตัวเรียบร้อยแล้วครับ!`);
             router.push('/create-playlist');
         } catch (err: any) {
             alert('เกิดข้อผิดพลาดในการคัดลอกคลังสื่อครับ: ' + err.message);
@@ -147,11 +206,10 @@ export default function WelcomePlaylistDashboard() {
         }
     };
 
-
     return (
         <div className="min-h-screen bg-gradient-to-b from-[#030914] via-[#091124] to-[#020712] text-white relative select-none flex flex-col">
 
-          {/* 🌟 1. เพิ่ม CSS สำหรับ Animation ข้อความวิ่งให้ลื่นไหล (Smooth Marquee) */}
+            {/* 🌟 1. CSS สำหรับ Animation ข้อความวิ่งให้ลื่นไหล (Smooth Marquee) */}
             <style jsx>{`
                 @keyframes smoothMarquee {
                     0% { transform: translateX(100%); }
@@ -160,51 +218,61 @@ export default function WelcomePlaylistDashboard() {
                 .marquee-container {
                     display: inline-block;
                     white-space: nowrap;
-                    animation: smoothMarquee 25s linear infinite;
-                    will-change: transform; /* เปิดใช้ Hardware Acceleration ให้มือถือไม่กระตุก */
+                    animation: smoothMarquee 35s linear infinite;
+                    will-change: transform;
                 }
-                /* หยุดเลื่อนเมื่อเอาเมาส์ชี้ (เฉพาะจอคอม) */
                 .marquee-wrapper:hover .marquee-container {
                     animation-play-state: paused;
                 }
             `}</style>
 
-            {/* 🌟 2. โครงสร้างข้อความวิ่งแบบใหม่ (เปลี่ยนจาก marquee เป็น div ล้วน) */}
+            {/* 🌟 2. โครงสร้างข้อความวิ่งแบบใหม่ */}
             <div className="w-full bg-cyan-900/40 border-b border-cyan-500/30 text-cyan-300 py-1.5 overflow-hidden shrink-0 marquee-wrapper relative h-8 flex items-center">
                 <div className="marquee-container text-[11px] sm:text-xs font-medium tracking-wide flex items-center h-full absolute">
-                    🎉 ยินดีต้อนรับคุณ <span className="font-bold text-white px-1">{userEmail || 'สมาชิก NiiVaa'}</span> 
-                    คุณสามารถแวะชมตัวอย่างชุดสื่อหรืออัลบัม (Playlist) ที่เป็นเทมเพลตตัวอย่างด้านล่างนี้ 
-                    หากสนใจสามารถเลือก <span className="text-yellow-300 font-bold px-1">"หยิบเทมเพลตนี้ไปปรับใช้"</span> 
-                    หรือ คุณอาจไปเริ่มต้นสร้าง Playlist ใหม่ของคุณเอง โดยแตะปุ่ม <span className="text-emerald-300 font-bold px-1">"ไปหน้าจัดการชุดสื่อส่วนตัว (Create Playlist)"</span> 🚀
+                    🎉 ยินดีต้อนรับคุณ <span className="font-bold text-white px-1">{userEmail || 'สมาชิก NiiVaa'}</span>
+                    คุณสามารถแวะชมตัวอย่างชุดสื่อหรืออัลบัม (Playlist) ที่เป็นเทมเพลตตัวอย่างด้านล่างนี้
+                    หากสนใจสามารถเลือก <span className="text-yellow-300 font-bold px-1">&quot;หยิบเทมเพลตนี้ไปปรับใช้&quot;</span>
+                    หรือ คุณอาจไปเริ่มต้นสร้าง Playlist ใหม่ของคุณเอง โดยแตะปุ่ม <span className="text-emerald-300 font-bold px-1">&quot;ไปหน้าจัดการชุดสื่อส่วนตัว (Create Playlist)&quot;</span> 🚀
                 </div>
             </div>
+
             <div className="p-6 flex-1">
                 {/* Header ส่วนบน */}
-                <div className="max-w-6xl mx-auto flex justify-between items-center border-b border-white/10 pb-4 mb-8">
+                <div className="max-w-6xl mx-auto flex justify-between items-center border-b border-white/10 pb-4 mb-8 gap-2">
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-cyan-500/10 border border-cyan-500/30 rounded-xl text-cyan-400 font-mono font-black text-xs tracking-wider">NIIVAA HUB</div>
                         <span className="text-sm font-bold text-gray-400 hidden sm:inline">| คลังสื่อมัลติมีเดียและแม่แบบการสอนกลาง</span>
                     </div>
 
                     {/* กลุ่มเมนูด้านขวา */}
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 sm:gap-3">
                         {/* แสดง Email ผู้ใช้งาน */}
                         {userEmail && (
-                            <div className="hidden sm:flex items-center gap-2 px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-gray-300 text-xs font-medium">
+                            <div className="hidden lg:flex items-center gap-2 px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-gray-300 text-xs font-medium">
                                 <User size={14} className="text-cyan-400" />
                                 <span>{userEmail}</span>
                             </div>
                         )}
 
+                        {/* ปุ่มเปิด Slide-over คู่มือการใช้งาน */}
+                        <button
+                            onClick={() => setShowManual(true)}
+                            className="flex items-center justify-center gap-1.5 px-3 py-2 sm:px-4 sm:py-2.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-xl text-[10px] sm:text-xs font-bold transition-all shadow-md"
+                            title="คู่มือการใช้งานหน้านี้"
+                        >
+                            <HelpCircle size={14} className="sm:w-4 sm:h-4" />
+                            <span>คู่มือ</span>
+                        </button>
+
                         <Link
                             href={`/smart-media-dashboard`}
-                            className="flex items-center justify-center gap-2 px-4 py-2 sm:px-5 sm:py-2.5 bg-[#003366]/40 hover:bg-[#003366]/80 text-[#CCFFFF] border border-[#006666]/50 rounded-xl text-[10px] sm:text-xs font-bold transition-all shadow-md"
+                            className="flex items-center justify-center gap-2 px-3 py-2 sm:px-5 sm:py-2.5 bg-[#003366]/40 hover:bg-[#003366]/80 text-[#CCFFFF] border border-[#006666]/50 rounded-xl text-[10px] sm:text-xs font-bold transition-all shadow-md"
                         >
                             <LayoutDashboard size={14} className="sm:w-4 sm:h-4" />
                             <span className="hidden sm:inline">กลับศูนย์กลาง</span>
                         </Link>
 
-                        <button onClick={() => supabase.auth.signOut().then(() => router.push('/'))} className="flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl text-[10px] sm:text-xs font-bold transition-all">
+                        <button onClick={() => supabase.auth.signOut().then(() => router.push('/'))} className="flex items-center gap-2 px-3 py-2 sm:px-4 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl text-[10px] sm:text-xs font-bold transition-all">
                             ออกจากระบบ
                         </button>
                     </div>
@@ -244,7 +312,7 @@ export default function WelcomePlaylistDashboard() {
                                         {cat.items.map((item: any) => (
                                             <div
                                                 key={item.id}
-                                                onClick={() => handleViewPlaylist(item.id)} // 🟢 ส่ง id ไปหน้าเล่นคิวเพลงจริง
+                                                onClick={() => handleViewPlaylist(item.id)}
                                                 className={`p-5 rounded-2xl border bg-gradient-to-br ${cat.color} flex flex-col justify-between gap-4 group hover:scale-[1.02] cursor-pointer transition-all duration-300 hover:border-cyan-400/60 shadow-lg hover:shadow-[0_0_20px_rgba(6,182,212,0.15)]`}
                                             >
                                                 <div className="space-y-2">
@@ -284,7 +352,7 @@ export default function WelcomePlaylistDashboard() {
                 </div>
             </div>
 
-            {/* Popup Modal คงตามเดิม */}
+            {/* Popup Modal โคลนชุดสื่อ */}
             {selectedTemplate && (
                 <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
                     <div className="bg-[#0b1324] border border-cyan-500/30 p-6 rounded-3xl w-full max-w-md text-white space-y-4 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
@@ -292,6 +360,9 @@ export default function WelcomePlaylistDashboard() {
                         <div className="space-y-1">
                             <span className="text-[10px] font-black tracking-widest text-cyan-400 uppercase">⚡ CLONE & CUSTOMIZE</span>
                             <h3 className="text-base font-black">ดึงข้อมูลชุดสื่อลงคลังสตูดิโอ</h3>
+                            <p className="text-[11px] text-emerald-400">
+                                คัดลอกทั้ง {selectedTemplate.song_count} รายการ พร้อมค่าตัดต่อ S/M/E และรอบเล่นซ้ำ
+                            </p>
                         </div>
                         <form onSubmit={handleCloneSubmit} className="space-y-4 pt-2">
                             <div className="space-y-1.5">
@@ -302,10 +373,110 @@ export default function WelcomePlaylistDashboard() {
                                 <label className="text-[10px] font-bold text-gray-400 uppercase">คำอธิบายเพิ่มเติม:</label>
                                 <textarea value={newDesc} rows={3} onChange={(e) => setNewDesc(e.target.value)} className="w-full bg-black/60 border border-white/10 focus:border-cyan-500 rounded-xl p-3 text-sm text-gray-300 focus:outline-none resize-none" />
                             </div>
-                            <button type="submit" disabled={isCloning} className="w-full py-3 bg-gradient-to-r from-cyan-500 to-blue-500 text-black font-black text-xs uppercase tracking-widest rounded-xl hover:opacity-90 transition-all flex items-center justify-center gap-2 shadow-lg">
+                            <button type="submit" disabled={isCloning} className="w-full py-3 bg-gradient-to-r from-cyan-500 to-blue-500 text-black font-black text-xs uppercase tracking-widest rounded-xl hover:opacity-90 transition-all flex items-center justify-center gap-2 shadow-lg disabled:opacity-50">
                                 {isCloning ? 'กำลังดึงสื่อติดไป...' : 'ตกลง! บันทึกเข้าคลังของฉัน'} <ArrowRight size={14} strokeWidth={3} />
                             </button>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* 🌟 Slide-over Drawer คู่มือการใช้งานหน้านี้ */}
+            {showManual && (
+                <div className="fixed inset-0 z-[60] flex justify-end">
+                    {/* Backdrop */}
+                    <div
+                        onClick={() => setShowManual(false)}
+                        className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+                    />
+
+                    {/* Drawer Panel */}
+                    <div className="relative z-10 w-full max-w-md bg-[#070e1d] border-l border-cyan-500/30 h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+                        {/* Header */}
+                        <div className="p-5 border-b border-white/10 flex items-center justify-between bg-cyan-950/30">
+                            <div className="flex items-center gap-2.5">
+                                <div className="p-2 bg-amber-500/20 border border-amber-400/40 rounded-xl text-amber-300">
+                                    <BookOpen size={18} />
+                                </div>
+                                <div>
+                                    <h2 className="text-sm font-black text-white">คู่มือการใช้งาน NiiVaa Hub</h2>
+                                    <p className="text-[11px] text-cyan-400">คลังชุดสื่อตัวอย่าง &amp; แม่แบบการสอนกลาง</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setShowManual(false)}
+                                className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        {/* Content */}
+                        <div className="p-5 overflow-y-auto space-y-5 flex-1 text-xs text-gray-300 leading-relaxed">
+                            {/* หัวข้อ 1 */}
+                            <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-2">
+                                <div className="flex items-center gap-2 text-cyan-300 font-black text-sm">
+                                    <Eye size={16} /> 1. ทดลองรับชมชุดสื่อตัวอย่าง
+                                </div>
+                                <p>
+                                    คลิกที่ <b className="text-white">การ์ดชุดสื่อใดก็ได้</b> เพื่อเปิดเข้าสู่หน้าเล่นสื่อทันที สามารถดูรายการคิวทั้งหมดและทดลองฟัง/รับชมการตัดต่อช่วงคลิปอัตโนมัติได้โดยไม่กระทบต้นฉบับ
+                                </p>
+                            </div>
+
+                            {/* หัวข้อ 2 */}
+                            <div className="p-4 rounded-2xl bg-emerald-950/30 border border-emerald-500/30 space-y-2">
+                                <div className="flex items-center gap-2 text-emerald-300 font-black text-sm">
+                                    <Copy size={16} /> 2. หยิบเทมเพลตไปปรับใช้ (Clone)
+                                </div>
+                                <p>
+                                    กดปุ่ม <b className="text-amber-300">&quot;หยิบเทมเพลตนี้ไปปรับใช้&quot;</b> ที่ด้านล่างของการ์ด ตั้งชื่อใหม่ตามต้องการ ระบบจะคัดลอกสิ่งต่อไปนี้ไปไว้ในบัญชีส่วนตัวของคุณครบถ้วน:
+                                </p>
+                                <ul className="space-y-1.5 pt-1 text-[11px] text-gray-200">
+                                    <li className="flex items-center gap-2">
+                                        <CheckCircle2 size={13} className="text-emerald-400 shrink-0" />
+                                        รายการเพลงและวิดีโอทั้งหมดตามลำดับคิว
+                                    </li>
+                                    <li className="flex items-center gap-2">
+                                        <CheckCircle2 size={13} className="text-emerald-400 shrink-0" />
+                                        ค่าตัดต่อช่วงต้น (S), ข้ามช่วงกลาง (M), ตัดท้าย (E)
+                                    </li>
+                                    <li className="flex items-center gap-2">
+                                        <CheckCircle2 size={13} className="text-emerald-400 shrink-0" />
+                                        จำนวนรอบการเล่นซ้ำ (Repeat Count) ของแต่ละรายการ
+                                    </li>
+                                </ul>
+                            </div>
+
+                            {/* หัวข้อ 3 */}
+                            <div className="p-4 rounded-2xl bg-blue-950/30 border border-blue-500/30 space-y-2">
+                                <div className="flex items-center gap-2 text-blue-300 font-black text-sm">
+                                    <Plus size={16} /> 3. จัดการชุดสื่อส่วนตัว (Create Playlist)
+                                </div>
+                                <p>
+                                    กดปุ่ม <b className="text-cyan-300">&quot;ไปที่หน้าจัดการชุดสื่อส่วนตัว&quot;</b> ด้านบน เพื่อเข้าไปดูอัลบั้มที่คุณโคลนไว้ หรือสร้างอัลบั้มใหม่เอง ปรับแต่งเพิ่ม/ลบเพลง ตั้งค่า S/M/E และตั้งรหัสแชร์ (Share Code) ส่งต่อให้ผู้อื่นได้
+                                </p>
+                            </div>
+
+                            {/* ทิปส์ */}
+                            <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-1.5">
+                                <div className="flex items-center gap-1.5 text-amber-300 font-black text-xs">
+                                    <Sparkles size={14} /> เคล็ดลับ
+                                </div>
+                                <p className="text-[11px] text-amber-100/90">
+                                    ชุดสื่อที่โคลนไปจะถูกตั้งเป็น <b>ส่วนตัว</b> โดยอัตโนมัติ คุณสามารถปรับแก้ได้อิสระโดยไม่กระทบกับชุดสื่อกลางครับ
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="p-4 border-t border-white/10 bg-black/30">
+                            <button
+                                onClick={() => setShowManual(false)}
+                                className="w-full py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 text-black font-black text-xs rounded-xl hover:opacity-90 transition-all"
+                            >
+                                เข้าใจแล้ว ปิดคู่มือ
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
