@@ -342,13 +342,13 @@ export default function ShareClient({ playlist }: { playlist: SharePlaylistData 
 
       if (plError || !newPlaylist) throw plError;
 
-   // 2. เตรียมคิวเพลงทั้งหมด (ไม่เอาคลิปแนะนำแอป is_app_intro) พร้อมค่า S/M/E และจำนวนรอบ
+      // 2. เตรียมคิวเพลงทั้งหมด (ไม่เอาคลิปแนะนำแอป is_app_intro) พร้อมค่า S/M/E และจำนวนรอบ
       const tracksToCopy = playlist.tracks
         .filter((t: any) => !t.is_app_intro)
         .map((t: any, index: number) => ({
           playlist_id: newPlaylist.id,
           video_id: t.video_id,
-          position: t.position ?? index + 1,
+          order_index: t.order_index ?? index, // 👈 เปลี่ยนจาก position เป็น order_index
           start_time: Number(t.start_time) || 0,
           skip_start: Number(t.skip_start) || 0,
           skip_end: Number(t.skip_end) || 0,
@@ -357,6 +357,7 @@ export default function ShareClient({ playlist }: { playlist: SharePlaylistData 
           alias_name: t.alias_name || null,
           singer_name: t.singer_name || null,
           is_played: false,
+          is_app_intro: false,
         }));
 
       if (tracksToCopy.length > 0) {
