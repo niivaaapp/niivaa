@@ -2298,7 +2298,9 @@ export default function SmartKaraokePage({ params }: { params: any }) {
 
                         {/* 4. S M E Status และ ปุ่มจัดการ (Settings + Inline Delete) */}
                         {/* 4. S M E Status และ ปุ่มจัดการ (Settings + Inline Delete) */}
-                        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto">
+                        {/* 4. S M E Status, จำนวนรอบ และ ปุ่มจัดการ (Settings + Inline Delete) */}
+                        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 ml-auto">
+                          {/* ป้ายสถานะ S / M / E / Repeat */}
                           <div className="flex items-center gap-0.5 pointer-events-none">
                             {track.start_time > 0 && (
                               <span className="bg-green-500 text-[7px] px-1 rounded text-white font-black">S</span>
@@ -2315,6 +2317,32 @@ export default function SmartKaraokePage({ params }: { params: any }) {
                               </span>
                             )}
                           </div>
+
+                          {/* ปุ่มรูปเฟือง: เปิด Modal ตั้งค่า SME และจำนวนรอบ */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingTrack(track);
+                            }}
+                            className="text-white/40 hover:text-cyan-400 p-1 transition-colors shrink-0"
+                            title="ตั้งค่า SME, จำนวนรอบ และชื่อเวอร์ชัน"
+                          >
+                            <Settings size={14} />
+                          </button>
+
+                          {/* ปุ่มถังขยะ: ลบเพลงออกจากคิว */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (window.confirm(`ต้องการลบ "${track.master_songs?.title || 'เพลงนี้'}" ออกจากคิวใช่หรือไม่?`)) {
+                                handleRemoveTrack(track.id);
+                              }
+                            }}
+                            className="text-red-400/50 hover:text-red-400 p-1 transition-colors shrink-0"
+                            title="ลบเพลงนี้ออกจากคิว"
+                          >
+                            <Trash2 size={14} />
+                          </button>
                         </div>
 
                       </div>
